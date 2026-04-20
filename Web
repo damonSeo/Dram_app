@@ -1,0 +1,9 @@
+bash# dram-app 폴더 안에서 실행
+cd dram-app
+
+git init
+git add .
+git commit -m "first commit"
+git add .
+git commit -m "수정 내용"
+git push
