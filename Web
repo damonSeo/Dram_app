@@ -1,9 +1,21 @@
-bash# dram-app 폴더 안에서 실행
+# dram-app 폴더로 이동
 cd dram-app
 
+# Git 초기화
 git init
+
+# 모든 파일 추가
 git add .
-git commit -m "first commit"
-git add .
-git commit -m "수정 내용"
-git push
+
+# 커밋
+git commit -m "DRAM whisky app - initial commit"
+
+# 브랜치 이름을 main으로 설정
+git branch -M main
+
+# GitHub 저장소 연결 (여기서 YOUR_USERNAME 수정!)
+git remote add origin https://github.com/YOUR_USERNAME/dram-app.git
+
+# GitHub에 푸시 (올리기)
+git push -u origin main
+
