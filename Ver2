@@ -1,0 +1,12 @@
+cd /Users/daewonseo/Desktop/study/dram-gemini
+
+# 새 git 저장소 초기화
+rm -rf .git
+git init
+git add .
+git commit -m "Initial commit"
+
+# GitHub에서 새 빈 저장소 생성한 뒤
+git remote add origin https://github.com/YOUR_USERNAME/dram-gemini.git
+git branch -M main
+git push -u origin main
