@@ -8,8 +8,8 @@ export async function generateText(prompt: string): Promise<string> {
   const res = await groq.chat.completions.create({
     model: MODEL,
     messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
-    max_tokens: 1024,
+    temperature: 0.8,
+    max_tokens: 2048,
   })
   return res.choices[0]?.message?.content?.trim() ?? ''
 }
@@ -19,7 +19,6 @@ export async function generateWithImage(
   imageBase64: string,
   mimeType: string
 ): Promise<string> {
-  // Groq vision: llama-4-scout supports vision
   const res = await groq.chat.completions.create({
     model: 'meta-llama/llama-4-scout-17b-16e-instruct',
     messages: [
