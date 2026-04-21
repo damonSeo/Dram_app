@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateText } from '@/lib/gemini'
+import { generateText } from '@/lib/groq'
 
 type Payload = Record<string, string | number | string[] | undefined | null>
 
@@ -94,8 +94,8 @@ Comment: ${String(comment_insta ?? comment ?? '—')}
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.GEMINI_API_KEY) {
-    return NextResponse.json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다. Vercel 환경변수를 확인하세요.' }, { status: 500 })
+  if (!process.env.GROQ_API_KEY) {
+    return NextResponse.json({ error: 'GROQ_API_KEY가 설정되지 않았습니다. Vercel 환경변수를 확인하세요.' }, { status: 500 })
   }
   try {
     const body = await req.json() as { action: string; payload: Payload }

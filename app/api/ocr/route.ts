@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateWithImage } from '@/lib/gemini'
+import { generateWithImage } from '@/lib/groq'
 
 export async function POST(req: NextRequest) {
   try {
