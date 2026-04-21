@@ -3,8 +3,7 @@ import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
-import { aiGenerate } from '@/lib/api'
-import { WhiskyLog, ExtractedKeys } from '@/types'
+import type { WhiskyLog, ExtractedKeys } from '@/types'
 
 const COLORS = [
   { name: 'Pale Straw', hex: '#F5F0DC' },
@@ -15,410 +14,414 @@ const COLORS = [
   { name: 'Mahogany', hex: '#4A1E0A' },
 ]
 
-type NoteType = 'nose' | 'palate' | 'finish'
-
-interface NoteModalState {
-  type: NoteType
-  draft: string
-  loading: boolean
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2)
 }
 
-interface CommentStep {
-  step: 1 | 2 | 3
+async function callAI(action: string, payload: object): Promise<string> {
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, payload }),
+  })
+  const json = await res.json() as { text?: string; error?: string }
+  if (!res.ok) throw new Error(json.error || 'AI failed')
+  return json.text || ''
+}
+
+interface AiModal {
+  open: boolean
+  title: string
+  text: string
+  loading: boolean
+  field?: 'nose' | 'palate' | 'finish'
+  action?: string
+  payload?: object
 }
 
 export default function TastingPage() {
-  const { currentLog, updateCurrentLog, upsertToCollection, setActiveTab, setExtractedKeys, extractedKeys } = useStore()
+  const { currentLog, updateCurrentLog, upsertToCollection, setActiveTab, setExtractedKeys } = useStore()
   const { showToast } = useToast()
 
-  const [noteModal, setNoteModal] = useState<NoteModalState | null>(null)
-  const [commentStep, setCommentStep] = useState<CommentStep>({ step: 1 })
-  const [excludedKeys, setExcludedKeys] = useState<Record<string, boolean>>({})
-  const [instaCaption, setInstaCaption] = useState('')
-  const [extractLoading, setExtractLoading] = useState(false)
-  const [instaLoading, setInstaLoading] = useState(false)
-  const [showUpdateBanner, setShowUpdateBanner] = useState(false)
+  const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
 
-  const score = currentLog.score ?? 4.0
-  const color = currentLog.color ?? 'Deep Gold'
+  // Comments flow
+  const [comment, setComment] = useState(currentLog.comment || '')
+  const [step, setStep] = useState<1|2|3>(1)
+  const [extractedKeys, setLocalExtractedKeys] = useState<ExtractedKeys>({ nose:[], palate:[], finish:[] })
+  const [excludedKeys, setExcludedKeys] = useState<Set<string>>(new Set())
+  const [instaText, setInstaText] = useState('')
+  const [extracting, setExtracting] = useState(false)
+  const [genInsta, setGenInsta] = useState(false)
+  const [showBanner, setShowBanner] = useState(false)
 
-  const setScore = (s: number) => updateCurrentLog({ score: s })
-  const setColor = (c: string) => updateCurrentLog({ color: c })
-  const setNose = (v: string) => updateCurrentLog({ nose: v })
-  const setPalate = (v: string) => updateCurrentLog({ palate: v })
-  const setFinish = (v: string) => updateCurrentLog({ finish: v })
-  const setComment = (v: string) => updateCurrentLog({ comment: v })
+  const aiPayload = () => ({
+    brand: currentLog.brand, age: currentLog.age, abv: currentLog.abv,
+    casks: currentLog.casks, region: currentLog.region,
+  })
 
-  // Open note modal with expand or compress
-  const openNoteModal = async (type: NoteType, action: 'expand_note' | 'compress_note') => {
-    const text = type === 'nose' ? currentLog.nose : type === 'palate' ? currentLog.palate : currentLog.finish
-    if (!text) { showToast('Write a note first', 'err'); return }
-    setNoteModal({ type, draft: '', loading: true })
+  const openAI = async (title: string, action: string, field: 'nose'|'palate'|'finish', payload: object) => {
+    setAiModal({ open: true, title, text: '', loading: true, field, action, payload })
     try {
-      const result = await aiGenerate(action, { type, text })
-      setNoteModal({ type, draft: result, loading: false })
-    } catch {
-      showToast('AI error', 'err')
-      setNoteModal(null)
+      const text = await callAI(action, payload)
+      setAiModal((p) => ({ ...p, text, loading: false }))
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'AI 오류', 'err')
+      setAiModal((p) => ({ ...p, open: false }))
     }
   }
 
-  const applyNoteDraft = () => {
-    if (!noteModal) return
-    if (noteModal.type === 'nose') setNose(noteModal.draft)
-    else if (noteModal.type === 'palate') setPalate(noteModal.draft)
-    else setFinish(noteModal.draft)
-    setNoteModal(null)
-    showToast('Applied', 'ok')
+  const applyAiResult = () => {
+    if (aiModal.field) {
+      updateCurrentLog({ [aiModal.field]: aiModal.text })
+    }
+    setAiModal((p) => ({ ...p, open: false }))
+    showToast('적용됨', 'ok')
   }
 
-  const regenerateNote = async (action: 'expand_note' | 'compress_note') => {
-    if (!noteModal) return
-    const text = noteModal.type === 'nose' ? currentLog.nose : noteModal.type === 'palate' ? currentLog.palate : currentLog.finish
-    if (!text) return
-    setNoteModal(prev => prev ? { ...prev, loading: true } : null)
+  const regenerateAI = async () => {
+    if (!aiModal.action || !aiModal.payload) return
+    setAiModal((p) => ({ ...p, loading: true, text: '' }))
     try {
-      const result = await aiGenerate(action, { type: noteModal.type, text })
-      setNoteModal(prev => prev ? { ...prev, draft: result, loading: false } : null)
+      const text = await callAI(aiModal.action, aiModal.payload)
+      setAiModal((p) => ({ ...p, text, loading: false }))
     } catch {
-      showToast('AI error', 'err')
+      showToast('AI 재생성 실패', 'err')
+      setAiModal((p) => ({ ...p, loading: false }))
     }
   }
 
-  const loadFromNotes = () => {
-    const combined = [
-      currentLog.nose && `Nose: ${currentLog.nose}`,
-      currentLog.palate && `Palate: ${currentLog.palate}`,
-      currentLog.finish && `Finish: ${currentLog.finish}`,
-    ].filter(Boolean).join('\n')
-    updateCurrentLog({ comment: combined })
-  }
-
-  const extractKeys = async () => {
-    if (!currentLog.comment) { showToast('Write a comment first', 'err'); return }
-    setExtractLoading(true)
+  const handleExtractKeys = async () => {
+    if (!comment.trim()) { showToast('코멘트를 입력해주세요', 'err'); return }
+    setExtracting(true)
     try {
-      const result = await aiGenerate('extract_keys', { text: currentLog.comment })
-      const parsed: ExtractedKeys = JSON.parse(result)
-      setExtractedKeys(parsed)
-      setExcludedKeys({})
-      setCommentStep({ step: 2 })
+      const text = await callAI('extract_keys', { longText: comment, ...aiPayload() })
+      const match = text.match(/\{[\s\S]*\}/)
+      if (match) {
+        const keys: ExtractedKeys = JSON.parse(match[0])
+        setLocalExtractedKeys(keys)
+        setExtractedKeys(keys)
+        setExcludedKeys(new Set())
+        setStep(2)
+        showToast('키워드 추출 완료', 'ok')
+      }
     } catch {
-      showToast('Extraction failed', 'err')
+      showToast('키워드 추출 실패', 'err')
     } finally {
-      setExtractLoading(false)
+      setExtracting(false)
     }
   }
 
-  const toggleExclude = (key: string) => {
-    setExcludedKeys(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  const genInstaFromKeys = async () => {
-    setInstaLoading(true)
+  const handleGenInsta = async () => {
+    setGenInsta(true)
     try {
-      const filterKeys = (arr: string[]) => arr.filter(k => !excludedKeys[k])
-      const result = await aiGenerate('gen_insta_from_keys', {
-        nose: filterKeys(extractedKeys.nose).join(', '),
-        palate: filterKeys(extractedKeys.palate).join(', '),
-        finish: filterKeys(extractedKeys.finish).join(', '),
-        brand: currentLog.brand || '',
-        age: currentLog.age || '',
+      const selNose = extractedKeys.nose.filter((k) => !excludedKeys.has(k)).join(', ')
+      const selPalate = extractedKeys.palate.filter((k) => !excludedKeys.has(k)).join(', ')
+      const selFinish = extractedKeys.finish.filter((k) => !excludedKeys.has(k)).join(', ')
+      const text = await callAI('gen_insta_from_keys', {
+        selectedNose: selNose, selectedPalate: selPalate, selectedFinish: selFinish,
+        longText: comment, score: currentLog.score, ...aiPayload(),
       })
-      setInstaCaption(result)
-      setCommentStep({ step: 3 })
+      setInstaText(text)
+      setStep(3)
+      setShowBanner(true)
     } catch {
-      showToast('Generation failed', 'err')
+      showToast('인스타 생성 실패', 'err')
     } finally {
-      setInstaLoading(false)
+      setGenInsta(false)
     }
   }
 
   const applyKeywordsAndSave = () => {
-    const filterKeys = (arr: string[]) => arr.filter(k => !excludedKeys[k])
-    updateCurrentLog({
-      nose: filterKeys(extractedKeys.nose).join(', ') || currentLog.nose,
-      palate: filterKeys(extractedKeys.palate).join(', ') || currentLog.palate,
-      finish: filterKeys(extractedKeys.finish).join(', ') || currentLog.finish,
-      comment_insta: instaCaption,
-    })
-    setShowUpdateBanner(false)
-    showToast('Keywords applied', 'ok')
+    const selNose = extractedKeys.nose.filter((k) => !excludedKeys.has(k))
+    const selPalate = extractedKeys.palate.filter((k) => !excludedKeys.has(k))
+    const selFinish = extractedKeys.finish.filter((k) => !excludedKeys.has(k))
+    const newNose = [currentLog.nose, selNose.join(', ')].filter(Boolean).join(' / ')
+    const newPalate = [currentLog.palate, selPalate.join(', ')].filter(Boolean).join(' / ')
+    const newFinish = [currentLog.finish, selFinish.join(', ')].filter(Boolean).join(' / ')
+    updateCurrentLog({ nose: newNose, palate: newPalate, finish: newFinish, comment, comment_insta: instaText })
+    setShowBanner(false)
+    showToast('키워드 적용 완료', 'ok')
   }
 
   const archiveDram = () => {
-    const id = currentLog.id || crypto.randomUUID()
     const log: WhiskyLog = {
-      id,
+      id: (currentLog.id as string) || genId(),
       user_id: 'anonymous',
-      brand: currentLog.brand || 'Unknown',
+      brand: currentLog.brand || '',
       region: currentLog.region || '',
       bottler: currentLog.bottler || 'OB',
-      ib_name: currentLog.ib_name,
-      age: currentLog.age,
-      vintage: currentLog.vintage,
-      distilled_date: currentLog.distilled_date,
-      bottled_date: currentLog.bottled_date,
-      abv: currentLog.abv,
-      casks: currentLog.casks || [],
-      cask_no: currentLog.cask_no,
-      bottles: currentLog.bottles,
-      image_url: currentLog.image_url,
       color: currentLog.color || 'Deep Gold',
       score: currentLog.score ?? 4.0,
-      nose: currentLog.nose,
-      palate: currentLog.palate,
-      finish: currentLog.finish,
-      comment: currentLog.comment,
-      comment_insta: currentLog.comment_insta || instaCaption,
-      blog_post: currentLog.blog_post,
-      insta_post: currentLog.insta_post,
+      casks: currentLog.casks || [],
       date: currentLog.date || new Date().toISOString().split('T')[0],
       created_at: currentLog.created_at || new Date().toISOString(),
       updated_at: new Date().toISOString(),
-    }
+      ...currentLog,
+      comment,
+      comment_insta: instaText || currentLog.comment_insta,
+    } as WhiskyLog
     upsertToCollection(log)
-    showToast('Archived to collection', 'ok')
     setActiveTab('collection')
+    showToast('컬렉션에 저장됨', 'ok')
   }
 
-  const scoreStars = Math.round(score)
-
-  const NoteCard = ({ type, label }: { type: NoteType; label: string }) => {
-    const value = type === 'nose' ? currentLog.nose : type === 'palate' ? currentLog.palate : currentLog.finish
-    const setter = type === 'nose' ? setNose : type === 'palate' ? setPalate : setFinish
-    return (
-      <div className="card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>{label}</p>
-          <div style={{ display: 'flex', gap: '0.4rem' }}>
-            <button className="btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem' }} onClick={() => openNoteModal(type, 'expand_note')}>Expand</button>
-            <button className="btn-ghost" style={{ padding: '0.25rem 0.5rem', fontSize: '0.65rem' }} onClick={() => openNoteModal(type, 'compress_note')}>Compress</button>
-          </div>
+  const noteCard = (field: 'nose'|'palate'|'finish', label: string, fullWidth?: boolean) => (
+    <div style={{
+      border: '1px solid var(--bd)', background: 'var(--c2)',
+      gridColumn: fullWidth ? '1 / -1' : undefined,
+    }}>
+      <div style={{
+        padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)',
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</p>
+        <div style={{ display: 'flex', gap: '0.4rem' }}>
+          <button className="btn-ghost" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
+            onClick={() => openAI(`◈ 요약 — ${label}`, 'compress_note', field, { field, raw: currentLog[field] || '' })}>
+            ◈ 요약
+          </button>
+          <button className="btn-outline-gold" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
+            onClick={() => openAI(`✦ AI 확장 — ${label}`, 'expand_note', field, { field, raw: currentLog[field] || '', ...aiPayload() })}>
+            ✦ AI 확장
+          </button>
         </div>
+      </div>
+      <div style={{ padding: '0.75rem 1rem' }}>
         <textarea
-          value={value || ''}
-          onChange={e => setter(e.target.value)}
-          placeholder={`Describe the ${label.toLowerCase()}...`}
-          style={{ minHeight: '80px', lineHeight: '1.6' }}
+          rows={3}
+          value={currentLog[field] || ''}
+          onChange={(e) => updateCurrentLog({ [field]: e.target.value })}
+          placeholder={`${label} 노트를 입력하세요...`}
+          style={{ lineHeight: 1.6 }}
         />
       </div>
-    )
+    </div>
+  )
+
+  const toggleKey = (k: string) => {
+    setExcludedKeys((prev) => {
+      const next = new Set(prev)
+      next.has(k) ? next.delete(k) : next.add(k)
+      return next
+    })
   }
 
+  const meta = [currentLog.age, currentLog.bottler, currentLog.abv, currentLog.region].filter(Boolean).join(' · ')
+
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '2rem 1rem' }}>
+    <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem' }}>
       {/* Header */}
-      <div style={{ marginBottom: '2rem' }}>
-        <h1 className="display" style={{ fontSize: '2.2rem', color: 'var(--gold)' }}>
-          {currentLog.brand || 'Unnamed Whisky'}
-          {currentLog.age && <span style={{ fontSize: '1.4rem', marginLeft: '0.5rem', color: 'var(--tx2)' }}>{currentLog.age}</span>}
+      <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--bd)', paddingBottom: '1rem' }}>
+        <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)', lineHeight: 1.2 }}>
+          {currentLog.brand || 'Unnamed Dram'}
         </h1>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
-          {currentLog.region && <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)' }}>{currentLog.region}</span>}
-          {currentLog.abv && <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)' }}>· {currentLog.abv}%</span>}
-          {(currentLog.casks || []).map(c => (
-            <span key={c} className="ctag" style={{ cursor: 'default' }}>{c}</span>
-          ))}
-        </div>
+        {meta && <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx2)', marginTop: '0.4rem', letterSpacing: '0.05em' }}>{meta}</p>}
       </div>
 
       {/* 2-col grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
         {/* Color card */}
-        <div className="card" style={{ padding: '1rem' }}>
-          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Color</p>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {COLORS.map(c => (
-              <button
-                key={c.name}
+        <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
+          <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Color</p>
+          </div>
+          <div style={{ padding: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {COLORS.map((c) => (
+              <div key={c.name} onClick={() => updateCurrentLog({ color: c.name })}
                 title={c.name}
-                onClick={() => setColor(c.name)}
                 style={{
-                  width: '36px', height: '36px',
-                  background: c.hex,
-                  border: color === c.name ? '2px solid var(--gold)' : '2px solid transparent',
-                  cursor: 'pointer',
-                  borderRadius: '2px',
-                  transition: 'border-color 0.2s',
-                }}
-              />
+                  width: 36, height: 36, background: c.hex, cursor: 'pointer', flexShrink: 0,
+                  border: currentLog.color === c.name ? '2px solid var(--gold)' : '2px solid transparent',
+                  transition: 'border 0.2s',
+                }} />
             ))}
           </div>
-          {color && (
-            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', marginTop: '0.5rem' }}>{color}</p>
+          {currentLog.color && (
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', padding: '0 1rem 0.75rem', letterSpacing: '0.06em' }}>
+              {currentLog.color}
+            </p>
           )}
         </div>
 
         {/* Score card */}
-        <div className="card" style={{ padding: '1rem' }}>
-          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.75rem' }}>Score</p>
-          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
-            {[1, 2, 3, 4, 5].map(s => (
-              <button
-                key={s}
-                onClick={() => setScore(s)}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: '1.4rem',
-                  color: s <= scoreStars ? 'var(--gold)' : 'var(--bd2)',
-                  transition: 'color 0.2s',
-                }}
-              >
-                ★
-              </button>
-            ))}
+        <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
+          <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score</p>
           </div>
-          <input
-            type="range"
-            min={1}
-            max={5}
-            step={0.1}
-            value={score}
-            onChange={e => setScore(parseFloat(e.target.value))}
-            style={{ width: '100%', accentColor: 'var(--gold)', marginBottom: '0.5rem' }}
-          />
-          <p className="display" style={{ fontSize: '2.5rem', color: 'var(--gold)' }}>{score.toFixed(1)}</p>
+          <div style={{ padding: '1rem', textAlign: 'center' }}>
+            <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', lineHeight: 1 }}>
+              {(currentLog.score ?? 4.0).toFixed(1)}
+            </p>
+            <div style={{ margin: '0.75rem 0 0.5rem', display: 'flex', justifyContent: 'center', gap: '0.35rem' }}>
+              {[1,2,3,4,5].map((s) => (
+                <button key={s} onClick={() => updateCurrentLog({ score: s })}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem',
+                    color: (currentLog.score ?? 4) >= s ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
+              ))}
+            </div>
+            <input type="range" min={0} max={5} step={0.1}
+              value={currentLog.score ?? 4.0}
+              onChange={(e) => updateCurrentLog({ score: parseFloat(e.target.value) })}
+              style={{ width: '100%', accentColor: 'var(--gold)' }} />
+          </div>
         </div>
+
+        {/* Nose */}
+        {noteCard('nose', 'Nose')}
+        {/* Palate */}
+        {noteCard('palate', 'Palate')}
+        {/* Finish – full width */}
+        {noteCard('finish', 'Finish', true)}
       </div>
 
-      {/* Nose & Palate */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
-        <NoteCard type="nose" label="Nose" />
-        <NoteCard type="palate" label="Palate" />
-      </div>
+      {/* Comments 3-step */}
+      <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', borderTop: '2px solid var(--gold)', marginBottom: '1.5rem' }}>
+        <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Comments</p>
+          <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}>Step {step} / 3</span>
+        </div>
 
-      {/* Finish */}
-      <div style={{ marginBottom: '1px' }}>
-        <NoteCard type="finish" label="Finish" />
-      </div>
-
-      {/* Comments */}
-      <div style={{ borderTop: '2px solid var(--gold)', background: 'var(--c2)', padding: '1.25rem', marginBottom: '1.5rem' }}>
-        <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '1rem' }}>Comments</p>
-
-        {commentStep.step === 1 && (
-          <div>
-            <div style={{ position: 'relative' }}>
-              <textarea
-                value={currentLog.comment || ''}
-                onChange={e => setComment(e.target.value)}
-                placeholder="Write your overall impression..."
-                style={{ minHeight: '100px', lineHeight: '1.7', background: 'var(--c3)', padding: '0.75rem' }}
-              />
-              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', textAlign: 'right', marginTop: '0.25rem' }}>
-                {(currentLog.comment || '').length} chars
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <button className="btn-ghost" onClick={loadFromNotes}>Load from Notes</button>
-              <button className="btn-outline-gold" onClick={extractKeys} disabled={extractLoading}>
-                {extractLoading ? <><span className="spinner" /> Extracting...</> : '✦ Step 2: Extract Keys →'}
-              </button>
-            </div>
+        {/* Step 1 */}
+        <div style={{ padding: '1rem', borderBottom: step > 1 ? '1px solid var(--bd)' : undefined }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Step 1 — 자유 작성</p>
+            <span className="mono" style={{ fontSize: '0.6rem', color: comment.length > 800 ? '#cf7e7e' : 'var(--tx3)' }}>
+              {comment.length}자
+            </span>
           </div>
-        )}
+          <textarea rows={5} value={comment} onChange={(e) => setComment(e.target.value)}
+            placeholder="시음 느낌을 자유롭게 적어주세요..." style={{ lineHeight: 1.7 }} />
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
+            <button className="btn-ghost" style={{ fontSize: '0.7rem' }}
+              onClick={() => {
+                const auto = [
+                  currentLog.nose ? `Nose: ${currentLog.nose}` : '',
+                  currentLog.palate ? `Palate: ${currentLog.palate}` : '',
+                  currentLog.finish ? `Finish: ${currentLog.finish}` : '',
+                ].filter(Boolean).join('\n')
+                setComment(auto)
+              }}>
+              ◈ 노트에서 불러오기
+            </button>
+            <button className="btn-outline-gold" style={{ fontSize: '0.7rem' }}
+              disabled={extracting || !comment.trim()}
+              onClick={handleExtractKeys}>
+              {extracting ? <span className="spinner" /> : null}
+              ✦ Step 2 : 키 추출 →
+            </button>
+          </div>
+        </div>
 
-        {commentStep.step === 2 && (
-          <div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              {(['nose', 'palate', 'finish'] as NoteType[]).map(type => (
-                <div key={type}>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx2)', textTransform: 'uppercase', marginBottom: '0.5rem' }}>{type}</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    {extractedKeys[type].map(key => (
-                      <button
-                        key={key}
-                        className={`ctag${excludedKeys[key] ? ' excluded' : ''}`}
-                        onClick={() => toggleExclude(key)}
-                      >
-                        {key}
-                      </button>
+        {/* Step 2 */}
+        {step >= 2 && (
+          <div style={{ padding: '1rem', borderBottom: step > 2 ? '1px solid var(--bd)' : undefined, opacity: step >= 2 ? 1 : 0.4 }}>
+            <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
+              Step 2 — 키워드 확인 (클릭으로 제외)
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+              {(['nose','palate','finish'] as const).map((field) => (
+                <div key={field}>
+                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                    {field === 'nose' ? 'Nose 향' : field === 'palate' ? 'Palate 맛' : 'Finish 여운'}
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                    {extractedKeys[field].map((k) => (
+                      <span key={k} className={`key-tag${excludedKeys.has(k) ? ' excluded' : ''}`}
+                        onClick={() => toggleKey(k)}>{k}</span>
                     ))}
                   </div>
                 </div>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button className="btn-ghost" onClick={() => setCommentStep({ step: 1 })}>← Back</button>
-              <button className="btn-outline-gold" onClick={genInstaFromKeys} disabled={instaLoading}>
-                {instaLoading ? <><span className="spinner" /> Generating...</> : '✦ Step 3: Generate Instagram →'}
+            <div style={{ marginTop: '0.75rem' }}>
+              <button className="btn-outline-gold" style={{ fontSize: '0.7rem' }}
+                disabled={genInsta} onClick={handleGenInsta}>
+                {genInsta ? <span className="spinner" /> : null}
+                ✦ Step 3 : 인스타 요약 생성 →
               </button>
             </div>
           </div>
         )}
 
-        {commentStep.step === 3 && (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx2)', textTransform: 'uppercase' }}>Instagram Caption</p>
-              <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}>{instaCaption.length} / 300</span>
+        {/* Step 3 */}
+        {step >= 3 && (
+          <div style={{ padding: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                Step 3 — Instagram 요약
+              </p>
+              <span className="mono" style={{ fontSize: '0.6rem', color: instaText.length > 300 ? '#cf7e7e' : 'var(--tx3)' }}>
+                {instaText.length} / 300자
+              </span>
             </div>
-            <textarea
-              value={instaCaption}
-              onChange={e => setInstaCaption(e.target.value)}
-              style={{ minHeight: '100px', background: 'var(--c3)', padding: '0.75rem', lineHeight: '1.6' }}
-            />
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-              <button className="btn-ghost" onClick={() => setCommentStep({ step: 2 })}>← Back</button>
-              <button className="btn-ghost" onClick={() => {
-                navigator.clipboard.writeText(instaCaption)
-                showToast('Copied!', 'ok')
-              }}>Copy</button>
-              <button className="btn-outline-gold" onClick={() => setShowUpdateBanner(true)}>Apply & Save</button>
-            </div>
+            <textarea rows={4} value={instaText} onChange={(e) => setInstaText(e.target.value)}
+              style={{ lineHeight: 1.7, border: '1px solid var(--bd)', padding: '0.5rem' }} />
+            <button className="btn-ghost" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(instaText); showToast('복사됨', 'ok') }
+                catch { showToast('복사 실패', 'err') }
+              }}>
+              📋 복사
+            </button>
           </div>
         )}
 
-        {showUpdateBanner && (
-          <div style={{ marginTop: '1rem', padding: '1rem', background: 'var(--gp)', border: '1px solid var(--bd2)' }}>
-            <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--gold)', marginBottom: '0.75rem' }}>Update tasting notes?</p>
+        {/* Update Banner */}
+        {showBanner && (
+          <div className="fade-up" style={{ padding: '1rem', borderTop: '1px solid var(--bd)', background: 'var(--c3)' }}>
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', marginBottom: '0.75rem' }}>
+              ✦ 노트 업데이트 옵션
+            </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button className="btn-gold" onClick={applyKeywordsAndSave}>Apply Keywords & Save</button>
-              <button className="btn-outline-gold" onClick={() => {
-                updateCurrentLog({ comment_insta: instaCaption })
-                setShowUpdateBanner(false)
-                showToast('Caption saved', 'ok')
-              }}>Update Notes Only</button>
-              <button className="btn-ghost" onClick={() => setShowUpdateBanner(false)}>Ignore</button>
+              <button className="btn-gold" style={{ fontSize: '0.7rem' }} onClick={applyKeywordsAndSave}>
+                ✦ 노트에 키워드 적용 &amp; 저장
+              </button>
+              <button className="btn-ghost" style={{ fontSize: '0.7rem' }}
+                onClick={() => { updateCurrentLog({ comment, comment_insta: instaText }); setShowBanner(false); showToast('노트 업데이트됨', 'ok') }}>
+                노트만 업데이트
+              </button>
+              <button className="btn-ghost" style={{ fontSize: '0.7rem' }} onClick={() => setShowBanner(false)}>
+                무시
+              </button>
             </div>
           </div>
         )}
       </div>
 
       {/* Archive button */}
-      <button className="btn-gold" style={{ width: '100%', padding: '0.75rem', fontSize: '0.8rem' }} onClick={archiveDram}>
+      <button className="btn-gold" style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}
+        onClick={archiveDram}>
         Archive this Dram →
       </button>
 
-      {/* Note modal */}
-      {noteModal && (
-        <Modal
-          title={`AI — ${noteModal.type.charAt(0).toUpperCase() + noteModal.type.slice(1)}`}
-          subtitle="Preview and apply AI suggestion"
-          onClose={() => setNoteModal(null)}
-          actions={
-            <>
-              <button className="btn-ghost" onClick={() => setNoteModal(null)}>Close</button>
-              <button className="btn-ghost" onClick={() => regenerateNote('expand_note')}>Regenerate</button>
-              <button className="btn-gold" onClick={applyNoteDraft} disabled={noteModal.loading}>Apply</button>
-            </>
-          }
-        >
-          {noteModal.loading ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--tx2)' }}>
-              <span className="spinner" />
-              <span className="mono" style={{ fontSize: '0.75rem' }}>Generating...</span>
-            </div>
-          ) : (
-            <textarea
-              value={noteModal.draft}
-              onChange={e => setNoteModal(prev => prev ? { ...prev, draft: e.target.value } : null)}
-              style={{ minHeight: '120px', lineHeight: '1.7', background: 'var(--c3)', padding: '0.75rem' }}
-            />
-          )}
-        </Modal>
-      )}
+      {/* AI Modal */}
+      <Modal open={aiModal.open} onClose={() => setAiModal((p) => ({ ...p, open: false }))}
+        title={aiModal.title}
+        actions={
+          <>
+            <button className="btn-ghost" style={{ fontSize: '0.72rem' }} onClick={regenerateAI} disabled={aiModal.loading}>
+              ↺ 재생성
+            </button>
+            <button className="btn-outline-gold" style={{ fontSize: '0.72rem' }} onClick={applyAiResult} disabled={aiModal.loading || !aiModal.text}>
+              적용
+            </button>
+            <button className="btn-ghost" style={{ fontSize: '0.72rem' }} onClick={() => setAiModal((p) => ({ ...p, open: false }))}>
+              닫기
+            </button>
+          </>
+        }>
+        {aiModal.loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 0' }}>
+            <span className="spinner" />
+            <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>AI 생성 중...</span>
+          </div>
+        ) : (
+          <textarea rows={6} value={aiModal.text}
+            onChange={(e) => setAiModal((p) => ({ ...p, text: e.target.value }))}
+            style={{ border: '1px solid var(--bd)', padding: '0.75rem', lineHeight: 1.7, width: '100%' }} />
+        )}
+      </Modal>
     </div>
   )
 }

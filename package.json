@@ -1,5 +1,5 @@
 {
-  "name": "dram-app",
+  "name": "dram-gemini",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,16 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "clsx": "^2.1.1",
     "html2canvas": "^1.4.1",
-    "jspdf": "^4.2.1",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "react-dropzone": "^15.0.0",
     "zustand": "^5.0.12"
   },
   "devDependencies": {

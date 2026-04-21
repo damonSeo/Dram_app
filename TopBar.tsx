@@ -1,6 +1,6 @@
 'use client'
 import { useStore } from '@/lib/store'
-import { TabName } from '@/types'
+import type { TabName } from '@/types'
 
 const TABS: { id: TabName; label: string }[] = [
   { id: 'scan', label: 'Scan' },
@@ -15,15 +15,15 @@ export default function TopBar() {
   return (
     <header style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-      background: 'rgba(20,20,20,0.95)', backdropFilter: 'blur(8px)',
+      background: 'rgba(20,20,20,0.96)', backdropFilter: 'blur(8px)',
       borderBottom: '1px solid var(--bd)',
       height: '56px', display: 'flex', alignItems: 'center',
       justifyContent: 'space-between', padding: '0 1.5rem',
     }}>
-      <span className="display" style={{ fontSize: '1.4rem', letterSpacing: '0.15em', color: 'var(--gold)' }}>
+      <span className="display" style={{ fontSize: '1.5rem', letterSpacing: '0.2em', color: 'var(--gold)' }}>
         DRAM
       </span>
-      <nav style={{ display: 'flex', gap: '0' }}>
+      <nav style={{ display: 'flex' }}>
         {TABS.map((tab) => (
           <button
             key={tab.id}
