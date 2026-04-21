@@ -1,5 +1,5 @@
 # dram-app 폴더로 이동
-cd dram-app
+cd dram-gemini
 
 # Git 초기화
 git init
@@ -14,7 +14,7 @@ git commit -m "DRAM whisky app - initial commit"
 git branch -M main
 
 # GitHub 저장소 연결 (여기서 YOUR_USERNAME 수정!)
-git remote add origin https://github.com/YOUR_USERNAME/dram-app.git
+git remote add origin https://github.com/damonSeo/Dran_app.git
 
 # GitHub에 푸시 (올리기)
 git push -u origin main
