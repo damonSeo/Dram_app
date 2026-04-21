@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import TopBar from '@/components/TopBar'
 import ScanPage from '@/components/ScanPage'
@@ -6,9 +7,19 @@ import TastingPage from '@/components/TastingPage'
 import CollectionPage from '@/components/CollectionPage'
 import SharePage from '@/components/SharePage'
 import { ToastProvider } from '@/components/Toast'
+import type { WhiskyLog } from '@/types'
 
 export default function Home() {
-  const activeTab = useStore((s) => s.activeTab)
+  const { activeTab, setCollection } = useStore()
+
+  useEffect(() => {
+    fetch('/api/whisky-logs')
+      .then((r) => r.json())
+      .then((json: { data?: WhiskyLog[] }) => {
+        if (Array.isArray(json.data)) setCollection(json.data)
+      })
+      .catch(() => {})
+  }, [setCollection])
 
   return (
     <ToastProvider>

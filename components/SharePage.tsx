@@ -3,9 +3,6 @@ import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
-import type { WhiskyLog } from '@/types'
-
-type NotionStatus = 'idle' | 'working' | 'ok' | 'err'
 
 async function callAI(action: string, payload: object): Promise<string> {
   const res = await fetch('/api/ai', {
@@ -19,14 +16,10 @@ async function callAI(action: string, payload: object): Promise<string> {
 }
 
 export default function SharePage() {
-  const { currentLog, collection, updateCurrentLog, notionDbId, notionToken, setNotionDbId, setNotionToken } = useStore()
+  const { currentLog, collection, updateCurrentLog } = useStore()
   const { showToast } = useToast()
 
   const [modal, setModal] = useState({ open: false, title: '', text: '', loading: false, action: '', payload: {} as object })
-  const [notionStatus, setNotionStatus] = useState<NotionStatus>('idle')
-  const [notionError, setNotionError] = useState('')
-  const [dbIdInput, setDbIdInput] = useState(notionDbId)
-  const [tokenInput, setTokenInput] = useState(notionToken)
 
   const openModal = async (title: string, action: string, payload: object) => {
     setModal({ open: true, title, text: '', loading: true, action, payload })
@@ -66,53 +59,6 @@ export default function SharePage() {
     }
   }
 
-  const archiveNotion = async () => {
-    const token = notionToken || process.env.NEXT_PUBLIC_NOTION_TOKEN
-    if (!notionDbId || !token) {
-      showToast('DB ID와 Token을 입력해주세요', 'err')
-      return
-    }
-    setNotionStatus('working')
-    setNotionError('')
-    try {
-      const res = await fetch('/api/notion-archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ log: currentLog as WhiskyLog, notionDbId, notionToken: token }),
-      })
-      if (!res.ok) {
-        const err = await res.json() as { error?: string }
-        const msg = err.error || 'Notion 오류'
-        setNotionError(
-          res.status === 401
-            ? '401: Integration이 DB에 연결되지 않았습니다. DB → ··· → Connect to → Integration 선택'
-            : res.status === 400
-            ? '400: DB ID를 확인해주세요. 32자리 hex ID인지 확인'
-            : msg
-        )
-        setNotionStatus('err')
-        return
-      }
-      setNotionStatus('ok')
-      showToast('Notion에 저장됨!', 'ok')
-    } catch (e: unknown) {
-      setNotionError(e instanceof Error ? e.message : 'Notion 오류')
-      setNotionStatus('err')
-    }
-  }
-
-  const statusDot = (status: NotionStatus) => {
-    const colors: Record<NotionStatus, string> = { idle: 'var(--tx3)', working: 'var(--gold)', ok: '#7ecf7e', err: '#cf7e7e' }
-    return (
-      <span style={{
-        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-        background: colors[status], marginRight: '0.5rem',
-        animation: status === 'working' ? 'spin 1s linear infinite' : undefined,
-        border: status === 'working' ? '1px solid transparent' : undefined,
-      }} />
-    )
-  }
-
   const logForAI = { ...currentLog }
 
   return (
@@ -142,19 +88,19 @@ export default function SharePage() {
 
             {currentLog.nose && (
               <div style={{ marginBottom: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>NOSE</p>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>향</p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--tx2)', fontStyle: 'italic', lineHeight: 1.6 }}>{currentLog.nose}</p>
               </div>
             )}
             {currentLog.palate && (
               <div style={{ marginBottom: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>PALATE</p>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>맛</p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--tx2)', fontStyle: 'italic', lineHeight: 1.6 }}>{currentLog.palate}</p>
               </div>
             )}
             {currentLog.finish && (
               <div style={{ marginBottom: '1.25rem' }}>
-                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>FINISH</p>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>여운</p>
                 <p style={{ fontSize: '0.8rem', color: 'var(--tx2)', fontStyle: 'italic', lineHeight: 1.6 }}>{currentLog.finish}</p>
               </div>
             )}
@@ -174,105 +120,22 @@ export default function SharePage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
 
           {/* Export */}
-          <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', marginBottom: '1px' }}>
+          <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
             <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
               <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Export &amp; Post</p>
             </div>
             <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => openModal('📝 Blog Post', 'gen_blog_post', logForAI)}>
-                📝 Blog Post 생성
+                onClick={() => openModal('📝 블로그 포스트', 'gen_blog_post', logForAI)}>
+                📝 블로그 포스트 생성
               </button>
               <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => openModal('📸 Instagram Post', 'gen_insta_post', logForAI)}>
-                📸 Instagram Post 생성
+                onClick={() => openModal('📸 인스타그램 포스트', 'gen_insta_post', logForAI)}>
+                📸 인스타그램 포스트 생성
               </button>
               <button className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={saveCard}>
                 🖼 카드 이미지 저장
               </button>
-            </div>
-          </div>
-
-          {/* Notion Archive */}
-          <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
-            <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center' }}>
-              {statusDot(notionStatus)}
-              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Notion Archive</p>
-            </div>
-            <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {/* DB ID */}
-              <div>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notion DB ID</p>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input type="text" value={dbIdInput} onChange={(e) => setDbIdInput(e.target.value)}
-                    placeholder="32자리 DB ID" style={{ border: '1px solid var(--bd)', padding: '0.4rem 0.6rem', flex: 1 }} />
-                  <button className="btn-ghost" style={{ whiteSpace: 'nowrap', fontSize: '0.7rem' }}
-                    onClick={() => { setNotionDbId(dbIdInput); showToast('DB ID 저장됨', 'ok') }}>
-                    저장
-                  </button>
-                </div>
-              </div>
-              {/* Token */}
-              <div>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Integration Token</p>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input type="password" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)}
-                    placeholder="secret_..." style={{ border: '1px solid var(--bd)', padding: '0.4rem 0.6rem', flex: 1 }} />
-                  <button className="btn-ghost" style={{ whiteSpace: 'nowrap', fontSize: '0.7rem' }}
-                    onClick={() => { setNotionToken(tokenInput); showToast('Token 저장됨', 'ok') }}>
-                    저장
-                  </button>
-                </div>
-              </div>
-
-              <button className="btn-gold" style={{ width: '100%', justifyContent: 'center' }}
-                disabled={notionStatus === 'working'} onClick={archiveNotion}>
-                {notionStatus === 'working' ? <span className="spinner" style={{ borderTopColor: '#000' }} /> : null}
-                📓 Notion에 아카이빙
-              </button>
-
-              {notionStatus === 'ok' && (
-                <div className="fade-up" style={{ border: '1px solid rgba(80,160,80,0.4)', background: 'rgba(80,160,80,0.08)', padding: '0.6rem 0.8rem' }}>
-                  <p className="mono" style={{ fontSize: '0.7rem', color: '#7ecf7e', marginBottom: '0.4rem' }}>✓ 저장됨</p>
-                  <a href={`https://notion.so/${notionDbId.replace(/-/g, '')}`} target="_blank" rel="noopener noreferrer"
-                    className="mono" style={{ fontSize: '0.68rem', color: 'var(--gold)', textDecoration: 'none' }}>
-                    🔗 Notion DB 열기 →
-                  </a>
-                </div>
-              )}
-
-              {notionStatus === 'err' && notionError && (
-                <div style={{ border: '1px solid rgba(160,60,60,0.4)', background: 'rgba(160,60,60,0.08)', padding: '0.6rem 0.8rem' }}>
-                  <p className="mono" style={{ fontSize: '0.68rem', color: '#cf7e7e', lineHeight: 1.5 }}>{notionError}</p>
-                </div>
-              )}
-
-              {/* Setup Guide */}
-              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  Notion 설정 가이드
-                </p>
-                {[
-                  'notion.so → Settings → My connections → + New integration → Internal 타입으로 생성',
-                  'Secret (token) 복사 → Integration Token에 입력',
-                  '아카이빙할 DB 페이지 → ··· → Connect to → 생성한 Integration 선택',
-                  'DB URL에서 32자리 ID 복사: notion.so/username/[이32자리가ID]?v=...',
-                  'DB 속성: Name(Title) / Distillery / Region / Age / ABV / Cask / Score(Number) / Color / Nose / Palate / Finish / Comment / Date',
-                ].map((step, i) => (
-                  <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.35rem' }}>
-                    <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', flexShrink: 0 }}>{i+1}.</span>
-                    <p style={{ fontSize: '0.68rem', color: 'var(--tx2)', lineHeight: 1.5 }}>{step}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Share guide */}
-              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>📡 공유 방법</p>
-                <p style={{ fontSize: '0.68rem', color: 'var(--tx2)', lineHeight: 1.5 }}>
-                  Notion DB → Share → Publish to web → 링크 공유
-                </p>
-              </div>
             </div>
           </div>
 
@@ -324,7 +187,7 @@ export default function SharePage() {
         {modal.loading ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 0' }}>
             <span className="spinner" />
-            <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>Gemini 생성 중...</span>
+            <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>AI 생성 중...</span>
           </div>
         ) : (
           <textarea rows={10} value={modal.text}

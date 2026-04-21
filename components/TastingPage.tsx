@@ -14,10 +14,6 @@ const COLORS = [
   { name: 'Mahogany', hex: '#4A1E0A' },
 ]
 
-function genId() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2)
-}
-
 async function callAI(action: string, payload: object): Promise<string> {
   const res = await fetch('/api/ai', {
     method: 'POST',
@@ -40,7 +36,7 @@ interface AiModal {
 }
 
 export default function TastingPage() {
-  const { currentLog, updateCurrentLog, upsertToCollection, setActiveTab, setExtractedKeys } = useStore()
+  const { currentLog, collection, updateCurrentLog, upsertToCollection, setActiveTab, setExtractedKeys } = useStore()
   const { showToast } = useToast()
 
   const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
@@ -54,6 +50,7 @@ export default function TastingPage() {
   const [extracting, setExtracting] = useState(false)
   const [genInsta, setGenInsta] = useState(false)
   const [showBanner, setShowBanner] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const aiPayload = () => ({
     brand: currentLog.brand, age: currentLog.age, abv: currentLog.abv,
@@ -144,26 +141,38 @@ export default function TastingPage() {
     showToast('키워드 적용 완료', 'ok')
   }
 
-  const archiveDram = () => {
-    const log: WhiskyLog = {
-      id: (currentLog.id as string) || genId(),
-      user_id: 'anonymous',
-      brand: currentLog.brand || '',
-      region: currentLog.region || '',
-      bottler: currentLog.bottler || 'OB',
-      color: currentLog.color || 'Deep Gold',
-      score: currentLog.score ?? 4.0,
-      casks: currentLog.casks || [],
-      date: currentLog.date || new Date().toISOString().split('T')[0],
-      created_at: currentLog.created_at || new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...currentLog,
-      comment,
-      comment_insta: instaText || currentLog.comment_insta,
-    } as WhiskyLog
-    upsertToCollection(log)
-    setActiveTab('collection')
-    showToast('컬렉션에 저장됨', 'ok')
+  const archiveDram = async () => {
+    setSaving(true)
+    try {
+      const isUpdate = !!currentLog.id && collection.some((l) => l.id === currentLog.id)
+      const logBase = {
+        ...currentLog,
+        brand: currentLog.brand || '',
+        region: currentLog.region || '',
+        bottler: currentLog.bottler || 'OB',
+        color: currentLog.color || 'Deep Gold',
+        score: currentLog.score ?? 4.0,
+        casks: currentLog.casks || [],
+        date: currentLog.date || new Date().toISOString().split('T')[0],
+        comment,
+        comment_insta: instaText || currentLog.comment_insta,
+      }
+      const body = isUpdate ? { id: currentLog.id, ...logBase } : logBase
+      const res = await fetch('/api/whisky-logs', {
+        method: isUpdate ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json() as { data?: WhiskyLog; error?: string }
+      if (!res.ok) throw new Error(json.error || '저장 실패')
+      if (json.data) upsertToCollection(json.data)
+      setActiveTab('collection')
+      showToast('컬렉션에 저장됨', 'ok')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '저장 실패', 'err')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const noteCard = (field: 'nose'|'palate'|'finish', label: string, fullWidth?: boolean) => (
@@ -391,8 +400,9 @@ export default function TastingPage() {
 
       {/* Archive button */}
       <button className="btn-gold" style={{ width: '100%', justifyContent: 'center', fontSize: '0.8rem' }}
-        onClick={archiveDram}>
-        Archive this Dram →
+        onClick={archiveDram} disabled={saving}>
+        {saving ? <span className="spinner" style={{ borderTopColor: '#000' }} /> : null}
+        컬렉션에 저장 →
       </button>
 
       {/* AI Modal */}
