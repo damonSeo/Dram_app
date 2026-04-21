@@ -94,6 +94,9 @@ Comment: ${String(comment_insta ?? comment ?? '—')}
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: 'GEMINI_API_KEY가 설정되지 않았습니다. Vercel 환경변수를 확인하세요.' }, { status: 500 })
+  }
   try {
     const body = await req.json() as { action: string; payload: Payload }
     const { action, payload } = body
