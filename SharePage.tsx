@@ -3,322 +3,299 @@ import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
-import { aiGenerate } from '@/lib/api'
-import { WhiskyLog } from '@/types'
+import type { WhiskyLog } from '@/types'
 
-type NotionStatus = 'idle' | 'loading' | 'ok' | 'err'
+type NotionStatus = 'idle' | 'working' | 'ok' | 'err'
+
+async function callAI(action: string, payload: object): Promise<string> {
+  const res = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, payload }),
+  })
+  const json = await res.json() as { text?: string; error?: string }
+  if (!res.ok) throw new Error(json.error || 'AI failed')
+  return json.text || ''
+}
 
 export default function SharePage() {
-  const { currentLog, collection, updateCurrentLog, notionDbId, setNotionDbId } = useStore()
+  const { currentLog, collection, updateCurrentLog, notionDbId, notionToken, setNotionDbId, setNotionToken } = useStore()
   const { showToast } = useToast()
 
-  const [blogPost, setBlogPost] = useState('')
-  const [instaPost, setInstaPost] = useState('')
-  const [showBlogModal, setShowBlogModal] = useState(false)
-  const [showInstaModal, setShowInstaModal] = useState(false)
-  const [blogLoading, setBlogLoading] = useState(false)
-  const [instaLoading, setInstaLoading] = useState(false)
+  const [modal, setModal] = useState({ open: false, title: '', text: '', loading: false, action: '', payload: {} as object })
   const [notionStatus, setNotionStatus] = useState<NotionStatus>('idle')
   const [notionError, setNotionError] = useState('')
   const [dbIdInput, setDbIdInput] = useState(notionDbId)
+  const [tokenInput, setTokenInput] = useState(notionToken)
 
-  const genBlogPost = async () => {
-    setBlogLoading(true)
-    setShowBlogModal(true)
+  const openModal = async (title: string, action: string, payload: object) => {
+    setModal({ open: true, title, text: '', loading: true, action, payload })
     try {
-      const result = await aiGenerate('gen_blog_post', {
-        brand: currentLog.brand || '',
-        age: currentLog.age || '',
-        abv: currentLog.abv || '',
-        nose: currentLog.nose || '',
-        palate: currentLog.palate || '',
-        finish: currentLog.finish || '',
-        comment: currentLog.comment || '',
-      })
-      setBlogPost(result)
-    } catch {
-      showToast('Blog generation failed', 'err')
-      setShowBlogModal(false)
-    } finally {
-      setBlogLoading(false)
+      const text = await callAI(action, payload)
+      setModal((p) => ({ ...p, text, loading: false }))
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'AI 오류', 'err')
+      setModal((p) => ({ ...p, open: false }))
     }
   }
 
-  const genInstaPost = async () => {
-    setInstaLoading(true)
-    setShowInstaModal(true)
+  const regenerate = async () => {
+    setModal((p) => ({ ...p, loading: true, text: '' }))
     try {
-      const result = await aiGenerate('gen_insta_post', {
-        brand: currentLog.brand || '',
-        age: currentLog.age || '',
-        region: currentLog.region || '',
-        score: String(currentLog.score || ''),
-        nose: currentLog.nose || '',
-        palate: currentLog.palate || '',
-        finish: currentLog.finish || '',
-      })
-      setInstaPost(result)
+      const text = await callAI(modal.action, modal.payload)
+      setModal((p) => ({ ...p, text, loading: false }))
     } catch {
-      showToast('Instagram generation failed', 'err')
-      setShowInstaModal(false)
-    } finally {
-      setInstaLoading(false)
+      showToast('재생성 실패', 'err')
+      setModal((p) => ({ ...p, loading: false }))
     }
   }
 
-  const saveCardImage = async () => {
-    const html2canvas = (await import('html2canvas')).default
-    const el = document.getElementById('shareCard')
-    if (!el) return
+  const saveCard = async () => {
     try {
-      const canvas = await html2canvas(el, { backgroundColor: '#1C1C1C', scale: 2 })
+      const hc = (await import('html2canvas')).default
+      const el = document.getElementById('shareCard')
+      if (!el) return
+      const canvas = await hc(el, { backgroundColor: '#141414', scale: 2 })
       const link = document.createElement('a')
-      link.download = `${currentLog.brand || 'dram'}-tasting-note.png`
+      link.download = `dram-${currentLog.brand || 'card'}.png`
       link.href = canvas.toDataURL('image/png')
       link.click()
-      showToast('Image saved', 'ok')
+      showToast('이미지 저장됨', 'ok')
     } catch {
-      showToast('Export failed', 'err')
+      showToast('이미지 저장 실패', 'err')
     }
   }
 
-  const archiveToNotion = async () => {
-    if (!notionDbId) { showToast('Set a Notion DB ID first', 'err'); return }
-    setNotionStatus('loading')
+  const archiveNotion = async () => {
+    const token = notionToken || process.env.NEXT_PUBLIC_NOTION_TOKEN
+    if (!notionDbId || !token) {
+      showToast('DB ID와 Token을 입력해주세요', 'err')
+      return
+    }
+    setNotionStatus('working')
     setNotionError('')
     try {
-      const log: WhiskyLog = {
-        id: currentLog.id || crypto.randomUUID(),
-        user_id: 'anonymous',
-        brand: currentLog.brand || 'Unknown',
-        region: currentLog.region || '',
-        bottler: currentLog.bottler || 'OB',
-        ib_name: currentLog.ib_name,
-        age: currentLog.age,
-        vintage: currentLog.vintage,
-        distilled_date: currentLog.distilled_date,
-        bottled_date: currentLog.bottled_date,
-        abv: currentLog.abv,
-        casks: currentLog.casks || [],
-        cask_no: currentLog.cask_no,
-        bottles: currentLog.bottles,
-        image_url: currentLog.image_url,
-        color: currentLog.color || 'Deep Gold',
-        score: currentLog.score ?? 4.0,
-        nose: currentLog.nose,
-        palate: currentLog.palate,
-        finish: currentLog.finish,
-        comment: currentLog.comment,
-        comment_insta: currentLog.comment_insta,
-        blog_post: blogPost || currentLog.blog_post,
-        insta_post: instaPost || currentLog.insta_post,
-        date: currentLog.date || new Date().toISOString().split('T')[0],
-        created_at: currentLog.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      }
       const res = await fetch('/api/notion-archive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ log, dbId: notionDbId }),
+        body: JSON.stringify({ log: currentLog as WhiskyLog, notionDbId, notionToken: token }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        const msg = (err as { error?: string }).error || 'Notion archive failed'
-        setNotionError(msg)
+        const err = await res.json() as { error?: string }
+        const msg = err.error || 'Notion 오류'
+        setNotionError(
+          res.status === 401
+            ? '401: Integration이 DB에 연결되지 않았습니다. DB → ··· → Connect to → Integration 선택'
+            : res.status === 400
+            ? '400: DB ID를 확인해주세요. 32자리 hex ID인지 확인'
+            : msg
+        )
         setNotionStatus('err')
         return
       }
       setNotionStatus('ok')
-      showToast('Archived to Notion!', 'ok')
+      showToast('Notion에 저장됨!', 'ok')
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Unknown error'
-      setNotionError(msg)
+      setNotionError(e instanceof Error ? e.message : 'Notion 오류')
       setNotionStatus('err')
     }
   }
 
-  const last5 = collection.slice(0, 5)
+  const statusDot = (status: NotionStatus) => {
+    const colors: Record<NotionStatus, string> = { idle: 'var(--tx3)', working: 'var(--gold)', ok: '#7ecf7e', err: '#cf7e7e' }
+    return (
+      <span style={{
+        display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
+        background: colors[status], marginRight: '0.5rem',
+        animation: status === 'working' ? 'spin 1s linear infinite' : undefined,
+        border: status === 'working' ? '1px solid transparent' : undefined,
+      }} />
+    )
+  }
+
+  const logForAI = { ...currentLog }
 
   return (
-    <div style={{ maxWidth: '960px', margin: '0 auto', padding: '2rem 1rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.5rem' }}>
-        {/* Left: Card preview */}
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
+
+        {/* LEFT — Share Card */}
         <div>
-          <div
-            id="shareCard"
-            style={{
-              background: 'var(--c2)',
-              border: '1px solid var(--bd2)',
-              padding: '2rem',
-              minHeight: '400px',
-            }}
-          >
-            <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.15em', marginBottom: '0.5rem' }}>
+          <div id="shareCard" style={{
+            background: '#141414', border: '1px solid rgba(201,168,76,0.35)',
+            padding: '2rem', minHeight: 400,
+          }}>
+            <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.15em', marginBottom: '1.5rem' }}>
               Tasting Note · DRAM
             </p>
-            {currentLog.region && (
-              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
-                {currentLog.region.toUpperCase()}
-              </p>
-            )}
-            <p className="display" style={{ fontSize: '2rem', color: 'var(--tx)', lineHeight: '1.1', marginBottom: '0.25rem' }}>
-              {currentLog.brand || 'Whisky Name'}
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.12em', marginBottom: '0.35rem', textTransform: 'lowercase' }}>
+              {currentLog.region || ''}
             </p>
-            {currentLog.age && (
-              <p className="display" style={{ fontSize: '1.2rem', color: 'var(--tx2)', marginBottom: '0.75rem' }}>
-                {currentLog.age} Years Old
-              </p>
-            )}
-            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', marginBottom: '1rem' }}>
-              {(currentLog.casks || []).join(' · ')}{currentLog.casks?.length && currentLog.abv ? ' · ' : ''}{currentLog.abv && `${currentLog.abv}%`}
+            <p className="display" style={{ fontSize: '1.8rem', color: 'var(--tx)', lineHeight: 1.2, marginBottom: '0.35rem' }}>
+              {currentLog.brand || '—'} {currentLog.age || ''}
             </p>
-            <div style={{ height: '1px', background: 'var(--gold)', opacity: 0.4, marginBottom: '1rem' }} />
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', marginBottom: '1.5rem' }}>
+              {[(currentLog.casks || []).join(' · '), currentLog.abv].filter(Boolean).join(' / ')}
+            </p>
+
+            <div style={{ height: 1, background: 'rgba(201,168,76,0.3)', marginBottom: '1.25rem' }} />
+
             {currentLog.nose && (
               <div style={{ marginBottom: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', marginBottom: '0.3rem' }}>NOSE</p>
-                <p style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--tx2)', lineHeight: '1.5' }}>{currentLog.nose}</p>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>NOSE</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--tx2)', fontStyle: 'italic', lineHeight: 1.6 }}>{currentLog.nose}</p>
               </div>
             )}
             {currentLog.palate && (
               <div style={{ marginBottom: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', marginBottom: '0.3rem' }}>PALATE</p>
-                <p style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--tx2)', lineHeight: '1.5' }}>{currentLog.palate}</p>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>PALATE</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--tx2)', fontStyle: 'italic', lineHeight: 1.6 }}>{currentLog.palate}</p>
               </div>
             )}
             {currentLog.finish && (
-              <div style={{ marginBottom: '1rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', marginBottom: '0.3rem' }}>FINISH</p>
-                <p style={{ fontSize: '0.8rem', fontStyle: 'italic', color: 'var(--tx2)', lineHeight: '1.5' }}>{currentLog.finish}</p>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.2rem' }}>FINISH</p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--tx2)', fontStyle: 'italic', lineHeight: 1.6 }}>{currentLog.finish}</p>
               </div>
             )}
-            <div style={{ height: '1px', background: 'var(--gold)', opacity: 0.4, marginBottom: '1rem' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+
+            <div style={{ height: 1, background: 'rgba(201,168,76,0.3)', marginBottom: '1.25rem' }} />
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <p className="display" style={{ fontSize: '2.5rem', color: 'var(--gold)' }}>
-                {(currentLog.score || 4).toFixed(1)}
+                ★ {(currentLog.score ?? 4.0).toFixed(1)}
               </p>
-              <p className="display" style={{ fontSize: '1.2rem', color: 'var(--tx3)', letterSpacing: '0.1em' }}>DRAM</p>
+              <p className="display" style={{ fontSize: '1rem', color: 'var(--tx3)', letterSpacing: '0.15em' }}>DRAM</p>
             </div>
           </div>
         </div>
 
-        {/* Right: Controls */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Export & Post */}
-          <div className="section">
-            <div className="section-header">Export & Post</div>
+        {/* RIGHT — Controls */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+
+          {/* Export */}
+          <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', marginBottom: '1px' }}>
+            <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
+              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Export &amp; Post</p>
+            </div>
             <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <button className="btn-outline-gold" style={{ textAlign: 'left' }} onClick={genBlogPost} disabled={blogLoading}>
-                {blogLoading ? <><span className="spinner" /> Generating Blog...</> : '📝 Blog Post'}
+              <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => openModal('📝 Blog Post', 'gen_blog_post', logForAI)}>
+                📝 Blog Post 생성
               </button>
-              <button className="btn-outline-gold" style={{ textAlign: 'left' }} onClick={genInstaPost} disabled={instaLoading}>
-                {instaLoading ? <><span className="spinner" /> Generating...</> : '📸 Instagram Post'}
+              <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => openModal('📸 Instagram Post', 'gen_insta_post', logForAI)}>
+                📸 Instagram Post 생성
               </button>
-              <button className="btn-outline-gold" style={{ textAlign: 'left' }} onClick={saveCardImage}>
-                🖼 Save Card Image
+              <button className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={saveCard}>
+                🖼 카드 이미지 저장
               </button>
             </div>
           </div>
 
           {/* Notion Archive */}
-          <div className="section">
-            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Notion Archive</span>
-              <span>
-                {notionStatus === 'idle' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--tx3)', display: 'inline-block' }} />}
-                {notionStatus === 'loading' && <span className="spinner" />}
-                {notionStatus === 'ok' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#7ecf7e', display: 'inline-block' }} />}
-                {notionStatus === 'err' && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#cf7e7e', display: 'inline-block' }} />}
-              </span>
+          <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
+            <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center' }}>
+              {statusDot(notionStatus)}
+              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Notion Archive</p>
             </div>
             <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  value={dbIdInput}
-                  onChange={e => setDbIdInput(e.target.value)}
-                  placeholder="Notion DB ID"
-                  style={{ flex: 1, background: 'var(--c3)', padding: '0.4rem 0.6rem', border: '1px solid var(--bd)' }}
-                />
-                <button className="btn-ghost" onClick={() => { setNotionDbId(dbIdInput); showToast('DB ID saved', 'ok') }}>
-                  Save
-                </button>
+              {/* DB ID */}
+              <div>
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Notion DB ID</p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input type="text" value={dbIdInput} onChange={(e) => setDbIdInput(e.target.value)}
+                    placeholder="32자리 DB ID" style={{ border: '1px solid var(--bd)', padding: '0.4rem 0.6rem', flex: 1 }} />
+                  <button className="btn-ghost" style={{ whiteSpace: 'nowrap', fontSize: '0.7rem' }}
+                    onClick={() => { setNotionDbId(dbIdInput); showToast('DB ID 저장됨', 'ok') }}>
+                    저장
+                  </button>
+                </div>
+              </div>
+              {/* Token */}
+              <div>
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.35rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Integration Token</p>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input type="password" value={tokenInput} onChange={(e) => setTokenInput(e.target.value)}
+                    placeholder="secret_..." style={{ border: '1px solid var(--bd)', padding: '0.4rem 0.6rem', flex: 1 }} />
+                  <button className="btn-ghost" style={{ whiteSpace: 'nowrap', fontSize: '0.7rem' }}
+                    onClick={() => { setNotionToken(tokenInput); showToast('Token 저장됨', 'ok') }}>
+                    저장
+                  </button>
+                </div>
               </div>
 
-              {notionStatus === 'ok' ? (
-                <div>
-                  <div style={{ padding: '0.5rem', background: 'rgba(80,160,80,0.1)', border: '1px solid rgba(80,160,80,0.3)', marginBottom: '0.5rem' }}>
-                    <p className="mono" style={{ fontSize: '0.7rem', color: '#7ecf7e' }}>✓ Saved</p>
-                  </div>
-                  <a
-                    href={`https://notion.so/${notionDbId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mono"
-                    style={{ fontSize: '0.7rem', color: 'var(--gold)', textDecoration: 'underline' }}
-                  >
-                    🔗 Open Notion DB →
+              <button className="btn-gold" style={{ width: '100%', justifyContent: 'center' }}
+                disabled={notionStatus === 'working'} onClick={archiveNotion}>
+                {notionStatus === 'working' ? <span className="spinner" style={{ borderTopColor: '#000' }} /> : null}
+                📓 Notion에 아카이빙
+              </button>
+
+              {notionStatus === 'ok' && (
+                <div className="fade-up" style={{ border: '1px solid rgba(80,160,80,0.4)', background: 'rgba(80,160,80,0.08)', padding: '0.6rem 0.8rem' }}>
+                  <p className="mono" style={{ fontSize: '0.7rem', color: '#7ecf7e', marginBottom: '0.4rem' }}>✓ 저장됨</p>
+                  <a href={`https://notion.so/${notionDbId.replace(/-/g, '')}`} target="_blank" rel="noopener noreferrer"
+                    className="mono" style={{ fontSize: '0.68rem', color: 'var(--gold)', textDecoration: 'none' }}>
+                    🔗 Notion DB 열기 →
                   </a>
                 </div>
-              ) : (
-                <button className="btn-gold" onClick={archiveToNotion} disabled={notionStatus === 'loading'}>
-                  {notionStatus === 'loading' ? <><span className="spinner" /> Archiving...</> : '📓 Archive to Notion'}
-                </button>
               )}
 
               {notionStatus === 'err' && notionError && (
-                <div style={{ padding: '0.5rem', background: 'rgba(160,60,60,0.1)', border: '1px solid rgba(160,60,60,0.3)' }}>
-                  <p className="mono" style={{ fontSize: '0.7rem', color: '#cf7e7e' }}>
-                    {notionError.includes('401') ? 'Authentication error — please re-authenticate with Notion.' :
-                      notionError.includes('400') ? 'Invalid request — check your DB properties.' :
-                        notionError}
-                  </p>
+                <div style={{ border: '1px solid rgba(160,60,60,0.4)', background: 'rgba(160,60,60,0.08)', padding: '0.6rem 0.8rem' }}>
+                  <p className="mono" style={{ fontSize: '0.68rem', color: '#cf7e7e', lineHeight: 1.5 }}>{notionError}</p>
                 </div>
               )}
 
-              {/* Setup guide */}
+              {/* Setup Guide */}
               <div style={{ borderTop: '1px solid var(--bd)', paddingTop: '0.75rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx2)', marginBottom: '0.5rem' }}>SETUP GUIDE</p>
-                <ol style={{ paddingLeft: '1rem' }}>
-                  {[
-                    'Create a Notion database for whisky logs',
-                    'Add properties: Name, Region, Age, ABV, Score, Nose, Palate, Finish',
-                    'Connect Notion MCP at mcp.notion.com',
-                    'Copy your database ID from the URL',
-                    'Paste the DB ID above and save',
-                  ].map((step, i) => (
-                    <li key={i} className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', marginBottom: '0.3rem', lineHeight: '1.5' }}>
-                      {step}
-                    </li>
-                  ))}
-                </ol>
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.5rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                  Notion 설정 가이드
+                </p>
+                {[
+                  'notion.so → Settings → My connections → + New integration → Internal 타입으로 생성',
+                  'Secret (token) 복사 → Integration Token에 입력',
+                  '아카이빙할 DB 페이지 → ··· → Connect to → 생성한 Integration 선택',
+                  'DB URL에서 32자리 ID 복사: notion.so/username/[이32자리가ID]?v=...',
+                  'DB 속성: Name(Title) / Distillery / Region / Age / ABV / Cask / Score(Number) / Color / Nose / Palate / Finish / Comment / Date',
+                ].map((step, i) => (
+                  <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                    <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', flexShrink: 0 }}>{i+1}.</span>
+                    <p style={{ fontSize: '0.68rem', color: 'var(--tx2)', lineHeight: 1.5 }}>{step}</p>
+                  </div>
+                ))}
+              </div>
+
+              {/* Share guide */}
+              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: '0.75rem' }}>
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', letterSpacing: '0.08em', textTransform: 'uppercase' }}>📡 공유 방법</p>
+                <p style={{ fontSize: '0.68rem', color: 'var(--tx2)', lineHeight: 1.5 }}>
+                  Notion DB → Share → Publish to web → 링크 공유
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Collection quick-select */}
-          {last5.length > 0 && (
-            <div className="section">
-              <div className="section-header">Recent Drams</div>
+          {/* Collection quick select */}
+          {collection.length > 0 && (
+            <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', marginTop: '1px' }}>
+              <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
+                <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Recent Drams
+                </p>
+              </div>
               <div style={{ padding: '0.5rem' }}>
-                {last5.map(log => (
-                  <button
-                    key={log.id}
-                    onClick={() => updateCurrentLog(log)}
+                {collection.slice(0, 5).map((log) => (
+                  <button key={log.id} onClick={() => updateCurrentLog({ ...log })}
                     style={{
-                      width: '100%', textAlign: 'left',
-                      padding: '0.6rem 0.75rem',
-                      background: 'transparent',
-                      border: 'none',
-                      borderBottom: '1px solid var(--bd)',
-                      cursor: 'pointer',
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      transition: 'background 0.2s',
+                      width: '100%', background: 'transparent', border: 'none', cursor: 'pointer',
+                      padding: '0.5rem 0.75rem', textAlign: 'left', display: 'flex',
+                      justifyContent: 'space-between', alignItems: 'center', transition: 'background 0.15s',
                     }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--gp)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <span style={{ fontSize: '0.8rem', color: 'var(--tx)' }}>{log.brand}</span>
-                    <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)' }}>{log.age}</span>
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c3)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--tx)' }}>{log.brand || '—'} {log.age || ''}</span>
+                    <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)' }}>★{log.score?.toFixed(1)}</span>
                   </button>
                 ))}
               </div>
@@ -327,61 +304,34 @@ export default function SharePage() {
         </div>
       </div>
 
-      {/* Blog Modal */}
-      {showBlogModal && (
-        <Modal
-          title="Blog Post"
-          subtitle="AI-generated blog post — edit as needed"
-          onClose={() => setShowBlogModal(false)}
-          actions={
-            <>
-              <button className="btn-ghost" onClick={() => setShowBlogModal(false)}>Close</button>
-              <button className="btn-ghost" onClick={genBlogPost}>Regenerate</button>
-              <button className="btn-gold" onClick={() => { navigator.clipboard.writeText(blogPost); showToast('Copied!', 'ok') }}>Copy</button>
-            </>
-          }
-        >
-          {blogLoading ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--tx2)' }}>
-              <span className="spinner" /><span className="mono" style={{ fontSize: '0.75rem' }}>Generating...</span>
-            </div>
-          ) : (
-            <textarea
-              value={blogPost}
-              onChange={e => setBlogPost(e.target.value)}
-              style={{ minHeight: '200px', lineHeight: '1.7', background: 'var(--c3)', padding: '0.75rem' }}
-            />
-          )}
-        </Modal>
-      )}
-
-      {/* Instagram Modal */}
-      {showInstaModal && (
-        <Modal
-          title="Instagram Post"
-          subtitle="AI-generated Instagram post"
-          onClose={() => setShowInstaModal(false)}
-          actions={
-            <>
-              <button className="btn-ghost" onClick={() => setShowInstaModal(false)}>Close</button>
-              <button className="btn-ghost" onClick={genInstaPost}>Regenerate</button>
-              <button className="btn-gold" onClick={() => { navigator.clipboard.writeText(instaPost); showToast('Copied!', 'ok') }}>Copy</button>
-            </>
-          }
-        >
-          {instaLoading ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--tx2)' }}>
-              <span className="spinner" /><span className="mono" style={{ fontSize: '0.75rem' }}>Generating...</span>
-            </div>
-          ) : (
-            <textarea
-              value={instaPost}
-              onChange={e => setInstaPost(e.target.value)}
-              style={{ minHeight: '200px', lineHeight: '1.7', background: 'var(--c3)', padding: '0.75rem' }}
-            />
-          )}
-        </Modal>
-      )}
+      {/* AI Output Modal */}
+      <Modal open={modal.open} onClose={() => setModal((p) => ({ ...p, open: false }))}
+        title={modal.title}
+        actions={
+          <>
+            <button className="btn-ghost" style={{ fontSize: '0.72rem' }} onClick={regenerate} disabled={modal.loading}>↺ 다시 생성</button>
+            <button className="btn-ghost" style={{ fontSize: '0.72rem' }}
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(modal.text); showToast('복사됨', 'ok') }
+                catch { showToast('복사 실패', 'err') }
+              }}
+              disabled={modal.loading || !modal.text}>
+              📋 복사
+            </button>
+            <button className="btn-ghost" style={{ fontSize: '0.72rem' }} onClick={() => setModal((p) => ({ ...p, open: false }))}>닫기</button>
+          </>
+        }>
+        {modal.loading ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '1rem 0' }}>
+            <span className="spinner" />
+            <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>Gemini 생성 중...</span>
+          </div>
+        ) : (
+          <textarea rows={10} value={modal.text}
+            onChange={(e) => setModal((p) => ({ ...p, text: e.target.value }))}
+            style={{ border: '1px solid var(--bd)', padding: '0.75rem', lineHeight: 1.7, width: '100%' }} />
+        )}
+      </Modal>
     </div>
   )
 }

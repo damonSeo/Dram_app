@@ -1,238 +1,213 @@
 'use client'
-import { useState, useCallback } from 'react'
-import { useDropzone } from 'react-dropzone'
+import { useState, useRef, useCallback } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
-import { runOcr } from '@/lib/api'
-import { OcrResult } from '@/types'
+import type { OcrResult } from '@/types'
 
-const REGIONS = ['Speyside', 'Islay', 'Highland', 'Lowland', 'Campbeltown', 'Island', 'Irish', 'Japanese', 'American', 'Taiwanese', 'Indian', 'Other']
+const REGIONS = ['Speyside','Islay','Highland','Lowland','Campbeltown','Island','Irish','Japanese','American','Taiwanese','Indian','Other']
+const CASK_TYPES = ['Ex-Bourbon','Hogshead','Oloroso Sherry','Pedro Ximénez','Port','Rum','Madeira','Sauternes','Virgin Oak','American Oak','European Oak','STR','Wine','Mizunara']
+const AGE_CHIPS = ['NAS','8yr','10yr','12yr','15yr','18yr','21yr','25yr','30yr']
+const ABV_CHIPS = ['40%','43%','46%','48%','51.7%','55%','58%','Cask Strength']
+const CY = new Date().getFullYear()
+const VINTAGE_CHIPS = [CY-4, CY-8, CY-12, CY-18, CY-22, CY-27].map(String)
 
-const CASK_TYPES = ['Ex-Bourbon', 'Hogshead', 'Oloroso Sherry', 'Pedro Ximénez', 'Port', 'Rum', 'Madeira', 'Sauternes', 'Virgin Oak', 'American Oak', 'European Oak', 'STR', 'Wine', 'Mizunara']
+type Mode = 'scan' | 'manual'
 
-const AGE_CHIPS = ['NAS', '8yr', '10yr', '12yr', '15yr', '18yr', '21yr', '25yr', '30yr']
-const ABV_CHIPS = ['40%', '43%', '46%', '48%', '51.7%', '55%', '58%', 'Cask Strength']
+interface ScanFields {
+  brand: string; region: string; age: string; vintage: string
+  abv: string; bottler: string; cask: string
+}
 
-const CURRENT_YEAR = new Date().getFullYear()
-const VINTAGE_CHIPS = Array.from({ length: 6 }, (_, i) => String(CURRENT_YEAR - 5 + i))
-
-type ScanMode = 'scan' | 'manual'
-
-const PROGRESS_STEPS = ['Uploading', 'AI Vision', 'Parsing', 'Complete']
+const S = {
+  wrapper: { maxWidth: 720, margin: '0 auto', padding: '2rem 1.5rem' } as React.CSSProperties,
+  section: { border: '1px solid var(--bd)', background: 'var(--c2)', marginBottom: '1px' } as React.CSSProperties,
+  hdr: { padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)', fontFamily: 'DM Mono, monospace', fontSize: '0.65rem', letterSpacing: '0.1em', color: 'var(--tx2)', textTransform: 'uppercase' as const },
+  body: { padding: '1rem' } as React.CSSProperties,
+  row: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--bd)', marginBottom: '1px' } as React.CSSProperties,
+  cell: { background: 'var(--c2)', padding: '0.75rem' } as React.CSSProperties,
+  label: { fontFamily: 'DM Mono, monospace', fontSize: '0.6rem', color: 'var(--tx3)', letterSpacing: '0.08em', marginBottom: '0.35rem', textTransform: 'uppercase' as const },
+  chips: { display: 'flex', flexWrap: 'wrap' as const, gap: '0.35rem', marginTop: '0.5rem' },
+}
 
 export default function ScanPage() {
-  const [mode, setMode] = useState<ScanMode>('scan')
-  const { updateCurrentLog, setActiveTab, currentLog } = useStore()
+  const { updateCurrentLog, setActiveTab } = useStore()
   const { showToast } = useToast()
+  const [mode, setMode] = useState<Mode>('scan')
 
-  // Scan mode state
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [progressStep, setProgressStep] = useState(-1)
-  const [ocrResult, setOcrResult] = useState<OcrResult | null>(null)
-  const [scanFields, setScanFields] = useState({
-    brand: '', region: '', age: '', vintage: '', abv: '', bottler: 'OB', cask: ''
-  })
+  // Scan state
+  const [preview, setPreview] = useState<string | null>(null)
+  const [scanFile, setScanFile] = useState<File | null>(null)
+  const [scanFields, setScanFields] = useState<ScanFields>({ brand:'',region:'',age:'',vintage:'',abv:'',bottler:'',cask:'' })
+  const [progress, setProgress] = useState(0)
+  const [progLabel, setProgLabel] = useState('')
+  const [scanning, setScanning] = useState(false)
+  const [scanDone, setScanDone] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // Manual mode state
-  const [brand, setBrand] = useState(currentLog.brand || '')
-  const [region, setRegion] = useState(currentLog.region || '')
-  const [bottler, setBottler] = useState(currentLog.bottler || 'OB')
-  const [ibName, setIbName] = useState(currentLog.ib_name || '')
-  const [age, setAge] = useState(currentLog.age || '')
-  const [vintage, setVintage] = useState(currentLog.vintage || '')
-  const [distilledDate, setDistilledDate] = useState(currentLog.distilled_date || '')
-  const [bottledDate, setBottledDate] = useState(currentLog.bottled_date || '')
-  const [abv, setAbv] = useState(currentLog.abv || '')
-  const [caskStrengthActual, setCaskStrengthActual] = useState('')
-  const [selectedCasks, setSelectedCasks] = useState<string[]>(currentLog.casks || [])
-  const [additionalCask, setAdditionalCask] = useState('')
-  const [caskNo, setCaskNo] = useState(currentLog.cask_no || '')
-  const [bottles, setBottles] = useState(currentLog.bottles || '')
+  // Manual state
+  const [brand, setBrand] = useState('')
+  const [region, setRegion] = useState('')
+  const [bottler, setBottler] = useState<'OB'|'IB'>('OB')
+  const [ibName, setIbName] = useState('')
+  const [age, setAge] = useState('')
+  const [vintage, setVintage] = useState('')
+  const [distilledDate, setDistilledDate] = useState('')
+  const [bottledDate, setBottledDate] = useState('')
+  const [abvRaw, setAbvRaw] = useState('')
+  const [isCaskStrength, setIsCaskStrength] = useState(false)
+  const [csAbv, setCsAbv] = useState('')
+  const [selectedCasks, setSelectedCasks] = useState<string[]>([])
+  const [customCask, setCustomCask] = useState('')
+  const [caskNo, setCaskNo] = useState('')
+  const [bottles, setBottles] = useState('')
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const file = acceptedFiles[0]
-    if (!file) return
-    const url = URL.createObjectURL(file)
-    setImagePreview(url)
-    setProgressStep(0)
+  const handleFile = useCallback((file: File) => {
+    setScanFile(file)
+    setScanDone(false)
+    setScanFields({ brand:'',region:'',age:'',vintage:'',abv:'',bottler:'',cask:'' })
+    const reader = new FileReader()
+    reader.onload = (e) => setPreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file && file.type.startsWith('image/')) handleFile(file)
+  }, [handleFile])
+
+  const runOcr = async () => {
+    if (!scanFile) return
+    setScanning(true)
+    setScanDone(false)
     try {
-      await new Promise(r => setTimeout(r, 400))
-      setProgressStep(1)
-      const result = await runOcr(file)
-      setProgressStep(2)
-      await new Promise(r => setTimeout(r, 300))
-      setProgressStep(3)
-      setOcrResult(result)
+      const form = new FormData()
+      form.append('image', scanFile)
+      setProgress(20); setProgLabel('Uploading...')
+      const res = await fetch('/api/ocr', { method: 'POST', body: form })
+      setProgress(55); setProgLabel('AI Vision analyzing...')
+      const json = await res.json()
+      setProgress(85); setProgLabel('Parsing results...')
+      const d: OcrResult = json.data || {}
       setScanFields({
-        brand: result.brand || '',
-        region: result.region || '',
-        age: result.age || '',
-        vintage: result.vintage || '',
-        abv: result.abv || '',
-        bottler: result.bottler || 'OB',
-        cask: result.cask || '',
+        brand: d.brand || '', region: d.region || '', age: d.age || '',
+        vintage: d.vintage || '', abv: d.abv || '', bottler: d.bottler || '', cask: d.cask || '',
       })
+      setProgress(100); setProgLabel('Complete')
+      setScanDone(true)
+      showToast('OCR 완료!', 'ok')
     } catch {
-      showToast('OCR failed', 'err')
-      setProgressStep(-1)
+      showToast('OCR 실패', 'err')
+    } finally {
+      setScanning(false)
     }
-  }, [showToast])
+  }
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': [] },
-    maxFiles: 1,
-  })
-
-  const handleScanNext = () => {
+  const goToTasting = (fields: Record<string, string | string[]>) => {
     updateCurrentLog({
-      brand: scanFields.brand,
-      region: scanFields.region,
-      age: scanFields.age,
-      vintage: scanFields.vintage,
-      abv: scanFields.abv,
-      bottler: scanFields.bottler,
-      casks: scanFields.cask ? [scanFields.cask] : [],
+      brand: (fields.brand as string) || '',
+      region: (fields.region as string) || '',
+      age: (fields.age as string) || '',
+      vintage: (fields.vintage as string) || '',
+      abv: (fields.abv as string) || '',
+      bottler: (fields.bottler as string) || '',
+      ib_name: (fields.ib_name as string) || '',
+      casks: (fields.casks as string[]) || [],
+      cask_no: (fields.cask_no as string) || '',
+      bottles: (fields.bottles as string) || '',
+      distilled_date: (fields.distilled_date as string) || '',
+      bottled_date: (fields.bottled_date as string) || '',
+      date: new Date().toISOString().split('T')[0],
     })
     setActiveTab('tasting')
   }
 
-  const toggleCask = (cask: string) => {
-    setSelectedCasks(prev =>
-      prev.includes(cask) ? prev.filter(c => c !== cask) : [...prev, cask]
-    )
-  }
+  const toggleCask = (c: string) =>
+    setSelectedCasks((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c])
 
-  const handleAbvChip = (chip: string) => {
-    if (chip === 'Cask Strength') {
-      setAbv('Cask Strength')
-    } else {
-      setAbv(chip.replace('%', ''))
-    }
-  }
-
-  const handleManualNext = () => {
-    const finalAbv = abv === 'Cask Strength' && caskStrengthActual
-      ? `Cask Strength (${caskStrengthActual}%)`
-      : abv
-
-    const allCasks = [...selectedCasks]
-    if (additionalCask.trim()) allCasks.push(additionalCask.trim())
-
-    updateCurrentLog({
-      brand,
-      region,
-      bottler,
-      ib_name: bottler === 'IB' ? ibName : undefined,
-      age,
-      vintage,
-      distilled_date: distilledDate,
-      bottled_date: bottledDate,
-      abv: finalAbv,
-      casks: allCasks,
-      cask_no: caskNo,
-      bottles,
-    })
-    setActiveTab('tasting')
+  const getAbvDisplay = () => {
+    if (isCaskStrength) return csAbv ? `Cask Strength (${csAbv}%)` : 'Cask Strength'
+    return abvRaw
   }
 
   return (
-    <div style={{ maxWidth: '680px', margin: '0 auto', padding: '2rem 1rem' }}>
+    <div style={S.wrapper}>
       {/* Mode toggle */}
-      <div style={{ display: 'flex', marginBottom: '1.5rem', border: '1px solid var(--bd)' }}>
-        {(['scan', 'manual'] as ScanMode[]).map(m => (
-          <button
-            key={m}
-            onClick={() => setMode(m)}
-            className="mono"
-            style={{
-              flex: 1,
-              padding: '0.6rem',
-              background: mode === m ? 'var(--gp)' : 'transparent',
-              border: 'none',
-              borderBottom: mode === m ? '2px solid var(--gold)' : '2px solid transparent',
-              color: mode === m ? 'var(--gold)' : 'var(--tx2)',
-              cursor: 'pointer',
-              fontSize: '0.7rem',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-              transition: 'all 0.2s',
-            }}
-          >
-            {m === 'scan' ? 'Scan Label' : 'Manual Entry'}
+      <div style={{ display:'flex', gap:'1px', marginBottom:'1.5rem', background:'var(--bd)' }}>
+        {(['scan','manual'] as Mode[]).map((m) => (
+          <button key={m} onClick={() => setMode(m)} className="mono" style={{
+            flex:1, padding:'0.6rem', border:'none', cursor:'pointer',
+            background: mode===m ? 'var(--gp)' : 'var(--c2)',
+            color: mode===m ? 'var(--gold)' : 'var(--tx2)',
+            fontSize:'0.72rem', letterSpacing:'0.08em', textTransform:'uppercase',
+            borderBottom: mode===m ? '1px solid var(--gold)' : '1px solid transparent',
+          }}>
+            {m==='scan' ? '⬡ Scan Label' : '✎ Manual Entry'}
           </button>
         ))}
       </div>
 
+      {/* ── SCAN MODE ── */}
       {mode === 'scan' && (
-        <div>
-          {/* Dropzone */}
+        <div className="fade-up">
           <div
-            {...getRootProps()}
+            onClick={() => fileInputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
             style={{
-              border: `2px dashed ${isDragActive ? 'var(--gold)' : 'var(--bd2)'}`,
-              padding: '3rem 1rem',
-              textAlign: 'center',
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              background: isDragActive ? 'var(--gp)' : 'transparent',
-              marginBottom: '1rem',
+              border: `1px dashed ${dragOver ? 'var(--gold)' : 'var(--bd2)'}`,
+              background: dragOver ? 'var(--gp)' : 'var(--c2)',
+              padding: '2.5rem 1.5rem', textAlign:'center',
+              cursor:'pointer', transition:'all 0.2s', marginBottom:'1px',
             }}
           >
-            <input {...getInputProps()} />
-            {imagePreview ? (
-              <img src={imagePreview} alt="Preview" style={{ maxHeight: '200px', maxWidth: '100%', objectFit: 'contain' }} />
+            <input ref={fileInputRef} type="file" accept="image/*" style={{display:'none'}}
+              onChange={(e) => { const f=e.target.files?.[0]; if(f) handleFile(f) }} />
+            {preview ? (
+              <img src={preview} alt="preview" style={{ maxHeight:200, maxWidth:'100%', objectFit:'contain', margin:'0 auto', display:'block' }} />
             ) : (
-              <div>
-                <p style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📷</p>
-                <p className="mono" style={{ color: 'var(--tx2)', fontSize: '0.75rem' }}>
-                  {isDragActive ? 'Drop image here' : 'Drag & drop or click to select whisky label'}
-                </p>
-              </div>
+              <>
+                <p className="display" style={{ fontSize:'2.5rem', color:'var(--bd2)', marginBottom:'0.5rem' }}>⬡</p>
+                <p className="mono" style={{ fontSize:'0.72rem', color:'var(--tx2)' }}>Drop image or click to upload</p>
+                <p style={{ fontSize:'0.7rem', color:'var(--tx3)', marginTop:'0.25rem' }}>JPG · PNG · WEBP</p>
+              </>
             )}
           </div>
 
-          {/* Progress bar */}
-          {progressStep >= 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <div className="progress-bar">
-                <div
-                  className="progress-fill"
-                  style={{ width: `${((progressStep + 1) / PROGRESS_STEPS.length) * 100}%` }}
-                />
+          {preview && !scanning && !scanDone && (
+            <button className="btn-gold" style={{ width:'100%', justifyContent:'center', marginBottom:'1px' }} onClick={runOcr}>
+              ✦ Analyze Label
+            </button>
+          )}
+
+          {scanning && (
+            <div style={{ border:'1px solid var(--bd)', background:'var(--c2)', padding:'1rem', marginBottom:'1px' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'0.6rem' }}>
+                <span className="spinner" />
+                <span className="mono" style={{ fontSize:'0.72rem', color:'var(--gold)' }}>{progLabel}</span>
               </div>
-              <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--gold)', marginTop: '0.4rem' }}>
-                {PROGRESS_STEPS[progressStep]}
-                {progressStep < 3 && <span className="spinner" style={{ marginLeft: '0.5rem' }} />}
-              </p>
+              <div style={{ height:2, background:'var(--bd)', overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${progress}%`, background:'var(--gold)', transition:'width 0.4s ease' }} />
+              </div>
             </div>
           )}
 
-          {/* OCR result fields */}
-          {ocrResult !== null && (
-            <div>
-              <div className="field-grid" style={{ gridTemplateColumns: '1fr 1fr', marginBottom: '1.5rem' }}>
-                {[
-                  { label: 'Distillery', key: 'brand' as const, value: scanFields.brand, onChange: (v: string) => setScanFields(p => ({ ...p, brand: v })) },
-                  { label: 'Region', key: 'region' as const, value: scanFields.region, onChange: (v: string) => setScanFields(p => ({ ...p, region: v })) },
-                  { label: 'Age', key: 'age' as const, value: scanFields.age, onChange: (v: string) => setScanFields(p => ({ ...p, age: v })) },
-                  { label: 'Vintage', key: 'vintage' as const, value: scanFields.vintage, onChange: (v: string) => setScanFields(p => ({ ...p, vintage: v })) },
-                  { label: 'ABV', key: 'abv' as const, value: scanFields.abv, onChange: (v: string) => setScanFields(p => ({ ...p, abv: v })) },
-                  { label: 'Bottler', key: 'bottler' as const, value: scanFields.bottler, onChange: (v: string) => setScanFields(p => ({ ...p, bottler: v })) },
-                  { label: 'Cask', key: 'cask' as const, value: scanFields.cask, onChange: (v: string) => setScanFields(p => ({ ...p, cask: v })) },
-                ].map(f => (
-                  <div key={f.key} className="field-cell">
-                    <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>{f.label}</p>
-                    <input
-                      type="text"
-                      value={f.value}
-                      onChange={e => f.onChange(e.target.value)}
-                      placeholder="—"
-                    />
+          {scanDone && (
+            <div className="fade-up">
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1px', background:'var(--bd)', marginBottom:'1px' }}>
+                {([['Distillery','brand'],['Region','region'],['Age','age'],['Vintage','vintage'],['ABV','abv'],['Bottler','bottler'],['Cask','cask']] as [string, keyof ScanFields][]).map(([label, key]) => (
+                  <div key={key} style={S.cell}>
+                    <p style={S.label}>{label}</p>
+                    <input type="text" value={scanFields[key]}
+                      onChange={(e) => setScanFields((p) => ({ ...p, [key]: e.target.value }))} />
                   </div>
                 ))}
               </div>
-              <button className="btn-gold" style={{ width: '100%' }} onClick={handleScanNext}>
+              <button className="btn-gold" style={{ width:'100%', justifyContent:'center' }}
+                onClick={() => goToTasting({ ...scanFields, casks: scanFields.cask ? [scanFields.cask] : [] })}>
                 Next — Add Tasting Notes →
               </button>
             </div>
@@ -240,153 +215,153 @@ export default function ScanPage() {
         </div>
       )}
 
+      {/* ── MANUAL MODE ── */}
       {mode === 'manual' && (
-        <div>
-          {/* Section 1: Distillery & Bottling */}
-          <div className="section" style={{ marginBottom: '1px' }}>
-            <div className="section-header">Distillery & Bottling</div>
-            <div className="field-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <div className="field-cell" style={{ gridColumn: '1 / -1' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Distillery / Brand</p>
-                <input type="text" value={brand} onChange={e => setBrand(e.target.value)} placeholder="e.g. Glenfarclas" />
-              </div>
-              <div className="field-cell">
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Region</p>
-                <select value={region} onChange={e => setRegion(e.target.value)}>
-                  <option value="">Select region</option>
-                  {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
-                </select>
-              </div>
-              <div className="field-cell">
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Bottler</p>
-                <select value={bottler} onChange={e => setBottler(e.target.value)}>
-                  <option value="OB">OB (Official Bottler)</option>
-                  <option value="IB">IB (Independent Bottler)</option>
-                </select>
-              </div>
-              {bottler === 'IB' && (
-                <div className="field-cell" style={{ gridColumn: '1 / -1' }}>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>IB Name</p>
-                  <input type="text" value={ibName} onChange={e => setIbName(e.target.value)} placeholder="e.g. Gordon & MacPhail" />
+        <div className="fade-up">
+          {/* Section 1 */}
+          <div style={S.section}>
+            <div style={S.hdr}>Distillery &amp; Bottling</div>
+            <div style={S.body}>
+              <div style={S.row}>
+                <div style={S.cell}>
+                  <p style={S.label}>Distillery / Brand</p>
+                  <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Glenfarclas" />
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Section 2: Age & Vintage */}
-          <div className="section" style={{ marginBottom: '1px' }}>
-            <div className="section-header">Age & Vintage</div>
-            <div className="field-grid" style={{ gridTemplateColumns: '1fr 1fr' }}>
-              <div className="field-cell">
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Age Statement</p>
-                <input type="text" value={age} onChange={e => setAge(e.target.value)} placeholder="e.g. 12" />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.5rem' }}>
-                  {AGE_CHIPS.map(c => (
-                    <button key={c} className={`chip${age === c || age === c.replace('yr', '') ? ' active' : ''}`} onClick={() => setAge(c)}>
-                      {c}
-                    </button>
-                  ))}
+                <div style={S.cell}>
+                  <p style={S.label}>Region</p>
+                  <select value={region} onChange={(e) => setRegion(e.target.value)}>
+                    <option value="">Select region</option>
+                    {REGIONS.map((r) => <option key={r} value={r}>{r}</option>)}
+                  </select>
                 </div>
               </div>
-              <div className="field-cell">
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Vintage Year</p>
-                <input type="text" value={vintage} onChange={e => setVintage(e.target.value)} placeholder="e.g. 1995" />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.5rem' }}>
-                  {VINTAGE_CHIPS.map(c => (
-                    <button key={c} className={`chip${vintage === c ? ' active' : ''}`} onClick={() => setVintage(c)}>
-                      {c}
-                    </button>
-                  ))}
+              <div style={S.row}>
+                <div style={S.cell}>
+                  <p style={S.label}>Bottler</p>
+                  <select value={bottler} onChange={(e) => setBottler(e.target.value as 'OB'|'IB')}>
+                    <option value="OB">OB (Official)</option>
+                    <option value="IB">IB (Independent)</option>
+                  </select>
                 </div>
-              </div>
-              <div className="field-cell">
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Distilled Date</p>
-                <input type="text" value={distilledDate} onChange={e => setDistilledDate(e.target.value)} placeholder="e.g. April 2005" />
-              </div>
-              <div className="field-cell">
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>Bottled Date</p>
-                <input type="text" value={bottledDate} onChange={e => setBottledDate(e.target.value)} placeholder="e.g. March 2020" />
+                <div style={S.cell}>
+                  <p style={S.label}>IB Name</p>
+                  <input type="text" value={ibName} onChange={(e) => setIbName(e.target.value)}
+                    placeholder={bottler==='IB' ? 'e.g. Gordon & MacPhail' : '(OB selected)'}
+                    disabled={bottler!=='IB'} style={{ opacity: bottler==='IB' ? 1 : 0.3 }} />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Section 3: Strength */}
-          <div className="section" style={{ marginBottom: '1px' }}>
-            <div className="section-header">Strength</div>
-            <div className="field-cell">
-              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem', textTransform: 'uppercase' }}>ABV (%)</p>
-              <input
-                type="text"
-                value={abv}
-                onChange={e => setAbv(e.target.value)}
-                placeholder="e.g. 46.0"
-              />
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '0.5rem' }}>
-                {ABV_CHIPS.map(c => (
-                  <button
-                    key={c}
-                    className={`chip${(c === 'Cask Strength' && abv.startsWith('Cask Strength')) || abv === c.replace('%', '') ? ' active' : ''}`}
-                    onClick={() => handleAbvChip(c)}
-                  >
-                    {c}
-                  </button>
+          {/* Section 2 */}
+          <div style={S.section}>
+            <div style={S.hdr}>Age &amp; Vintage</div>
+            <div style={S.body}>
+              <div style={S.row}>
+                <div style={S.cell}>
+                  <p style={S.label}>Age Statement</p>
+                  <input type="text" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 12yr or NAS" />
+                  <div style={S.chips}>
+                    {AGE_CHIPS.map((c) => (
+                      <button key={c} className={`chip${age===c?' active':''}`} onClick={() => setAge(age===c?'':c)}>{c}</button>
+                    ))}
+                  </div>
+                </div>
+                <div style={S.cell}>
+                  <p style={S.label}>Vintage Year</p>
+                  <input type="text" value={vintage} onChange={(e) => setVintage(e.target.value)} placeholder="e.g. 2005" />
+                  <div style={S.chips}>
+                    {VINTAGE_CHIPS.map((y) => (
+                      <button key={y} className={`chip${vintage===y?' active':''}`} onClick={() => setVintage(vintage===y?'':y)}>{y}</button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div style={S.row}>
+                <div style={S.cell}>
+                  <p style={S.label}>Distilled Date</p>
+                  <input type="text" value={distilledDate} onChange={(e) => setDistilledDate(e.target.value)} placeholder="e.g. Nov 1995" />
+                </div>
+                <div style={S.cell}>
+                  <p style={S.label}>Bottled Date</p>
+                  <input type="text" value={bottledDate} onChange={(e) => setBottledDate(e.target.value)} placeholder="e.g. Mar 2023" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3 */}
+          <div style={S.section}>
+            <div style={S.hdr}>Strength (ABV)</div>
+            <div style={S.body}>
+              <div style={S.cell}>
+                <p style={S.label}>ABV</p>
+                <input type="text"
+                  value={isCaskStrength ? csAbv : abvRaw}
+                  onChange={(e) => isCaskStrength ? setCsAbv(e.target.value.replace('%','')) : setAbvRaw(e.target.value)}
+                  onBlur={(e) => {
+                    if (!isCaskStrength) {
+                      const v = parseFloat(e.target.value)
+                      if (!isNaN(v) && v >= 10) setAbvRaw(`${v}%`)
+                    }
+                  }}
+                  placeholder={isCaskStrength ? 'actual ABV e.g. 63.2' : 'e.g. 46%'} />
+                <div style={S.chips}>
+                  {ABV_CHIPS.map((c) => {
+                    const isCS = c==='Cask Strength'
+                    const isActive = isCS ? isCaskStrength : abvRaw===c
+                    return (
+                      <button key={c} className={`chip${isActive?' active':''}`} onClick={() => {
+                        if (isCS) { setIsCaskStrength(!isCaskStrength); setAbvRaw('') }
+                        else { setAbvRaw(abvRaw===c?'':c); setIsCaskStrength(false) }
+                      }}>{c}</button>
+                    )
+                  })}
+                </div>
+                {isCaskStrength && csAbv && (
+                  <p className="mono" style={{ fontSize:'0.7rem', color:'var(--gold)', marginTop:'0.5rem' }}>
+                    → Cask Strength ({csAbv}%)
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Section 4 */}
+          <div style={S.section}>
+            <div style={S.hdr}>Cask &amp; Maturation</div>
+            <div style={S.body}>
+              <p style={S.label}>Cask Types</p>
+              <div style={S.chips}>
+                {CASK_TYPES.map((c) => (
+                  <button key={c} className={`chip${selectedCasks.includes(c)?' active':''}`} onClick={() => toggleCask(c)}>{c}</button>
                 ))}
               </div>
-              {abv === 'Cask Strength' && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem' }}>Actual Cask Strength ABV</p>
-                  <input
-                    type="number"
-                    value={caskStrengthActual}
-                    onChange={e => setCaskStrengthActual(e.target.value)}
-                    placeholder="e.g. 63.2"
-                    step="0.1"
-                  />
-                  {caskStrengthActual && (
-                    <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', marginTop: '0.3rem' }}>
-                      → Cask Strength ({caskStrengthActual}%)
-                    </p>
-                  )}
+              <div style={{ ...S.row, marginTop:'1rem' }}>
+                <div style={S.cell}>
+                  <p style={S.label}>Custom Cask</p>
+                  <input type="text" value={customCask} onChange={(e) => setCustomCask(e.target.value)} placeholder="Custom cask type" />
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Section 4: Cask & Maturation */}
-          <div className="section" style={{ marginBottom: '1.5rem' }}>
-            <div className="section-header">Cask & Maturation</div>
-            <div className="field-cell">
-              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.5rem', textTransform: 'uppercase' }}>Cask Types</p>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
-                {CASK_TYPES.map(c => (
-                  <button
-                    key={c}
-                    className={`chip${selectedCasks.includes(c) ? ' active' : ''}`}
-                    onClick={() => toggleCask(c)}
-                  >
-                    {c}
-                  </button>
-                ))}
+                <div style={S.cell}>
+                  <p style={S.label}>Cask No.</p>
+                  <input type="text" value={caskNo} onChange={(e) => setCaskNo(e.target.value)} placeholder="e.g. #1234" />
+                </div>
               </div>
-              <div style={{ borderTop: '1px solid var(--bd)', paddingTop: '0.75rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--bd)', marginTop: '0.5rem' }}>
-                <div style={{ background: 'var(--c2)', padding: '0.5rem' }}>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem' }}>Additional Cask</p>
-                  <input type="text" value={additionalCask} onChange={e => setAdditionalCask(e.target.value)} placeholder="e.g. Armagnac" />
-                </div>
-                <div style={{ background: 'var(--c2)', padding: '0.5rem' }}>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem' }}>Cask No.</p>
-                  <input type="text" value={caskNo} onChange={e => setCaskNo(e.target.value)} placeholder="e.g. #1234" />
-                </div>
-                <div style={{ background: 'var(--c2)', padding: '0.5rem', gridColumn: '1 / -1' }}>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginBottom: '0.3rem' }}>Total Bottles</p>
-                  <input type="text" value={bottles} onChange={e => setBottles(e.target.value)} placeholder="e.g. 284" />
+              <div style={S.row}>
+                <div style={S.cell}>
+                  <p style={S.label}>Total Bottles</p>
+                  <input type="text" value={bottles} onChange={(e) => setBottles(e.target.value)} placeholder="e.g. 285 bottles" />
                 </div>
               </div>
             </div>
           </div>
 
-          <button className="btn-gold" style={{ width: '100%' }} onClick={handleManualNext}>
-            Next →
+          <button className="btn-gold" style={{ width:'100%', justifyContent:'center', marginTop:'0.5rem' }}
+            onClick={() => {
+              const allCasks = [...selectedCasks, ...(customCask ? [customCask] : [])]
+              goToTasting({ brand, region, bottler, ib_name: ibName, age, vintage, distilled_date: distilledDate, bottled_date: bottledDate, abv: getAbvDisplay(), casks: allCasks, cask_no: caskNo, bottles })
+            }}>
+            Next — Add Tasting Notes →
           </button>
         </div>
       )}

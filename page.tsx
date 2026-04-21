@@ -5,7 +5,7 @@ import ScanPage from '@/components/ScanPage'
 import TastingPage from '@/components/TastingPage'
 import CollectionPage from '@/components/CollectionPage'
 import SharePage from '@/components/SharePage'
-import Toast, { ToastProvider } from '@/components/Toast'
+import { ToastProvider } from '@/components/Toast'
 
 export default function Home() {
   const activeTab = useStore((s) => s.activeTab)
@@ -19,7 +19,6 @@ export default function Home() {
         {activeTab === 'collection' && <CollectionPage />}
         {activeTab === 'share' && <SharePage />}
       </main>
-      <Toast />
     </ToastProvider>
   )
 }
