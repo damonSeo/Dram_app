@@ -4,8 +4,8 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
 // 한국어 특화 모델 — 한자 혼입 없음, Gemini급 품질
 const TEXT_MODEL = 'qwen/qwen3-32b'
-// 이미지 인식 전용 (OCR)
-const VISION_MODEL = 'meta-llama/llama-4-scout-17b-16e-instruct'
+// 이미지 인식 전용 (OCR) — maverick: Scout보다 정확도 높음
+const VISION_MODEL = 'meta-llama/llama-4-maverick-17b-128e-instruct'
 
 // 한국어 전용 시스템 프롬프트 — 모든 텍스트 생성에 적용
 const SYSTEM_KO = `당신은 한국어 전문 위스키 작가입니다.

@@ -46,6 +46,13 @@ export default function ScanPage() {
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Search state
+  interface SearchResult { title: string; link: string; snippet?: string; source?: string; price?: string; imageUrl?: string }
+  interface SearchData { shopping?: SearchResult[]; organic?: SearchResult[]; fallback?: boolean; googleUrl?: string; lensUrl?: string }
+  const [searchData, setSearchData] = useState<SearchData | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+
   // Manual state
   const [brand, setBrand] = useState('')
   const [region, setRegion] = useState('')
@@ -85,26 +92,45 @@ export default function ScanPage() {
     if (!scanFile) return
     setScanning(true)
     setScanDone(false)
+    setSearchData(null)
+    setSearchOpen(false)
     try {
       const form = new FormData()
       form.append('image', scanFile)
-      setProgress(20); setProgLabel('Uploading...')
+      setProgress(15); setProgLabel('Uploading...')
       const res = await fetch('/api/ocr', { method: 'POST', body: form })
-      setProgress(55); setProgLabel('AI Vision analyzing...')
+      setProgress(50); setProgLabel('AI Vision 분석 중...')
       const json = await res.json()
-      setProgress(85); setProgLabel('Parsing results...')
+      setProgress(85); setProgLabel('결과 정리 중...')
       const d: OcrResult = json.data || {}
       setScanFields({
         brand: d.brand || '', region: d.region || '', age: d.age || '',
         vintage: d.vintage || '', abv: d.abv || '', bottler: d.bottler || '', cask: d.cask || '',
       })
-      setProgress(100); setProgLabel('Complete')
+      setProgress(100); setProgLabel('완료')
       setScanDone(true)
-      showToast('OCR 완료!', 'ok')
+      showToast('라벨 인식 완료!', 'ok')
     } catch {
       showToast('OCR 실패', 'err')
     } finally {
       setScanning(false)
+    }
+  }
+
+  const runSearch = async () => {
+    const q = [scanFields.brand, scanFields.age].filter(Boolean).join(' ')
+    if (!q.trim()) { showToast('브랜드 정보가 없습니다', 'err'); return }
+    setSearching(true)
+    setSearchOpen(true)
+    try {
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
+      const data = await res.json() as SearchData
+      setSearchData(data)
+    } catch {
+      showToast('검색 실패', 'err')
+      setSearchOpen(false)
+    } finally {
+      setSearching(false)
     }
   }
 
@@ -214,10 +240,104 @@ export default function ScanPage() {
                   </div>
                 ))}
               </div>
-              <button className="btn-gold" style={{ width:'100%', justifyContent:'center' }}
-                onClick={() => goToTasting({ ...scanFields, casks: scanFields.cask ? [scanFields.cask] : [] }, preview)}>
-                Next — Add Tasting Notes →
-              </button>
+
+              {/* 버튼 행 */}
+              <div style={{ display:'flex', gap:'1px', marginBottom:'1px' }}>
+                <button className="btn-gold" style={{ flex:1, justifyContent:'center' }}
+                  onClick={() => goToTasting({ ...scanFields, casks: scanFields.cask ? [scanFields.cask] : [] }, preview)}>
+                  Next — Add Tasting Notes →
+                </button>
+                <button className="btn-outline-gold" style={{ whiteSpace:'nowrap', justifyContent:'center' }}
+                  onClick={runSearch} disabled={searching}>
+                  {searching ? <span className="spinner" /> : '🔍'} 유사 바틀 검색
+                </button>
+              </div>
+
+              {/* 검색 결과 패널 */}
+              {searchOpen && (
+                <div className="fade-up" style={{ border:'1px solid var(--bd)', background:'var(--c2)', marginBottom:'1px' }}>
+                  <div style={{ padding:'0.6rem 1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <p className="mono" style={{ fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.1em' }}>
+                      🔍 {scanFields.brand} {scanFields.age} 검색 결과
+                    </p>
+                    <button onClick={() => setSearchOpen(false)}
+                      style={{ background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'0.9rem' }}>✕</button>
+                  </div>
+
+                  {searching && (
+                    <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'1rem' }}>
+                      <span className="spinner" />
+                      <span className="mono" style={{ fontSize:'0.72rem', color:'var(--tx2)' }}>Google 검색 중...</span>
+                    </div>
+                  )}
+
+                  {!searching && searchData && (
+                    <div style={{ padding:'0.75rem 1rem' }}>
+                      {/* Fallback: no API key */}
+                      {searchData.fallback && (
+                        <div style={{ display:'flex', flexDirection:'column', gap:'0.5rem' }}>
+                          <p className="mono" style={{ fontSize:'0.65rem', color:'var(--tx2)', marginBottom:'0.5rem' }}>
+                            브라우저에서 직접 검색하시겠어요?
+                          </p>
+                          <a href={searchData.googleUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem 0.9rem', border:'1px solid var(--bd)', color:'var(--tx)', textDecoration:'none', fontSize:'0.8rem', background:'var(--c3)' }}>
+                            🛒 Google Shopping 검색 →
+                          </a>
+                          <a href={searchData.lensUrl} target="_blank" rel="noopener noreferrer"
+                            style={{ display:'flex', alignItems:'center', gap:'0.5rem', padding:'0.6rem 0.9rem', border:'1px solid var(--bd)', color:'var(--tx)', textDecoration:'none', fontSize:'0.8rem', background:'var(--c3)' }}>
+                            🔎 Google 웹 검색 →
+                          </a>
+                        </div>
+                      )}
+
+                      {/* Shopping results */}
+                      {searchData.shopping && searchData.shopping.length > 0 && (
+                        <div style={{ marginBottom:'1rem' }}>
+                          <p className="mono" style={{ fontSize:'0.6rem', color:'var(--tx3)', letterSpacing:'0.08em', marginBottom:'0.6rem', textTransform:'uppercase' }}>🛒 구매처</p>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'1px' }}>
+                            {searchData.shopping.map((r, i) => (
+                              <a key={i} href={r.link} target="_blank" rel="noopener noreferrer"
+                                style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'0.6rem 0.75rem', background:'var(--c3)', textDecoration:'none', transition:'background 0.15s' }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c4)' }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)' }}>
+                                {r.imageUrl && (
+                                  <img src={r.imageUrl} alt="" style={{ width:44, height:44, objectFit:'contain', flexShrink:0, background:'#fff', padding:'2px' }} />
+                                )}
+                                <div style={{ flex:1, minWidth:0 }}>
+                                  <p style={{ fontSize:'0.78rem', color:'var(--tx)', lineHeight:1.4, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.title}</p>
+                                  <p className="mono" style={{ fontSize:'0.62rem', color:'var(--tx2)', marginTop:'0.2rem' }}>{r.source}</p>
+                                </div>
+                                {r.price && (
+                                  <span className="mono" style={{ fontSize:'0.75rem', color:'var(--gold)', flexShrink:0 }}>{r.price}</span>
+                                )}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Organic results */}
+                      {searchData.organic && searchData.organic.length > 0 && (
+                        <div>
+                          <p className="mono" style={{ fontSize:'0.6rem', color:'var(--tx3)', letterSpacing:'0.08em', marginBottom:'0.6rem', textTransform:'uppercase' }}>📰 리뷰 & 정보</p>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'1px' }}>
+                            {searchData.organic.map((r, i) => (
+                              <a key={i} href={r.link} target="_blank" rel="noopener noreferrer"
+                                style={{ display:'block', padding:'0.6rem 0.75rem', background:'var(--c3)', textDecoration:'none', transition:'background 0.15s' }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c4)' }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)' }}>
+                                <p style={{ fontSize:'0.78rem', color:'var(--tx)', lineHeight:1.4, marginBottom:'0.2rem' }}>{r.title}</p>
+                                {r.snippet && <p style={{ fontSize:'0.7rem', color:'var(--tx2)', lineHeight:1.5, overflow:'hidden', display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical' }}>{r.snippet}</p>}
+                                <p className="mono" style={{ fontSize:'0.58rem', color:'var(--gold)', marginTop:'0.25rem' }}>{r.source}</p>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
