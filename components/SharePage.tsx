@@ -109,7 +109,7 @@ export default function SharePage() {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <p className="display" style={{ fontSize: '2.5rem', color: 'var(--gold)' }}>
-                ★ {(currentLog.score ?? 4.0).toFixed(1)}
+                ★ {(currentLog.score ?? 7.0).toFixed(1)}
               </p>
               <p className="display" style={{ fontSize: '1rem', color: 'var(--tx3)', letterSpacing: '0.15em' }}>DRAM</p>
             </div>

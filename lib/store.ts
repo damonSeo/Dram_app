@@ -3,7 +3,7 @@ import type { WhiskyLog, TabName, ExtractedKeys } from '@/types'
 
 const DEFAULT_LOG: Partial<WhiskyLog> = {
   color: 'Deep Gold',
-  score: 4.0,
+  score: 7.0,
   casks: [],
 }
 

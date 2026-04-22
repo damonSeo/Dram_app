@@ -2,7 +2,8 @@
 import { useState, useRef, useCallback } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
-import type { OcrResult } from '@/types'
+import { compressImageToDataUrl, shrinkDataUrl } from '@/lib/imageUtils'
+import type { OcrResult, WhiskyLog } from '@/types'
 
 const REGIONS = ['Speyside','Islay','Highland','Lowland','Campbeltown','Island','Irish','Japanese','American','Taiwanese','Indian','Other']
 const CASK_TYPES = ['Ex-Bourbon','Hogshead','Oloroso Sherry','Pedro Ximénez','Port','Rum','Madeira','Sauternes','Virgin Oak','American Oak','European Oak','STR','Wine','Mizunara']
@@ -30,7 +31,7 @@ const S = {
 }
 
 export default function ScanPage() {
-  const { updateCurrentLog, setActiveTab } = useStore()
+  const { updateCurrentLog, setActiveTab, collection } = useStore()
   const { showToast } = useToast()
   const [mode, setMode] = useState<Mode>('scan')
 
@@ -61,6 +62,8 @@ export default function ScanPage() {
   const [customCask, setCustomCask] = useState('')
   const [caskNo, setCaskNo] = useState('')
   const [bottles, setBottles] = useState('')
+  const [manualPhoto, setManualPhoto] = useState<string | null>(null)
+  const manualFileRef = useRef<HTMLInputElement>(null)
 
   const handleFile = useCallback((file: File) => {
     setScanFile(file)
@@ -105,7 +108,8 @@ export default function ScanPage() {
     }
   }
 
-  const goToTasting = (fields: Record<string, string | string[]>) => {
+  const goToTasting = async (fields: Record<string, string | string[]>, photo?: string | null) => {
+    const imgCompressed = photo ? await shrinkDataUrl(photo, 600, 0.7).catch(() => photo) : ''
     updateCurrentLog({
       brand: (fields.brand as string) || '',
       region: (fields.region as string) || '',
@@ -119,6 +123,7 @@ export default function ScanPage() {
       bottles: (fields.bottles as string) || '',
       distilled_date: (fields.distilled_date as string) || '',
       bottled_date: (fields.bottled_date as string) || '',
+      image_url: imgCompressed || undefined,
       date: new Date().toISOString().split('T')[0],
     })
     setActiveTab('tasting')
@@ -207,7 +212,7 @@ export default function ScanPage() {
                 ))}
               </div>
               <button className="btn-gold" style={{ width:'100%', justifyContent:'center' }}
-                onClick={() => goToTasting({ ...scanFields, casks: scanFields.cask ? [scanFields.cask] : [] })}>
+                onClick={() => goToTasting({ ...scanFields, casks: scanFields.cask ? [scanFields.cask] : [] }, preview)}>
                 Next — Add Tasting Notes →
               </button>
             </div>
@@ -356,13 +361,85 @@ export default function ScanPage() {
             </div>
           </div>
 
+          {/* Section 5 — 라벨 사진 */}
+          <div style={S.section}>
+            <div style={S.hdr}>Label Photo</div>
+            <div style={S.body}>
+              <input ref={manualFileRef} type="file" accept="image/*" style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0]
+                  if (!f) return
+                  try {
+                    const data = await compressImageToDataUrl(f, 800, 0.75)
+                    setManualPhoto(data)
+                  } catch { showToast('이미지 처리 실패', 'err') }
+                }} />
+              {manualPhoto ? (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem' }}>
+                  <img src={manualPhoto} alt="label" style={{ width: 140, height: 140, objectFit: 'cover', border: '1px solid var(--bd)' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <button className="btn-ghost" style={{ fontSize: '0.7rem' }} onClick={() => manualFileRef.current?.click()}>사진 변경</button>
+                    <button className="btn-ghost" style={{ fontSize: '0.7rem', color: '#cf7e7e' }} onClick={() => setManualPhoto(null)}>제거</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={() => manualFileRef.current?.click()}>
+                  📷 라벨 사진 업로드
+                </button>
+              )}
+            </div>
+          </div>
+
           <button className="btn-gold" style={{ width:'100%', justifyContent:'center', marginTop:'0.5rem' }}
             onClick={() => {
               const allCasks = [...selectedCasks, ...(customCask ? [customCask] : [])]
-              goToTasting({ brand, region, bottler, ib_name: ibName, age, vintage, distilled_date: distilledDate, bottled_date: bottledDate, abv: getAbvDisplay(), casks: allCasks, cask_no: caskNo, bottles })
+              goToTasting({ brand, region, bottler, ib_name: ibName, age, vintage, distilled_date: distilledDate, bottled_date: bottledDate, abv: getAbvDisplay(), casks: allCasks, cask_no: caskNo, bottles }, manualPhoto)
             }}>
             Next — Add Tasting Notes →
           </button>
+        </div>
+      )}
+
+      {/* ── 최근 저장한 노트 ── */}
+      {collection.length > 0 && (
+        <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--bd)', paddingTop: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem' }}>
+            <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              ◈ 최근 저장한 노트
+            </p>
+            <button className="btn-ghost" style={{ fontSize: '0.7rem' }} onClick={() => setActiveTab('collection')}>
+              전체 보기 →
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
+            {collection.slice(0, 6).map((log: WhiskyLog) => (
+              <div key={log.id}
+                onClick={() => { updateCurrentLog({ ...log }); setActiveTab('share') }}
+                style={{ background: 'var(--c2)', cursor: 'pointer', display: 'flex', gap: '0.6rem', padding: '0.6rem', alignItems: 'center' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--c3)' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--c2)' }}>
+                {log.image_url ? (
+                  <img src={log.image_url} alt="" style={{ width: 46, height: 46, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }} />
+                ) : (
+                  <div style={{ width: 46, height: 46, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tx3)', fontSize: '1rem' }}>🥃</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.1rem', textTransform: 'lowercase' }}>
+                    {log.region || '—'}
+                  </p>
+                  <p className="display" style={{ fontSize: '0.92rem', color: 'var(--tx)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {log.brand || '—'}
+                  </p>
+                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx2)', marginTop: '0.1rem' }}>
+                    {[log.age, log.abv].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <span className="display" style={{ fontSize: '0.9rem', color: 'var(--gold)', flexShrink: 0 }}>
+                  ★ {log.score?.toFixed(1)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

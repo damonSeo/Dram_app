@@ -36,7 +36,7 @@ interface AiModal {
 }
 
 export default function TastingPage() {
-  const { currentLog, collection, updateCurrentLog, upsertToCollection, setActiveTab, setExtractedKeys } = useStore()
+  const { currentLog, collection, updateCurrentLog, upsertToCollection, resetCurrentLog, setActiveTab, setExtractedKeys } = useStore()
   const { showToast } = useToast()
 
   const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
@@ -166,8 +166,9 @@ export default function TastingPage() {
       const json = await res.json() as { data?: WhiskyLog; error?: string }
       if (!res.ok) throw new Error(json.error || '저장 실패')
       if (json.data) upsertToCollection(json.data)
+      resetCurrentLog() // 저장 후 새 노트 작성을 위해 리셋
       setActiveTab('collection')
-      showToast('컬렉션에 저장됨', 'ok')
+      showToast('컬렉션에 저장됨 · 새 노트를 시작하려면 Scan 탭으로', 'ok')
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : '저장 실패', 'err')
     } finally {
@@ -253,26 +254,36 @@ export default function TastingPage() {
           )}
         </div>
 
-        {/* Score card */}
+        {/* Score card — 10점 만점 */}
         <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
           <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
-            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score</p>
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score · /10</p>
           </div>
           <div style={{ padding: '1rem', textAlign: 'center' }}>
             <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', lineHeight: 1 }}>
-              {(currentLog.score ?? 4.0).toFixed(1)}
+              {(currentLog.score ?? 7.0).toFixed(1)}
+              <span style={{ fontSize: '1rem', color: 'var(--tx3)' }}> / 10</span>
             </p>
             <div style={{ margin: '0.75rem 0 0.5rem', display: 'flex', justifyContent: 'center', gap: '0.35rem' }}>
               {[1,2,3,4,5].map((s) => (
-                <button key={s} onClick={() => updateCurrentLog({ score: s })}
+                <button key={s} onClick={() => updateCurrentLog({ score: s * 2 })}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem',
-                    color: (currentLog.score ?? 4) >= s ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
+                    color: (currentLog.score ?? 7) >= s * 2 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
               ))}
             </div>
-            <input type="range" min={0} max={5} step={0.1}
-              value={currentLog.score ?? 4.0}
+            <input type="range" min={0} max={10} step={0.1}
+              value={currentLog.score ?? 7.0}
               onChange={(e) => updateCurrentLog({ score: parseFloat(e.target.value) })}
               style={{ width: '100%', accentColor: 'var(--gold)' }} />
+            <input type="number" min={0} max={10} step={0.1}
+              value={(currentLog.score ?? 7.0).toFixed(1)}
+              onChange={(e) => {
+                const v = parseFloat(e.target.value)
+                if (!isNaN(v)) updateCurrentLog({ score: Math.max(0, Math.min(10, v)) })
+              }}
+              className="mono"
+              style={{ width: '5rem', marginTop: '0.5rem', textAlign: 'center', fontSize: '0.8rem',
+                border: '1px solid var(--bd)', background: 'var(--c3)', color: 'var(--tx)', padding: '0.3rem' }} />
           </div>
         </div>
 

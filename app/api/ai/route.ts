@@ -74,14 +74,14 @@ function buildPrompt(action: string, payload: Payload): string {
     case 'gen_insta_from_keys': {
       const { selectedNose, selectedPalate, selectedFinish, longText, brand, age, abv, casks, region, score } = payload
       const caskStr = Array.isArray(casks) ? casks.join(', ') : String(casks ?? '')
-      const scoreNum = typeof score === 'number' ? score : parseFloat(String(score ?? 4))
+      const scoreNum = typeof score === 'number' ? score : parseFloat(String(score ?? 7))
       return `당신은 위스키 전문 인플루언서로 감성적이고 전문적인 인스타그램 콘텐츠를 제작합니다.
 아래 테이스팅 정보를 바탕으로 매력적인 인스타그램 캡션을 작성해주세요.
 
 위스키 정보:
 - 증류소: ${brand} ${age}
 - 지역: ${region} / 도수: ${abv} / 캐스크: ${caskStr}
-- 종합 점수: ★ ${scoreNum.toFixed(1)} / 5.0
+- 종합 점수: ★ ${scoreNum.toFixed(1)} / 10.0
 
 테이스팅 키워드:
 - 향: ${selectedNose || '—'}
@@ -100,7 +100,7 @@ function buildPrompt(action: string, payload: Payload): string {
 
 3. 어울리는 순간/페어링 추천 (1~2문장)
 
-4. 총점: ★ ${scoreNum.toFixed(1)} / 5.0
+4. 총점: ★ ${scoreNum.toFixed(1)} / 10.0
 
 5. 해시태그: 7~10개
 
@@ -114,13 +114,13 @@ function buildPrompt(action: string, payload: Payload): string {
     case 'gen_blog_post': {
       const { brand, age, vintage, abv, casks, region, color, score, nose, palate, finish, comment } = payload
       const caskStr = Array.isArray(casks) ? casks.join(' + ') : String(casks ?? '')
-      const scoreNum = typeof score === 'number' ? score : parseFloat(String(score ?? 4))
+      const scoreNum = typeof score === 'number' ? score : parseFloat(String(score ?? 7))
       const vintageStr = vintage ? `빈티지 ${vintage}` : null
       const info = [brand, age, vintageStr, abv, caskStr, region].filter(Boolean).join(' / ')
       return `당신은 국내 최고의 위스키 전문 블로거입니다. 아래 테이스팅 정보를 바탕으로 독자가 실제로 이 위스키를 경험하는 듯한 생동감 있는 블로그 포스트를 작성해주세요.
 
 위스키 정보: ${info}
-색상: ${color} / 종합 점수: ${scoreNum.toFixed(1)} / 5.0
+색상: ${color} / 종합 점수: ${scoreNum.toFixed(1)} / 10.0
 
 테이스팅 노트:
 - 향: ${nose || '기록 없음'}
@@ -146,7 +146,7 @@ function buildPrompt(action: string, payload: Payload): string {
 마신 후 남는 여운의 길이와 특성. 3~4문장.
 
 [총평]
-이 위스키가 어울리는 사람과 상황, 총점(★ ${scoreNum.toFixed(1)} / 5.0)과 함께 추천 이유. 3~4문장.
+이 위스키가 어울리는 사람과 상황, 총점(★ ${scoreNum.toFixed(1)} / 10.0)과 함께 추천 이유. 3~4문장.
 
 [해시태그]
 관련 해시태그 8~10개
@@ -162,14 +162,14 @@ function buildPrompt(action: string, payload: Payload): string {
     case 'gen_insta_post': {
       const { brand, age, vintage, abv, casks, region, score, nose, palate, finish, comment_insta, comment } = payload
       const caskStr = Array.isArray(casks) ? casks.join(' + ') : String(casks ?? '')
-      const scoreNum = typeof score === 'number' ? score : parseFloat(String(score ?? 4))
+      const scoreNum = typeof score === 'number' ? score : parseFloat(String(score ?? 7))
       const vintageStr = vintage ? `빈티지 ${vintage}` : null
       const info = [brand, age, vintageStr, abv, caskStr, region].filter(Boolean).join(' / ')
       const userComment = String(comment_insta ?? comment ?? '')
       return `당신은 팔로워 10만의 위스키 전문 인플루언서입니다. 아래 정보로 인스타그램에서 높은 참여율을 이끌어낼 캡션을 작성해주세요.
 
 위스키: ${info}
-점수: ★ ${scoreNum.toFixed(1)} / 5.0
+점수: ★ ${scoreNum.toFixed(1)} / 10.0
 
 테이스팅 노트:
 - 향: ${nose || '—'}
@@ -191,7 +191,7 @@ ${userComment ? `- 한줄평: ${userComment}` : ''}
 3. 위스키 정보 (읽기 쉽게 줄바꿈 정리)
 📌 ${brand} ${age}
 지역: ${region} | 도수: ${abv} | 캐스크: ${caskStr}
-점수: ★ ${scoreNum.toFixed(1)} / 5.0
+점수: ★ ${scoreNum.toFixed(1)} / 10.0
 
 4. 참여 유도 문장 (CTA)
 팔로워가 댓글 달고 싶어지는 질문 형태 1문장 ("여러분은 어떤 위스키와 함께하고 싶으세요?" 류)
