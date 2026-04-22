@@ -349,12 +349,40 @@ function EditModal({ log, onClose }: EditModalProps) {
 // ── Collection Page ─────────────────────────────────────────────────────────
 
 export default function CollectionPage() {
-  const { collection, loadLog, setActiveTab } = useStore()
+  const { collection, loadLog, setActiveTab, removeFromCollection } = useStore()
+  const { showToast } = useToast()
   const [editLog, setEditLog] = useState<WhiskyLog | null>(null)
+  const [confirmId, setConfirmId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const openShare = (log: WhiskyLog) => {
     loadLog({ ...log })
     setActiveTab('share')
+  }
+
+  const handleDelete = async (id: string) => {
+    if (confirmId !== id) {
+      setConfirmId(id)
+      // auto-cancel confirm after 3s so it doesn't stick
+      setTimeout(() => setConfirmId((cur) => (cur === id ? null : cur)), 3000)
+      return
+    }
+    setDeletingId(id)
+    try {
+      const res = await fetch('/api/whisky-logs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      })
+      if (!res.ok) throw new Error('삭제 실패')
+      removeFromCollection(id)
+      showToast('삭제됨', 'ok')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '삭제 실패', 'err')
+    } finally {
+      setDeletingId(null)
+      setConfirmId(null)
+    }
   }
 
   return (
@@ -363,7 +391,7 @@ export default function CollectionPage() {
         <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>Collection</h1>
         <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>{collection.length} Drams</span>
         <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx3)', marginLeft: 'auto' }}>
-          카드 클릭 → 공유 · ✎ 클릭 → 수정
+          카드 → 공유 · ✎ → 수정 · 🗑 → 삭제
         </span>
       </div>
 
@@ -425,23 +453,45 @@ export default function CollectionPage() {
                 </div>
               </div>
 
-              {/* 편집 버튼 (펜) — 카드 바디 클릭과 분리 */}
-              <button
-                onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
-                title="수정"
-                style={{
-                  position: 'absolute', top: '0.5rem', right: '0.5rem',
-                  background: 'rgba(20,20,20,0.7)', border: '1px solid var(--bd)',
-                  color: 'var(--gold)', fontSize: '0.85rem',
-                  width: 28, height: 28, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  backdropFilter: 'blur(4px)',
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,20,20,0.7)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
-              >
-                ✎
-              </button>
+              {/* 액션 버튼들 (편집/삭제) — 카드 바디 클릭과 분리 */}
+              <div style={{
+                position: 'absolute', top: '0.5rem', right: '0.5rem',
+                display: 'flex', gap: '0.3rem',
+              }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
+                  title="수정"
+                  style={{
+                    background: 'rgba(20,20,20,0.75)', border: '1px solid var(--bd)',
+                    color: 'var(--gold)', fontSize: '0.85rem',
+                    width: 28, height: 28, cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,20,20,0.75)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                >
+                  ✎
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleDelete(log.id) }}
+                  disabled={deletingId === log.id}
+                  title={confirmId === log.id ? '한 번 더 눌러 삭제' : '삭제'}
+                  style={{
+                    background: confirmId === log.id ? '#cf7e7e' : 'rgba(20,20,20,0.75)',
+                    border: `1px solid ${confirmId === log.id ? '#cf7e7e' : 'var(--bd)'}`,
+                    color: confirmId === log.id ? '#fff' : '#cf7e7e',
+                    fontSize: '0.8rem',
+                    minWidth: 28, height: 28, padding: confirmId === log.id ? '0 0.5rem' : 0,
+                    cursor: deletingId === log.id ? 'wait' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    backdropFilter: 'blur(4px)',
+                    fontFamily: 'var(--mono)',
+                  }}
+                >
+                  {deletingId === log.id ? '…' : confirmId === log.id ? '확인?' : '🗑'}
+                </button>
+              </div>
             </div>
           ))}
         </div>
