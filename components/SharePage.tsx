@@ -49,10 +49,45 @@ export default function SharePage() {
       const el = document.getElementById('shareCard')
       if (!el) return
       const canvas = await hc(el, { backgroundColor: '#141414', scale: 2 })
+
+      // canvas -> Blob
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob((b) => resolve(b), 'image/png')
+      )
+      if (!blob) throw new Error('이미지 변환 실패')
+
+      const fileName = `dram-${(currentLog.brand || 'card').replace(/[^a-zA-Z0-9가-힣]/g, '_')}.png`
+      const file = new File([blob], fileName, { type: 'image/png' })
+
+      // 모바일: Web Share API (사진첩/앨범에 저장 가능)
+      const nav = navigator as Navigator & { canShare?: (data: { files?: File[] }) => boolean }
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+      if (isMobile && nav.canShare && nav.canShare({ files: [file] }) && navigator.share) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: `DRAM · ${currentLog.brand || ''}`,
+            text: '시스템 메뉴에서 "이미지 저장"을 선택해 사진첩에 저장하세요.',
+          })
+          showToast('공유 완료 · 사진첩에 저장하세요', 'ok')
+          return
+        } catch (err) {
+          // 사용자가 취소한 경우엔 실패로 처리하지 않음
+          const dom = err as DOMException
+          if (dom?.name === 'AbortError') return
+          // 그 외 오류는 다운로드 폴백으로 이어짐
+        }
+      }
+
+      // 데스크톱 / 비지원 브라우저: 다운로드 폴백
+      const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      link.download = `dram-${currentLog.brand || 'card'}.png`
-      link.href = canvas.toDataURL('image/png')
+      link.download = fileName
+      link.href = url
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
       showToast('이미지 저장됨', 'ok')
     } catch {
       showToast('이미지 저장 실패', 'err')
@@ -134,7 +169,7 @@ export default function SharePage() {
                 📸 인스타그램 포스트 생성
               </button>
               <button className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={saveCard}>
-                🖼 카드 이미지 저장
+                🖼 카드 이미지 저장 · 사진첩
               </button>
             </div>
           </div>
