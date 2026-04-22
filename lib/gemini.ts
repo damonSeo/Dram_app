@@ -1,8 +1,9 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { generateWithImage as groqVision } from '@/lib/groq'
 
-// 503 대비: 주 모델 → 폴백 체인 (lite가 보통 더 여유로움)
-const VISION_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
-const PRIMARY_MODEL = VISION_MODELS[0]
+// 폴백 체인 — lite를 먼저 시도 (주 모델보다 여유 있음)
+// 마지막 수단으로 Groq Llama Scout까지 쓰면 최소한 결과는 나옴
+const GEMINI_MODELS = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash']
 
 function getClient() {
   const key = process.env.GEMINI_API_KEY
@@ -12,13 +13,12 @@ function getClient() {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// 503 / 429 같은 재시도 가능 에러 판별
 function isRetryable(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err)
-  return /503|502|504|overload|UNAVAILABLE|high demand|rate limit|429|Quota/i.test(msg)
+  return /503|502|504|overload|UNAVAILABLE|high demand|rate limit|429|Quota|ECONNRESET|ETIMEDOUT/i.test(msg)
 }
 
-async function callModel(
+async function callGemini(
   modelId: string,
   prompt: string,
   imageBase64: string,
@@ -42,7 +42,15 @@ async function callModel(
 }
 
 export async function generateText(prompt: string): Promise<string> {
-  return callModel(PRIMARY_MODEL, prompt, '', '', false)
+  // 주 모델 → lite 폴백
+  for (const modelId of [GEMINI_MODELS[1], GEMINI_MODELS[0]]) {
+    try {
+      return await callGemini(modelId, prompt, '', '', false)
+    } catch (err) {
+      if (!isRetryable(err)) throw err
+    }
+  }
+  throw new Error('Gemini 모든 모델 호출 실패')
 }
 
 export async function generateWithImage(
@@ -52,26 +60,34 @@ export async function generateWithImage(
 ): Promise<string> {
   let lastErr: unknown = null
 
-  for (const modelId of VISION_MODELS) {
-    // 각 모델마다 최대 3회 재시도 (지수 백오프)
-    for (let attempt = 0; attempt < 3; attempt++) {
+  // 1단계: Gemini 모델 체인 (각 모델 2회 재시도)
+  for (const modelId of GEMINI_MODELS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        return await callModel(modelId, prompt, imageBase64, mimeType, true)
+        const text = await callGemini(modelId, prompt, imageBase64, mimeType, true)
+        if (modelId !== GEMINI_MODELS[0]) {
+          console.log(`[OCR] ${modelId} 성공 (폴백)`)
+        }
+        return text
       } catch (err: unknown) {
         lastErr = err
-        if (!isRetryable(err)) {
-          // 인증/형식 오류 등은 바로 실패 처리
-          throw err
-        }
-        // 재시도 가능 에러면 backoff 후 재시도
-        const delay = 400 * Math.pow(2, attempt) + Math.floor(Math.random() * 300)
-        console.warn(`Gemini ${modelId} 503/429 (attempt ${attempt + 1}), retrying in ${delay}ms`)
+        if (!isRetryable(err)) throw err
+        const delay = 300 * Math.pow(2, attempt) + Math.floor(Math.random() * 200)
+        console.warn(`[OCR] Gemini ${modelId} 503/429 (시도 ${attempt + 1}/2), ${delay}ms 대기 후 재시도`)
         await sleep(delay)
       }
     }
-    // 이 모델로는 실패 → 다음 모델로 넘어감
-    console.warn(`Gemini ${modelId} 모든 재시도 실패, 다음 모델로 폴백`)
+    console.warn(`[OCR] Gemini ${modelId} 폴백 → 다음 모델`)
   }
 
-  throw lastErr instanceof Error ? lastErr : new Error('Gemini 모든 모델 호출 실패')
+  // 2단계: 최후의 수단 — Groq Llama 4 Scout로 폴백
+  console.warn('[OCR] 모든 Gemini 모델 실패, Groq Llama Scout로 폴백')
+  try {
+    const text = await groqVision(prompt, imageBase64, mimeType)
+    console.log('[OCR] Groq Llama Scout 성공 (최종 폴백)')
+    return text
+  } catch (err) {
+    console.error('[OCR] Groq 폴백도 실패:', err)
+    throw lastErr instanceof Error ? lastErr : new Error('모든 OCR 모델 호출 실패')
+  }
 }
