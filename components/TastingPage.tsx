@@ -36,7 +36,7 @@ interface AiModal {
 }
 
 export default function TastingPage() {
-  const { currentLog, collection, updateCurrentLog, upsertToCollection, resetCurrentLog, setActiveTab, setExtractedKeys } = useStore()
+  const { currentLog, collection, updateCurrentLog, upsertToCollection, resetCurrentLog, setActiveTab, setExtractedKeys, setDirty } = useStore()
   const { showToast } = useToast()
 
   const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
@@ -151,7 +151,7 @@ export default function TastingPage() {
         region: currentLog.region || '',
         bottler: currentLog.bottler || 'OB',
         color: currentLog.color || 'Deep Gold',
-        score: currentLog.score ?? 4.0,
+        score: currentLog.score ?? 7.0,
         casks: currentLog.casks || [],
         date: currentLog.date || new Date().toISOString().split('T')[0],
         comment,
@@ -310,7 +310,7 @@ export default function TastingPage() {
               {comment.length}자
             </span>
           </div>
-          <textarea rows={5} value={comment} onChange={(e) => setComment(e.target.value)}
+          <textarea rows={5} value={comment} onChange={(e) => { setComment(e.target.value); setDirty(true) }}
             placeholder="시음 느낌을 자유롭게 적어주세요..." style={{ lineHeight: 1.7 }} />
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
             <button className="btn-ghost" style={{ fontSize: '0.7rem' }}
@@ -375,7 +375,7 @@ export default function TastingPage() {
                 {instaText.length} / 300자
               </span>
             </div>
-            <textarea rows={4} value={instaText} onChange={(e) => setInstaText(e.target.value)}
+            <textarea rows={4} value={instaText} onChange={(e) => { setInstaText(e.target.value); setDirty(true) }}
               style={{ lineHeight: 1.7, border: '1px solid var(--bd)', padding: '0.5rem' }} />
             <button className="btn-ghost" style={{ fontSize: '0.7rem', marginTop: '0.5rem' }}
               onClick={async () => {

@@ -31,7 +31,7 @@ const S = {
 }
 
 export default function ScanPage() {
-  const { updateCurrentLog, setActiveTab, collection } = useStore()
+  const { updateCurrentLog, resetCurrentLog, loadLog, setActiveTab, collection } = useStore()
   const { showToast } = useToast()
   const [mode, setMode] = useState<Mode>('scan')
 
@@ -110,6 +110,8 @@ export default function ScanPage() {
 
   const goToTasting = async (fields: Record<string, string | string[]>, photo?: string | null) => {
     const imgCompressed = photo ? await shrinkDataUrl(photo, 600, 0.7).catch(() => photo) : ''
+    // 기존 currentLog(id, nose, palate 등)를 완전히 초기화하고 새 노트로 시작
+    resetCurrentLog()
     updateCurrentLog({
       brand: (fields.brand as string) || '',
       region: (fields.region as string) || '',
@@ -414,7 +416,7 @@ export default function ScanPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
             {collection.slice(0, 6).map((log: WhiskyLog) => (
               <div key={log.id}
-                onClick={() => { updateCurrentLog({ ...log }); setActiveTab('share') }}
+                onClick={() => { loadLog({ ...log }); setActiveTab('share') }}
                 style={{ background: 'var(--c2)', cursor: 'pointer', display: 'flex', gap: '0.6rem', padding: '0.6rem', alignItems: 'center' }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--c3)' }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--c2)' }}>

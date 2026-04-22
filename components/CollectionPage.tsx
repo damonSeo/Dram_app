@@ -38,7 +38,7 @@ interface EditModalProps {
 }
 
 function EditModal({ log, onClose }: EditModalProps) {
-  const { upsertToCollection, removeFromCollection, setActiveTab, updateCurrentLog } = useStore()
+  const { upsertToCollection, removeFromCollection, setActiveTab, loadLog } = useStore()
   const { showToast } = useToast()
   const [form, setForm] = useState<WhiskyLog>({ ...log })
   const [saving, setSaving] = useState(false)
@@ -105,7 +105,7 @@ function EditModal({ log, onClose }: EditModalProps) {
   }
 
   const goShare = () => {
-    updateCurrentLog({ ...form })
+    loadLog({ ...form })
     setActiveTab('share')
     onClose()
   }
@@ -348,11 +348,11 @@ function EditModal({ log, onClose }: EditModalProps) {
 // ── Collection Page ─────────────────────────────────────────────────────────
 
 export default function CollectionPage() {
-  const { collection, updateCurrentLog, setActiveTab } = useStore()
+  const { collection, loadLog, setActiveTab } = useStore()
   const [editLog, setEditLog] = useState<WhiskyLog | null>(null)
 
   const openShare = (log: WhiskyLog) => {
-    updateCurrentLog({ ...log })
+    loadLog({ ...log })
     setActiveTab('share')
   }
 
