@@ -140,7 +140,7 @@ export default function ScanPage() {
   }
 
   return (
-    <div style={S.wrapper}>
+    <div className="m-page" style={S.wrapper}>
       {/* Mode toggle */}
       <div style={{ display:'flex', gap:'1px', marginBottom:'1.5rem', background:'var(--bd)' }}>
         {(['scan','manual'] as Mode[]).map((m) => (
@@ -160,6 +160,7 @@ export default function ScanPage() {
       {mode === 'scan' && (
         <div className="fade-up">
           <div
+            className="m-dropzone"
             onClick={() => fileInputRef.current?.click()}
             onDrop={handleDrop}
             onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
@@ -204,7 +205,7 @@ export default function ScanPage() {
 
           {scanDone && (
             <div className="fade-up">
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1px', background:'var(--bd)', marginBottom:'1px' }}>
+              <div className="m-grid-collapse" style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1px', background:'var(--bd)', marginBottom:'1px' }}>
                 {([['Distillery','brand'],['Region','region'],['Age','age'],['Vintage','vintage'],['ABV','abv'],['Bottler','bottler'],['Cask','cask']] as [string, keyof ScanFields][]).map(([label, key]) => (
                   <div key={key} style={S.cell}>
                     <p style={S.label}>{label}</p>
@@ -229,7 +230,7 @@ export default function ScanPage() {
           <div style={S.section}>
             <div style={S.hdr}>Distillery &amp; Bottling</div>
             <div style={S.body}>
-              <div style={S.row}>
+              <div className="m-grid-collapse" style={S.row}>
                 <div style={S.cell}>
                   <p style={S.label}>Distillery / Brand</p>
                   <input type="text" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="e.g. Glenfarclas" />
@@ -242,7 +243,7 @@ export default function ScanPage() {
                   </select>
                 </div>
               </div>
-              <div style={S.row}>
+              <div className="m-grid-collapse" style={S.row}>
                 <div style={S.cell}>
                   <p style={S.label}>Bottler</p>
                   <select value={bottler} onChange={(e) => setBottler(e.target.value as 'OB'|'IB')}>
@@ -264,7 +265,7 @@ export default function ScanPage() {
           <div style={S.section}>
             <div style={S.hdr}>Age &amp; Vintage</div>
             <div style={S.body}>
-              <div style={S.row}>
+              <div className="m-grid-collapse" style={S.row}>
                 <div style={S.cell}>
                   <p style={S.label}>Age Statement</p>
                   <input type="text" value={age} onChange={(e) => setAge(e.target.value)} placeholder="e.g. 12yr or NAS" />
@@ -284,7 +285,7 @@ export default function ScanPage() {
                   </div>
                 </div>
               </div>
-              <div style={S.row}>
+              <div className="m-grid-collapse" style={S.row}>
                 <div style={S.cell}>
                   <p style={S.label}>Distilled Date</p>
                   <input type="text" value={distilledDate} onChange={(e) => setDistilledDate(e.target.value)} placeholder="e.g. Nov 1995" />
@@ -344,7 +345,7 @@ export default function ScanPage() {
                   <button key={c} className={`chip${selectedCasks.includes(c)?' active':''}`} onClick={() => toggleCask(c)}>{c}</button>
                 ))}
               </div>
-              <div style={{ ...S.row, marginTop:'1rem' }}>
+              <div className="m-grid-collapse" style={{ ...S.row, marginTop:'1rem' }}>
                 <div style={S.cell}>
                   <p style={S.label}>Custom Cask</p>
                   <input type="text" value={customCask} onChange={(e) => setCustomCask(e.target.value)} placeholder="Custom cask type" />
@@ -354,7 +355,7 @@ export default function ScanPage() {
                   <input type="text" value={caskNo} onChange={(e) => setCaskNo(e.target.value)} placeholder="e.g. #1234" />
                 </div>
               </div>
-              <div style={S.row}>
+              <div className="m-grid-collapse" style={S.row}>
                 <div style={S.cell}>
                   <p style={S.label}>Total Bottles</p>
                   <input type="text" value={bottles} onChange={(e) => setBottles(e.target.value)} placeholder="e.g. 285 bottles" />
@@ -413,7 +414,7 @@ export default function ScanPage() {
               전체 보기 →
             </button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
+          <div className="m-recent-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
             {collection.slice(0, 6).map((log: WhiskyLog) => (
               <div key={log.id}
                 onClick={() => { loadLog({ ...log }); setActiveTab('share') }}

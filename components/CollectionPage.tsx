@@ -136,10 +136,11 @@ function EditModal({ log, onClose }: EditModalProps) {
 
   return (
     <div
+      className="m-modal-overlay"
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'flex-start', justifyContent: 'center', overflowY: 'auto', padding: '2rem 1rem' }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', width: '100%', maxWidth: 720, position: 'relative' }}>
+      <div className="m-modal-panel" style={{ background: 'var(--c2)', border: '1px solid var(--bd)', width: '100%', maxWidth: 720, position: 'relative' }}>
 
         {/* Header */}
         <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--c2)', zIndex: 1 }}>
@@ -153,7 +154,7 @@ function EditModal({ log, onClose }: EditModalProps) {
           </div>
         </div>
 
-        <div style={{ padding: '0 1.25rem 1.5rem' }}>
+        <div className="m-modal-body" style={{ padding: '0 1.25rem 1.5rem' }}>
 
           {/* 사진 */}
           {section('라벨 사진')}
@@ -177,7 +178,7 @@ function EditModal({ log, onClose }: EditModalProps) {
 
           {/* 증류소 & 기본 정보 */}
           {section('증류소 & 기본 정보')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="m-grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
               <span style={label}>증류소 (Brand)</span>
               <input style={inp} value={form.brand} onChange={(e) => upd({ brand: e.target.value })} />
@@ -206,7 +207,7 @@ function EditModal({ log, onClose }: EditModalProps) {
 
           {/* 숙성 & 빈티지 */}
           {section('숙성 & 빈티지 & 도수')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <div className="m-grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
             <div>
               <span style={label}>숙성 (Age)</span>
               <input style={inp} placeholder="e.g. 12yr" value={form.age || ''} onChange={(e) => upd({ age: e.target.value })} />
@@ -260,7 +261,7 @@ function EditModal({ log, onClose }: EditModalProps) {
 
           {/* 색상 & 점수 */}
           {section('색상 & 점수')}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+          <div className="m-grid-collapse" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
             <div>
               <span style={label}>색상</span>
               <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
@@ -357,7 +358,7 @@ export default function CollectionPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div className="m-page" style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--bd)', paddingBottom: '1rem' }}>
         <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>Collection</h1>
         <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>{collection.length} Drams</span>
@@ -371,7 +372,7 @@ export default function CollectionPage() {
           컬렉션이 비어 있습니다. 라벨을 스캔해서 첫 번째 위스키를 추가해보세요.
         </p>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
+        <div className="m-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
           {collection.map((log) => (
             <div
               key={log.id}

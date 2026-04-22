@@ -153,7 +153,7 @@ export default function TopBar() {
                 현재 작성 중인 노트가 컬렉션에 저장되지 않았습니다.
               </p>
             </div>
-            <div style={{
+            <div className="m-confirm-actions" style={{
               padding: '0.85rem 1.25rem', borderTop: '1px solid var(--bd)',
               display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap',
             }}>

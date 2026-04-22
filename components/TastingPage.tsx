@@ -220,7 +220,7 @@ export default function TastingPage() {
   const meta = [currentLog.age, currentLog.bottler, currentLog.abv, currentLog.region].filter(Boolean).join(' · ')
 
   return (
-    <div style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem' }}>
+    <div className="m-page" style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem' }}>
       {/* Header */}
       <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--bd)', paddingBottom: '1rem' }}>
         <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)', lineHeight: 1.2 }}>
@@ -230,7 +230,7 @@ export default function TastingPage() {
       </div>
 
       {/* 2-col grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
+      <div className="m-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
         {/* Color card */}
         <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
           <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
@@ -339,7 +339,7 @@ export default function TastingPage() {
             <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.75rem' }}>
               Step 2 — 키워드 확인 (클릭으로 제외)
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+            <div className="m-grid-3-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
               {(['nose','palate','finish'] as const).map((field) => (
                 <div key={field}>
                   <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>

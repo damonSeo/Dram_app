@@ -181,3 +181,66 @@ select option { background: var(--c3); color: var(--tx); }
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--ch); }
 ::-webkit-scrollbar-thumb { background: var(--bd2); }
+
+/* ─────────────────────── Mobile responsive ─────────────────────── */
+
+/* Prevent tiny text and horizontal scroll on mobile */
+html { -webkit-text-size-adjust: 100%; }
+
+@media (max-width: 768px) {
+  /* Page wrappers — tighter padding */
+  .m-page { padding: 1rem 0.75rem !important; max-width: 100% !important; }
+
+  /* Collapse 2-col / auto-fit grids to single column */
+  .m-grid-collapse { grid-template-columns: 1fr !important; }
+
+  /* Share page specifically — card + controls stack */
+  .m-share-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
+
+  /* 3-column keyword section → 1 col */
+  .m-grid-3-col { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
+
+  /* Collection cards — smaller min width */
+  .m-card-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important; }
+
+  /* Recent drams strip on ScanPage */
+  .m-recent-grid { grid-template-columns: 1fr !important; }
+
+  /* Modal full-width with breathing room */
+  .m-modal-panel { padding: 1rem 0.5rem !important; }
+  .m-modal-body { padding: 0 0.85rem 1.25rem !important; }
+
+  /* Headers — smaller display text */
+  .m-display-lg { font-size: 1.5rem !important; }
+
+  /* TopBar — compact spacing & font */
+  header nav button.mono { padding: 0 0.55rem !important; font-size: 0.6rem !important; }
+  header nav { overflow-x: auto; flex-wrap: nowrap; }
+}
+
+@media (max-width: 480px) {
+  /* TopBar — hide scan/notes labels? No, just shrink */
+  header { padding: 0 0.75rem !important; }
+  header > span.display { font-size: 1.05rem !important; letter-spacing: 0.15em !important; }
+  header nav button.mono { padding: 0 0.4rem !important; font-size: 0.55rem !important; letter-spacing: 0.05em !important; }
+  header button[title="새 노트 시작"] {
+    padding: 0.35rem 0.55rem !important;
+    margin-left: 0.35rem !important;
+    font-size: 0.55rem !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  /* EditModal dialog — mostly full-screen */
+  .m-modal-overlay { padding: 0.5rem !important; align-items: flex-start !important; }
+
+  /* Confirm dialog buttons wrap nicely */
+  .m-confirm-actions { flex-direction: column !important; align-items: stretch !important; }
+  .m-confirm-actions > button { width: 100% !important; justify-content: center !important; }
+
+  /* ScanPage drop zone a bit shorter */
+  .m-dropzone { padding: 1.75rem 1rem !important; }
+
+  /* Share card: slightly smaller brand display */
+  #shareCard { padding: 1.25rem !important; }
+  #shareCard .display { font-size: 1.35rem !important; }
+}

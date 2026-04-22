@@ -62,8 +62,8 @@ export default function SharePage() {
   const logForAI = { ...currentLog }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '2rem 1.5rem' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
+    <div className="m-page" style={{ maxWidth: 1000, margin: '0 auto', padding: '2rem 1.5rem' }}>
+      <div className="m-share-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', alignItems: 'start' }}>
 
         {/* LEFT — Share Card */}
         <div>
