@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
-// gemini-2.0-flash: OCR 정확도가 Llama 4 Scout 대비 압도적으로 높음
-const VISION_MODEL = 'gemini-2.0-flash'
+// gemini-2.5-flash: 현재 GA 비전 모델 (2.0-flash는 2026-06 종료)
+const VISION_MODEL = 'gemini-2.5-flash'
 
 function getClient() {
   const key = process.env.GEMINI_API_KEY

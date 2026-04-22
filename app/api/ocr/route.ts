@@ -30,6 +30,12 @@ RULES:
 - Return ONLY the JSON object starting with { and ending with }`
 
 export async function POST(req: NextRequest) {
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json(
+      { error: 'GEMINI_API_KEY가 설정되지 않았습니다. Vercel 환경변수에 추가하세요.' },
+      { status: 500 }
+    )
+  }
   try {
     const formData = await req.formData()
     const file = formData.get('image') as File
@@ -39,7 +45,14 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(bytes).toString('base64')
     const mimeType = file.type || 'image/jpeg'
 
-    const raw = await generateWithImage(OCR_PROMPT, base64, mimeType)
+    let raw: string
+    try {
+      raw = await generateWithImage(OCR_PROMPT, base64, mimeType)
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('Gemini vision error:', msg)
+      return NextResponse.json({ error: `Gemini 호출 실패: ${msg}` }, { status: 500 })
+    }
 
     let parsed: Record<string, string | null> = {}
     try {
