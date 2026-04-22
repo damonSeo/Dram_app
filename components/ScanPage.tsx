@@ -100,18 +100,21 @@ export default function ScanPage() {
       setProgress(15); setProgLabel('Uploading...')
       const res = await fetch('/api/ocr', { method: 'POST', body: form })
       setProgress(50); setProgLabel('AI Vision 분석 중...')
-      const json = await res.json()
+      const json = await res.json() as { data?: OcrResult; error?: string }
+      if (!res.ok) throw new Error(json.error || `OCR 실패 (${res.status})`)
       setProgress(85); setProgLabel('결과 정리 중...')
       const d: OcrResult = json.data || {}
+      const hasAny = Object.values(d).some((v) => v && String(v).trim() !== '')
       setScanFields({
         brand: d.brand || '', region: d.region || '', age: d.age || '',
         vintage: d.vintage || '', abv: d.abv || '', bottler: d.bottler || '', cask: d.cask || '',
       })
       setProgress(100); setProgLabel('완료')
       setScanDone(true)
-      showToast('라벨 인식 완료!', 'ok')
-    } catch {
-      showToast('OCR 실패', 'err')
+      if (hasAny) showToast('라벨 인식 완료!', 'ok')
+      else showToast('인식된 정보가 없습니다. 수동으로 입력해주세요.', 'err')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'OCR 실패', 'err')
     } finally {
       setScanning(false)
     }
