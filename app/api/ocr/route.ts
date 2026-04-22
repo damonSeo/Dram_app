@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateWithImage } from '@/lib/groq'
+import { generateWithImage } from '@/lib/gemini'
 
 const OCR_PROMPT = `You are an expert whisky label analyst with 20+ years of experience. Your task is to extract every piece of information from this whisky bottle label with maximum accuracy.
 
