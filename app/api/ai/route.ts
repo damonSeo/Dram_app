@@ -206,6 +206,58 @@ ${userComment ? `- 한줄평: ${userComment}` : ''}
 - 본문만 출력 (제목·설명 없이)`
     }
 
+    case 'gen_search_query': {
+      const { brand, age, vintage, abv, cask, bottler, region } = payload
+      const info = [
+        brand && `증류소: ${brand}`,
+        age && `숙성: ${age}`,
+        vintage && `빈티지: ${vintage}`,
+        abv && `도수: ${abv}`,
+        cask && `캐스크: ${cask}`,
+        bottler && `보틀러: ${bottler}`,
+        region && `지역: ${region}`,
+      ].filter(Boolean).join(' / ')
+      return `You are a whisky search expert. Given the following bottle info, craft a SHORT precise English Google search query (6-12 words) to find this exact bottle or very similar bottles — useful for finding retail listings, reviews, and prices.
+
+Bottle info:
+${info}
+
+Rules:
+- Output ONLY the search query, no quotes, no explanation, no prefix
+- Use English whisky terms (single malt, sherry cask, cask strength, etc.)
+- Include distillery, age or vintage, and the most distinctive attribute (cask finish, bottler, ABV)
+- Do NOT include the word "price" or "buy" — the search engine will surface listings anyway
+- If the bottler is an independent bottler (not OB), include the bottler name
+- Maximum 12 words`
+    }
+
+    case 'distillery_info': {
+      const { brand, region } = payload
+      return `당신은 위스키 증류소 전문가입니다. 아래 증류소에 대한 핵심 정보를 한국어로 정리해주세요.
+
+증류소: ${brand}
+${region ? `지역: ${region}` : ''}
+
+반드시 아래 JSON 형식으로만 응답하세요 (마크다운, 코드블록 없이 순수 JSON):
+{
+  "name": "증류소 공식 한글 이름 (원어 병기 가능)",
+  "country": "국가",
+  "region": "세부 지역",
+  "founded": "설립 연도 (예: 1824년)",
+  "owner": "현재 소유 그룹",
+  "style": "위스키 스타일 한 줄 요약 (예: 셰리 캐스크 중심의 풍부하고 묵직한 하이랜드 몰트)",
+  "signature": "시그니처 표현 핵심 노트 (예: 건포도, 다크 초콜릿, 가죽)",
+  "flagships": ["대표 제품1", "대표 제품2", "대표 제품3"],
+  "history": "150자 내외의 간결한 역사 요약",
+  "trivia": "팬이라면 알면 좋을 흥미로운 한 가지 사실 (80자 내외)"
+}
+
+규칙:
+- 모든 내용은 순수한 한국어 (한자·일본어·로마자 단독 사용 금지, 고유명사만 원어 병기 허용)
+- 모르는 항목은 null
+- JSON 외 다른 텍스트 절대 출력 금지`
+    }
+
     default:
       throw new Error(`Unknown action: ${action}`)
   }

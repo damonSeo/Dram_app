@@ -52,6 +52,19 @@ export default function ScanPage() {
   const [searchData, setSearchData] = useState<SearchData | null>(null)
   const [searching, setSearching] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // Distillery info state
+  interface DistilleryInfo {
+    name?: string | null; country?: string | null; region?: string | null
+    founded?: string | null; owner?: string | null; style?: string | null
+    signature?: string | null; flagships?: string[] | null
+    history?: string | null; trivia?: string | null
+  }
+  const [distilleryInfo, setDistilleryInfo] = useState<DistilleryInfo | null>(null)
+  const [distilleryLoading, setDistilleryLoading] = useState(false)
+  const [distilleryOpen, setDistilleryOpen] = useState(false)
+  const [distilleryName, setDistilleryName] = useState('')
 
   // Manual state
   const [brand, setBrand] = useState('')
@@ -121,11 +134,30 @@ export default function ScanPage() {
   }
 
   const runSearch = async () => {
-    const q = [scanFields.brand, scanFields.age].filter(Boolean).join(' ')
-    if (!q.trim()) { showToast('브랜드 정보가 없습니다', 'err'); return }
+    if (!scanFields.brand.trim()) { showToast('브랜드 정보가 없습니다', 'err'); return }
     setSearching(true)
     setSearchOpen(true)
+    setSearchData(null)
     try {
+      // 1단계: Gemini/Groq로 스마트 검색 쿼리 생성
+      let q = [scanFields.brand, scanFields.age, scanFields.cask].filter(Boolean).join(' ')
+      try {
+        const aiRes = await fetch('/api/ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'gen_search_query', payload: scanFields }),
+        })
+        const aiJson = await aiRes.json() as { text?: string; error?: string }
+        if (aiRes.ok && aiJson.text) {
+          const cleaned = aiJson.text.replace(/^["']|["']$/g, '').replace(/\n/g, ' ').trim()
+          if (cleaned && cleaned.length <= 200) q = cleaned
+        }
+      } catch {
+        // AI 실패 — 기본 쿼리로 진행
+      }
+      setSearchQuery(q)
+
+      // 2단계: Google 검색
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`)
       const data = await res.json() as SearchData
       setSearchData(data)
@@ -134,6 +166,35 @@ export default function ScanPage() {
       setSearchOpen(false)
     } finally {
       setSearching(false)
+    }
+  }
+
+  const openDistilleryInfo = async (name: string) => {
+    if (!name.trim()) return
+    setDistilleryName(name)
+    setDistilleryOpen(true)
+    setDistilleryInfo(null)
+    setDistilleryLoading(true)
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'distillery_info',
+          payload: { brand: name, region: scanFields.region },
+        }),
+      })
+      const json = await res.json() as { text?: string; error?: string }
+      if (!res.ok) throw new Error(json.error || '증류소 정보 조회 실패')
+      const raw = (json.text || '').replace(/```(?:json)?/g, '').trim()
+      const match = raw.match(/\{[\s\S]*\}/)
+      if (match) setDistilleryInfo(JSON.parse(match[0]))
+      else throw new Error('정보 파싱 실패')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '증류소 정보 실패', 'err')
+      setDistilleryOpen(false)
+    } finally {
+      setDistilleryLoading(false)
     }
   }
 
@@ -245,8 +306,8 @@ export default function ScanPage() {
               </div>
 
               {/* 버튼 행 */}
-              <div style={{ display:'flex', gap:'1px', marginBottom:'1px' }}>
-                <button className="btn-gold" style={{ flex:1, justifyContent:'center' }}
+              <div className="m-grid-collapse" style={{ display:'flex', gap:'1px', marginBottom:'1px', flexWrap:'wrap' }}>
+                <button className="btn-gold" style={{ flex:'1 1 200px', justifyContent:'center' }}
                   onClick={() => goToTasting({ ...scanFields, casks: scanFields.cask ? [scanFields.cask] : [] }, preview)}>
                   Next — Add Tasting Notes →
                 </button>
@@ -254,15 +315,26 @@ export default function ScanPage() {
                   onClick={runSearch} disabled={searching}>
                   {searching ? <span className="spinner" /> : '🔍'} 유사 바틀 검색
                 </button>
+                <button className="btn-outline-gold" style={{ whiteSpace:'nowrap', justifyContent:'center' }}
+                  onClick={() => openDistilleryInfo(scanFields.brand)} disabled={!scanFields.brand || distilleryLoading}>
+                  {distilleryLoading ? <span className="spinner" /> : '🏛'} 증류소 정보
+                </button>
               </div>
 
               {/* 검색 결과 패널 */}
               {searchOpen && (
                 <div className="fade-up" style={{ border:'1px solid var(--bd)', background:'var(--c2)', marginBottom:'1px' }}>
                   <div style={{ padding:'0.6rem 1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <p className="mono" style={{ fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.1em' }}>
-                      🔍 {scanFields.brand} {scanFields.age} 검색 결과
-                    </p>
+                    <div style={{ flex:1, minWidth:0, marginRight:'0.5rem' }}>
+                      <p className="mono" style={{ fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.1em', marginBottom:'0.15rem' }}>
+                        🔍 AI 스마트 검색 결과
+                      </p>
+                      {searchQuery && (
+                        <p className="mono" style={{ fontSize:'0.6rem', color:'var(--tx3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                          쿼리: {searchQuery}
+                        </p>
+                      )}
+                    </div>
                     <button onClick={() => setSearchOpen(false)}
                       style={{ background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'0.9rem' }}>✕</button>
                   </div>
@@ -322,7 +394,15 @@ export default function ScanPage() {
                       {/* Organic results */}
                       {searchData.organic && searchData.organic.length > 0 && (
                         <div>
-                          <p className="mono" style={{ fontSize:'0.6rem', color:'var(--tx3)', letterSpacing:'0.08em', marginBottom:'0.6rem', textTransform:'uppercase' }}>📰 리뷰 & 정보</p>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.6rem' }}>
+                            <p className="mono" style={{ fontSize:'0.6rem', color:'var(--tx3)', letterSpacing:'0.08em', textTransform:'uppercase' }}>📰 리뷰 & 정보</p>
+                            {scanFields.brand && (
+                              <button onClick={() => openDistilleryInfo(scanFields.brand)}
+                                className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', background:'none', border:'1px solid var(--bd)', padding:'0.25rem 0.5rem', cursor:'pointer', letterSpacing:'0.08em' }}>
+                                🏛 {scanFields.brand} 증류소 →
+                              </button>
+                            )}
+                          </div>
                           <div style={{ display:'flex', flexDirection:'column', gap:'1px' }}>
                             {searchData.organic.map((r, i) => (
                               <a key={i} href={r.link} target="_blank" rel="noopener noreferrer"
@@ -565,6 +645,111 @@ export default function ScanPage() {
                 </span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Distillery Info Modal ── */}
+      {distilleryOpen && (
+        <div
+          onClick={() => setDistilleryOpen(false)}
+          style={{
+            position:'fixed', inset:0, background:'rgba(0,0,0,0.75)', zIndex:1000,
+            display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem',
+          }}>
+          <div
+            className="m-modal-panel fade-up"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background:'var(--c2)', border:'1px solid var(--bd)', maxWidth:640, width:'100%',
+              maxHeight:'85vh', overflowY:'auto',
+            }}>
+            <div style={{ padding:'0.75rem 1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'var(--c2)' }}>
+              <p className="mono" style={{ fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.12em', textTransform:'uppercase' }}>
+                🏛 Distillery Info
+              </p>
+              <button onClick={() => setDistilleryOpen(false)}
+                style={{ background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'1rem' }}>✕</button>
+            </div>
+
+            {distilleryLoading && (
+              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'2rem 1rem', justifyContent:'center' }}>
+                <span className="spinner" />
+                <span className="mono" style={{ fontSize:'0.72rem', color:'var(--tx2)' }}>
+                  {distilleryName} 정보 조회 중...
+                </span>
+              </div>
+            )}
+
+            {!distilleryLoading && distilleryInfo && (
+              <div style={{ padding:'1rem' }}>
+                <p className="mono" style={{ fontSize:'0.6rem', color:'var(--tx3)', letterSpacing:'0.08em', marginBottom:'0.3rem' }}>
+                  {[distilleryInfo.country, distilleryInfo.region].filter(Boolean).join(' · ') || '—'}
+                </p>
+                <p className="display" style={{ fontSize:'1.6rem', color:'var(--tx)', lineHeight:1.2, marginBottom:'0.75rem' }}>
+                  {distilleryInfo.name || distilleryName}
+                </p>
+
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1px', background:'var(--bd)', marginBottom:'1rem' }}>
+                  {([
+                    ['설립', distilleryInfo.founded],
+                    ['소유', distilleryInfo.owner],
+                  ] as [string, string | null | undefined][]).map(([label, val]) => (
+                    <div key={label} style={{ background:'var(--c2)', padding:'0.6rem 0.75rem' }}>
+                      <p className="mono" style={{ fontSize:'0.58rem', color:'var(--tx3)', letterSpacing:'0.08em', marginBottom:'0.2rem', textTransform:'uppercase' }}>{label}</p>
+                      <p style={{ fontSize:'0.82rem', color:'var(--tx)' }}>{val || '—'}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {distilleryInfo.style && (
+                  <div style={{ marginBottom:'1rem' }}>
+                    <p className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.3rem', textTransform:'uppercase' }}>스타일</p>
+                    <p style={{ fontSize:'0.85rem', color:'var(--tx)', lineHeight:1.55 }}>{distilleryInfo.style}</p>
+                  </div>
+                )}
+
+                {distilleryInfo.signature && (
+                  <div style={{ marginBottom:'1rem' }}>
+                    <p className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.3rem', textTransform:'uppercase' }}>시그니처 노트</p>
+                    <p style={{ fontSize:'0.85rem', color:'var(--tx)', lineHeight:1.55 }}>{distilleryInfo.signature}</p>
+                  </div>
+                )}
+
+                {distilleryInfo.flagships && distilleryInfo.flagships.length > 0 && (
+                  <div style={{ marginBottom:'1rem' }}>
+                    <p className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.3rem', textTransform:'uppercase' }}>대표 제품</p>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'0.35rem' }}>
+                      {distilleryInfo.flagships.map((f, i) => (
+                        <span key={i} className="chip active" style={{ cursor:'default' }}>{f}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {distilleryInfo.history && (
+                  <div style={{ marginBottom:'1rem' }}>
+                    <p className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.3rem', textTransform:'uppercase' }}>역사</p>
+                    <p style={{ fontSize:'0.82rem', color:'var(--tx2)', lineHeight:1.6 }}>{distilleryInfo.history}</p>
+                  </div>
+                )}
+
+                {distilleryInfo.trivia && (
+                  <div style={{ padding:'0.75rem', background:'var(--gp)', border:'1px solid var(--bd)' }}>
+                    <p className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.3rem', textTransform:'uppercase' }}>💡 Trivia</p>
+                    <p style={{ fontSize:'0.82rem', color:'var(--tx)', lineHeight:1.55 }}>{distilleryInfo.trivia}</p>
+                  </div>
+                )}
+
+                <div style={{ marginTop:'1rem', display:'flex', gap:'1px' }}>
+                  <a href={`https://www.google.com/search?q=${encodeURIComponent((distilleryInfo.name || distilleryName) + ' distillery')}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="btn-outline-gold" style={{ flex:1, justifyContent:'center', textDecoration:'none' }}>
+                    🔍 구글에서 더 보기 →
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
