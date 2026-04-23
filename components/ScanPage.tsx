@@ -60,11 +60,14 @@ export default function ScanPage() {
     founded?: string | null; owner?: string | null; style?: string | null
     signature?: string | null; flagships?: string[] | null
     history?: string | null; trivia?: string | null
+    sources?: string[] | null
   }
   const [distilleryInfo, setDistilleryInfo] = useState<DistilleryInfo | null>(null)
   const [distilleryLoading, setDistilleryLoading] = useState(false)
   const [distilleryOpen, setDistilleryOpen] = useState(false)
   const [distilleryName, setDistilleryName] = useState('')
+  const [distilleryVerified, setDistilleryVerified] = useState(false)
+  const [distilleryStatus, setDistilleryStatus] = useState('')
 
   // Manual state
   const [brand, setBrand] = useState('')
@@ -174,27 +177,27 @@ export default function ScanPage() {
     setDistilleryName(name)
     setDistilleryOpen(true)
     setDistilleryInfo(null)
+    setDistilleryVerified(false)
     setDistilleryLoading(true)
+    setDistilleryStatus('Gemini AI로 1차 정보 수집 중...')
     try {
-      const res = await fetch('/api/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'distillery_info',
-          payload: { brand: name, region: scanFields.region },
-        }),
-      })
-      const json = await res.json() as { text?: string; error?: string }
+      // 백그라운드에서 검증 진행 메시지 업데이트
+      const t = setTimeout(() => setDistilleryStatus('Google 검색으로 사실 검증 중...'), 1800)
+      const res = await fetch(
+        `/api/distillery?name=${encodeURIComponent(name)}&region=${encodeURIComponent(scanFields.region || '')}`
+      )
+      clearTimeout(t)
+      const json = await res.json() as { data?: DistilleryInfo; verified?: boolean; error?: string }
       if (!res.ok) throw new Error(json.error || '증류소 정보 조회 실패')
-      const raw = (json.text || '').replace(/```(?:json)?/g, '').trim()
-      const match = raw.match(/\{[\s\S]*\}/)
-      if (match) setDistilleryInfo(JSON.parse(match[0]))
-      else throw new Error('정보 파싱 실패')
+      if (!json.data) throw new Error('정보 파싱 실패')
+      setDistilleryInfo(json.data)
+      setDistilleryVerified(!!json.verified)
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : '증류소 정보 실패', 'err')
       setDistilleryOpen(false)
     } finally {
       setDistilleryLoading(false)
+      setDistilleryStatus('')
     }
   }
 
@@ -664,20 +667,31 @@ export default function ScanPage() {
               background:'var(--c2)', border:'1px solid var(--bd)', maxWidth:640, width:'100%',
               maxHeight:'85vh', overflowY:'auto',
             }}>
-            <div style={{ padding:'0.75rem 1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'var(--c2)' }}>
-              <p className="mono" style={{ fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.12em', textTransform:'uppercase' }}>
-                🏛 Distillery Info
-              </p>
+            <div style={{ padding:'0.75rem 1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'var(--c2)', zIndex:1 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'0.5rem', flex:1, minWidth:0 }}>
+                <p className="mono" style={{ fontSize:'0.65rem', color:'var(--gold)', letterSpacing:'0.12em', textTransform:'uppercase' }}>
+                  🏛 Distillery Info
+                </p>
+                {distilleryVerified && !distilleryLoading && (
+                  <span className="mono" title="Gemini AI 응답을 Google 검색으로 검증함"
+                    style={{ fontSize:'0.55rem', color:'#9bd6a3', background:'rgba(120,180,120,0.12)', border:'1px solid rgba(120,180,120,0.4)', padding:'0.15rem 0.4rem', letterSpacing:'0.08em', textTransform:'uppercase' }}>
+                    ✓ Verified
+                  </span>
+                )}
+              </div>
               <button onClick={() => setDistilleryOpen(false)}
                 style={{ background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'1rem' }}>✕</button>
             </div>
 
             {distilleryLoading && (
-              <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', padding:'2rem 1rem', justifyContent:'center' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:'0.75rem', padding:'2.5rem 1rem' }}>
                 <span className="spinner" />
-                <span className="mono" style={{ fontSize:'0.72rem', color:'var(--tx2)' }}>
-                  {distilleryName} 정보 조회 중...
-                </span>
+                <p className="mono" style={{ fontSize:'0.72rem', color:'var(--gold)' }}>
+                  {distilleryName}
+                </p>
+                <p className="mono" style={{ fontSize:'0.65rem', color:'var(--tx2)', textAlign:'center' }}>
+                  {distilleryStatus || '정보 조회 중...'}
+                </p>
               </div>
             )}
 
@@ -738,6 +752,21 @@ export default function ScanPage() {
                   <div style={{ padding:'0.75rem', background:'var(--gp)', border:'1px solid var(--bd)' }}>
                     <p className="mono" style={{ fontSize:'0.6rem', color:'var(--gold)', letterSpacing:'0.08em', marginBottom:'0.3rem', textTransform:'uppercase' }}>💡 Trivia</p>
                     <p style={{ fontSize:'0.82rem', color:'var(--tx)', lineHeight:1.55 }}>{distilleryInfo.trivia}</p>
+                  </div>
+                )}
+
+                {distilleryInfo.sources && distilleryInfo.sources.length > 0 && (
+                  <div style={{ marginTop:'1rem', paddingTop:'0.75rem', borderTop:'1px solid var(--bd)' }}>
+                    <p className="mono" style={{ fontSize:'0.58rem', color:'var(--tx3)', letterSpacing:'0.08em', marginBottom:'0.4rem', textTransform:'uppercase' }}>
+                      Verified Sources
+                    </p>
+                    <div style={{ display:'flex', flexWrap:'wrap', gap:'0.3rem' }}>
+                      {distilleryInfo.sources.map((s, i) => (
+                        <span key={i} className="mono" style={{ fontSize:'0.62rem', color:'var(--tx2)', padding:'0.2rem 0.45rem', background:'var(--c3)', border:'1px solid var(--bd)' }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 )}
 
