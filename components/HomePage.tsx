@@ -30,7 +30,7 @@ export default function HomePage() {
 
   const goScan = () => { setScanMode('scan'); setActiveTab('scan') }
   const goManual = () => { setScanMode('manual'); setActiveTab('scan') }
-  const goCocktail = () => { setArchiveSubTab('cocktail' as const); setActiveTab('collection') }
+  const goCocktail = () => { setScanMode('manual'); setActiveTab('scan') }
 
   return (
     <div className="m-page fade-up" style={{ maxWidth: 860, margin: '0 auto', padding: '2.5rem 1.5rem' }}>

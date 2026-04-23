@@ -427,45 +427,27 @@ export default function CollectionPage() {
         ))}
       </div>
 
-      {/* Cocktail sub-tab */}
-      {subTab === 'cocktail' && (
-        <div className="fade-up" style={{
-          border: '1px solid var(--bd2)',
-          background: 'linear-gradient(180deg, rgba(201,168,76,0.08) 0%, rgba(28,28,28,0.95) 100%)',
-          padding: '3rem 1.5rem', textAlign: 'center',
-        }}>
-          <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', marginBottom: '0.5rem' }}>🍸</p>
-          <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
-            Coming Soon
+      {/* 빈 상태 */}
+      {visibleLogs.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '3.5rem 0' }}>
+          <p style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>
+            {subTab === 'cocktail' ? '🍸' : subTab === 'bourbon' ? '🌽' : subTab === 'cognac' ? '🍇' : '🥃'}
           </p>
-          <h2 className="display" style={{ fontSize: '1.7rem', color: 'var(--tx)', marginBottom: '0.75rem' }}>Cocktail Archive</h2>
-          <p style={{ fontSize: '0.85rem', color: 'var(--tx2)', lineHeight: 1.7, maxWidth: 440, margin: '0 auto 1.5rem' }}>
-            위스키·와인 베이스 칵테일 레시피와 시음 기록을 담는 공간입니다. 곧 준비해서 선보일게요.
+          <p style={{ color: 'var(--tx2)', fontStyle: 'italic', fontSize: '0.88rem' }}>
+            아직 기록이 없습니다.
           </p>
-          <div style={{ display: 'grid', gap: '0.6rem', maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
-            {[
-              ['🧪', '클래식 칵테일 레시피 아카이브 (올드패션드, 맨해튼, 사워...)'],
-              ['📝', '베이스 스피릿·가니시·재료별 개인 기록'],
-              ['⭐', '별점과 한줄평, 사진 저장'],
-              ['🔗', '시음한 위스키 노트와 연결해서 추천 페어링'],
-            ].map(([icon, text]) => (
-              <div key={text as string} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.6rem 0.75rem', background: 'var(--c3)', border: '1px solid var(--bd)' }}>
-                <span style={{ flexShrink: 0 }}>{icon}</span>
-                <p style={{ fontSize: '0.78rem', color: 'var(--tx)', lineHeight: 1.5 }}>{text}</p>
-              </div>
-            ))}
-          </div>
+          <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx3)', marginTop: '0.5rem' }}>
+            Input → Manual Input → {subTab === 'cocktail' ? '🍸 Cocktail' : subTab === 'bourbon' ? '🌽 Bourbon' : subTab === 'cognac' ? '🍇 Cognac' : '🥃 Whisky'} 에서 추가하세요
+          </p>
+          <button className="btn-outline-gold" style={{ marginTop: '1.25rem', justifyContent: 'center' }}
+            onClick={() => setActiveTab('scan')}>
+            + 새 기록 추가 →
+          </button>
         </div>
       )}
 
-      {/* Whisky / Bourbon / Cognac sub-tabs — card grid */}
-      {subTab !== 'cocktail' && visibleLogs.length === 0 && (
-        <p style={{ color: 'var(--tx2)', fontStyle: 'italic', textAlign: 'center', padding: '4rem 0' }}>
-          아직 기록이 없습니다. Input에서 새 노트를 추가해보세요.
-        </p>
-      )}
-
-      {subTab !== 'cocktail' && visibleLogs.length > 0 && (
+      {/* 카드 그리드 — 공통 (Whisky / Bourbon / Cognac / Cocktail) */}
+      {visibleLogs.length > 0 && (
         <div className="m-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
           {visibleLogs.map((log) => (
             <div
@@ -494,9 +476,16 @@ export default function CollectionPage() {
                 <p className="display" style={{ fontSize: '1.2rem', lineHeight: 1.2, marginBottom: '0.25rem', color: 'var(--tx)' }}>
                   {log.brand || '—'}
                 </p>
-                <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', marginBottom: '0.5rem' }}>
-                  {[log.age, log.bottler === 'IB' ? (log.ib_name || 'IB') : 'OB'].filter(Boolean).join(' · ')}
-                </p>
+                {log.spirit_type === 'cocktail' ? (
+                  /* 칵테일 카드 — method · glass */
+                  <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', marginBottom: '0.5rem' }}>
+                    {[log.cask_no, log.age].filter(Boolean).join(' · ') || '—'}
+                  </p>
+                ) : (
+                  <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', marginBottom: '0.5rem' }}>
+                    {[log.age, log.bottler === 'IB' ? (log.ib_name || 'IB') : 'OB'].filter(Boolean).join(' · ')}
+                  </p>
+                )}
                 {log.nose && (
                   <p style={{
                     fontSize: '0.75rem', color: 'var(--tx2)', lineHeight: 1.5,

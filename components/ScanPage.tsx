@@ -24,6 +24,11 @@ const AGE_COGNAC      = ['VS (2yr+)','VSOP (4yr+)','Napoléon (6yr+)','XO (10yr+
 const GRAPE_COGNAC    = ['Ugni Blanc','Colombard','Folle Blanche','Montils','Sémillon']
 const ABV_COGNAC      = ['40%','42%','43%','45%','46%','50%']
 
+const BASE_SPIRITS    = ['Whisky','Bourbon','Scotch','Rum','Gin','Vodka','Tequila','Mezcal','Cognac','Wine','Champagne','Liqueur','Other']
+const METHOD_CHIPS    = ['Stirred','Shaken','Built','Blended','Thrown','Swizzled']
+const GLASS_CHIPS     = ['Rocks','Coupe','Nick & Nora','Highball','Martini','Collins','Flute','Snifter','Tiki','Shot']
+const COMMON_GARNISH  = ['Lemon twist','Orange twist','Cherry','Olive','Mint','Dehydrated citrus','Salt rim','Sugar rim','None']
+
 /* ── styles ─────────────────────────────────────────────────────────────────── */
 
 const S = {
@@ -460,6 +465,140 @@ function CognacManual({ photo, setPhoto }: { photo:string|null; setPhoto:(v:stri
   )
 }
 
+/* ── Cocktail Manual fields ───────────────────────────────────────────────── */
+
+interface CocktailFields {
+  name: string; baseSpirit: string; method: string; glass: string
+  ingredients: string[]; ingredientInput: string; garnish: string; abv: string
+}
+const DEFAULT_COCKTAIL: CocktailFields = {
+  name:'', baseSpirit:'', method:'', glass:'', ingredients:[], ingredientInput:'', garnish:'', abv:''
+}
+
+function CocktailManual({ photo, setPhoto }: { photo:string|null; setPhoto:(v:string|null)=>void }) {
+  const [f, setF] = useState<CocktailFields>(DEFAULT_COCKTAIL)
+  const upd = (p: Partial<CocktailFields>) => setF((prev) => ({...prev,...p}))
+  const { updateCurrentLog, resetCurrentLog, setActiveTab } = useStore()
+  const { showToast } = useToast()
+  const photoRef = useRef<HTMLInputElement>(null)
+
+  const addIngredient = () => {
+    const v = f.ingredientInput.trim()
+    if (!v || f.ingredients.includes(v)) return
+    upd({ ingredients: [...f.ingredients, v], ingredientInput: '' })
+  }
+
+  const go = async () => {
+    if (!f.name.trim()) { showToast('칵테일 이름을 입력해주세요', 'err'); return }
+    const imgCompressed = photo ? await shrinkDataUrl(photo, 600, 0.7).catch(() => photo) : ''
+    resetCurrentLog()
+    updateCurrentLog({
+      spirit_type: 'cocktail',
+      brand: f.name,           // 칵테일 이름
+      region: f.baseSpirit,    // 베이스 스피릿
+      age: f.glass,            // 글라스
+      cask_no: f.method,       // 제조 방식
+      vintage: f.garnish,      // 가니쉬
+      casks: f.ingredients,    // 재료 목록
+      abv: f.abv,
+      image_url: imgCompressed || undefined,
+      date: new Date().toISOString().split('T')[0],
+    })
+    setActiveTab('tasting')
+  }
+
+  return (
+    <div className="fade-up">
+      <div style={S.section}>
+        <div style={S.hdr}>Cocktail Info</div>
+        <div style={S.body}>
+          <div style={{...S.cell, marginBottom:'1px'}}>
+            <p style={S.label}>Cocktail Name</p>
+            <input type="text" value={f.name} onChange={(e)=>upd({name:e.target.value})} placeholder="e.g. Old Fashioned, Negroni, Manhattan" />
+          </div>
+          <div className="m-grid-collapse" style={S.row2}>
+            <div style={S.cell}>
+              <p style={S.label}>Base Spirit</p>
+              <input type="text" value={f.baseSpirit} onChange={(e)=>upd({baseSpirit:e.target.value})} placeholder="e.g. Whisky, Rum" />
+              <div style={S.chips}>
+                {BASE_SPIRITS.map((b) => (
+                  <button key={b} className={`chip${f.baseSpirit===b?' active':''}`} onClick={()=>upd({baseSpirit:f.baseSpirit===b?'':b})}>{b}</button>
+                ))}
+              </div>
+            </div>
+            <div style={S.cell}>
+              <p style={S.label}>ABV (est.)</p>
+              <input type="text" value={f.abv} onChange={(e)=>upd({abv:e.target.value})} placeholder="e.g. 28%" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={S.section}>
+        <div style={S.hdr}>Method & Glass</div>
+        <div style={S.body}>
+          <div style={{marginBottom:'1rem'}}>
+            <p style={S.label}>Method</p>
+            <div style={S.chips}>
+              {METHOD_CHIPS.map((m) => (
+                <button key={m} className={`chip${f.method===m?' active':''}`} onClick={()=>upd({method:f.method===m?'':m})}>{m}</button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p style={S.label}>Glass</p>
+            <div style={S.chips}>
+              {GLASS_CHIPS.map((g) => (
+                <button key={g} className={`chip${f.glass===g?' active':''}`} onClick={()=>upd({glass:f.glass===g?'':g})}>{g}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={S.section}>
+        <div style={S.hdr}>Ingredients & Garnish</div>
+        <div style={S.body}>
+          <div style={{marginBottom:'1rem'}}>
+            <p style={S.label}>Ingredients</p>
+            <div style={{display:'flex', gap:'1px', marginBottom:'0.5rem'}}>
+              <input type="text" value={f.ingredientInput}
+                onChange={(e)=>upd({ingredientInput:e.target.value})}
+                onKeyDown={(e)=>{ if(e.key==='Enter'){e.preventDefault();addIngredient()} }}
+                placeholder="재료 입력 후 Enter or +" style={{flex:1}} />
+              <button className="btn-outline-gold" style={{padding:'0.4rem 0.75rem'}} onClick={addIngredient}>+</button>
+            </div>
+            {f.ingredients.length > 0 && (
+              <div style={S.chips}>
+                {f.ingredients.map((ing) => (
+                  <button key={ing} className="chip active" style={{gap:'0.3rem'}}
+                    onClick={()=>upd({ingredients:f.ingredients.filter((x)=>x!==ing)})}>
+                    {ing} ✕
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div>
+            <p style={S.label}>Garnish</p>
+            <input type="text" value={f.garnish} onChange={(e)=>upd({garnish:e.target.value})} placeholder="e.g. Lemon twist, Cherry" />
+            <div style={S.chips}>
+              {COMMON_GARNISH.map((g) => (
+                <button key={g} className={`chip${f.garnish===g?' active':''}`} onClick={()=>upd({garnish:f.garnish===g?'':g})}>{g}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <PhotoSection photo={photo} setPhoto={setPhoto} photoRef={photoRef} />
+      <button className="btn-gold" style={{width:'100%', justifyContent:'center', marginTop:'0.5rem'}} onClick={go}>
+        Next — Add Tasting Notes →
+      </button>
+    </div>
+  )
+}
+
 /* ── Photo section (shared) ───────────────────────────────────────────────── */
 
 function PhotoSection({ photo, setPhoto, photoRef }: { photo:string|null; setPhoto:(v:string|null)=>void; photoRef: React.RefObject<HTMLInputElement | null> }) {
@@ -817,12 +956,14 @@ export default function ScanPage() {
               {spiritBtn('whisky','🥃','Whisky')}
               {spiritBtn('bourbon','🌽','Bourbon')}
               {spiritBtn('cognac','🍇','Cognac')}
+              {spiritBtn('cocktail','🍸','Cocktail')}
             </div>
           </div>
 
-          {spiritType === 'whisky'  && <WhiskyManual  photo={manualPhoto} setPhoto={setManualPhoto} />}
-          {spiritType === 'bourbon' && <BourbonManual photo={manualPhoto} setPhoto={setManualPhoto} />}
-          {spiritType === 'cognac'  && <CognacManual  photo={manualPhoto} setPhoto={setManualPhoto} />}
+          {spiritType === 'whisky'   && <WhiskyManual   photo={manualPhoto} setPhoto={setManualPhoto} />}
+          {spiritType === 'bourbon'  && <BourbonManual  photo={manualPhoto} setPhoto={setManualPhoto} />}
+          {spiritType === 'cognac'   && <CognacManual   photo={manualPhoto} setPhoto={setManualPhoto} />}
+          {spiritType === 'cocktail' && <CocktailManual photo={manualPhoto} setPhoto={setManualPhoto} />}
         </div>
       )}
 

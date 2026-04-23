@@ -48,5 +48,5 @@ export interface ExtractedKeys {
   finish: string[]
 }
 
-export type SpiritType = 'whisky' | 'bourbon' | 'cognac'
+export type SpiritType = 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
 export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail'
