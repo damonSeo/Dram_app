@@ -7,6 +7,7 @@ import type { TabName } from '@/types'
 const TABS: { id: TabName; label: string }[] = [
   { id: 'scan', label: 'Scan' },
   { id: 'tasting', label: 'Notes' },
+  { id: 'cocktail', label: 'Cocktail' },
   { id: 'collection', label: 'Collection' },
   { id: 'share', label: 'Share' },
 ]
@@ -77,9 +78,30 @@ export default function TopBar() {
         height: '56px', display: 'flex', alignItems: 'center',
         justifyContent: 'space-between', padding: '0 1.5rem',
       }}>
-        <span className="display" style={{ fontSize: '1.5rem', letterSpacing: '0.2em', color: 'var(--gold)' }}>
-          DRAM
-        </span>
+        <button
+          onClick={() => handleTabClick('home')}
+          title="홈으로"
+          aria-label="홈으로"
+          className="brand-logo"
+          style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            lineHeight: 1, padding: '0.1rem 0', gap: '2px',
+          }}
+        >
+          <span className="display" style={{
+            fontSize: '1rem', letterSpacing: '0.28em', color: 'var(--gold)',
+            fontWeight: 500,
+          }}>
+            OAK
+          </span>
+          <span className="display" style={{
+            fontSize: '0.62rem', letterSpacing: '0.22em', color: 'var(--gold)',
+            opacity: 0.85,
+          }}>
+            THE RECORD
+          </span>
+        </button>
         <nav style={{ display: 'flex', alignItems: 'center' }}>
           {TABS.map((tab) => (
             <button

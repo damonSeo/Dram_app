@@ -1,9 +1,9 @@
 'use client'
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl, shrinkDataUrl } from '@/lib/imageUtils'
-import type { OcrResult, WhiskyLog } from '@/types'
+import type { OcrResult } from '@/types'
 
 const REGIONS = ['Speyside','Islay','Highland','Lowland','Campbeltown','Island','Irish','Japanese','American','Taiwanese','Indian','Other']
 const CASK_TYPES = ['Ex-Bourbon','Hogshead','Oloroso Sherry','Pedro Ximénez','Port','Rum','Madeira','Sauternes','Virgin Oak','American Oak','European Oak','STR','Wine','Mizunara']
@@ -31,9 +31,12 @@ const S = {
 }
 
 export default function ScanPage() {
-  const { updateCurrentLog, resetCurrentLog, loadLog, setActiveTab, collection } = useStore()
+  const { updateCurrentLog, resetCurrentLog, setActiveTab, scanMode, setScanMode } = useStore()
   const { showToast } = useToast()
-  const [mode, setMode] = useState<Mode>('scan')
+  const [mode, setMode] = useState<Mode>(scanMode)
+
+  // 홈에서 어떤 모드로 들어왔는지 반영
+  useEffect(() => { setMode(scanMode) }, [scanMode])
 
   // Scan state
   const [preview, setPreview] = useState<string | null>(null)
@@ -237,7 +240,7 @@ export default function ScanPage() {
       {/* Mode toggle */}
       <div style={{ display:'flex', gap:'1px', marginBottom:'1.5rem', background:'var(--bd)' }}>
         {(['scan','manual'] as Mode[]).map((m) => (
-          <button key={m} onClick={() => setMode(m)} className="mono" style={{
+          <button key={m} onClick={() => { setMode(m); setScanMode(m) }} className="mono" style={{
             flex:1, padding:'0.6rem', border:'none', cursor:'pointer',
             background: mode===m ? 'var(--gp)' : 'var(--c2)',
             color: mode===m ? 'var(--gold)' : 'var(--tx2)',
@@ -609,48 +612,6 @@ export default function ScanPage() {
         </div>
       )}
 
-      {/* ── 최근 저장한 노트 ── */}
-      {collection.length > 0 && (
-        <div style={{ marginTop: '2.5rem', borderTop: '1px solid var(--bd)', paddingTop: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1rem' }}>
-            <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              ◈ 최근 저장한 노트
-            </p>
-            <button className="btn-ghost" style={{ fontSize: '0.7rem' }} onClick={() => setActiveTab('collection')}>
-              전체 보기 →
-            </button>
-          </div>
-          <div className="m-recent-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
-            {collection.slice(0, 6).map((log: WhiskyLog) => (
-              <div key={log.id}
-                onClick={() => { loadLog({ ...log }); setActiveTab('share') }}
-                style={{ background: 'var(--c2)', cursor: 'pointer', display: 'flex', gap: '0.6rem', padding: '0.6rem', alignItems: 'center' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--c3)' }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = 'var(--c2)' }}>
-                {log.image_url ? (
-                  <img src={log.image_url} alt="" style={{ width: 46, height: 46, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }} />
-                ) : (
-                  <div style={{ width: 46, height: 46, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--tx3)', fontSize: '1rem' }}>🥃</div>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.1rem', textTransform: 'lowercase' }}>
-                    {log.region || '—'}
-                  </p>
-                  <p className="display" style={{ fontSize: '0.92rem', color: 'var(--tx)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {log.brand || '—'}
-                  </p>
-                  <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx2)', marginTop: '0.1rem' }}>
-                    {[log.age, log.abv].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <span className="display" style={{ fontSize: '0.9rem', color: 'var(--gold)', flexShrink: 0 }}>
-                  ★ {log.score?.toFixed(1)}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* ── Distillery Info Modal ── */}
       {distilleryOpen && (

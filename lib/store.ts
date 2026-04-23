@@ -9,11 +9,13 @@ const DEFAULT_LOG: Partial<WhiskyLog> = {
 
 interface DramStore {
   activeTab: TabName
+  scanMode: 'scan' | 'manual'
   currentLog: Partial<WhiskyLog>
   collection: WhiskyLog[]
   extractedKeys: ExtractedKeys
   isDirty: boolean
   setActiveTab: (tab: TabName) => void
+  setScanMode: (mode: 'scan' | 'manual') => void
   updateCurrentLog: (fields: Partial<WhiskyLog>) => void
   resetCurrentLog: () => void
   startNewNote: () => void
@@ -27,13 +29,15 @@ interface DramStore {
 }
 
 export const useStore = create<DramStore>()((set, get) => ({
-  activeTab: 'scan',
+  activeTab: 'home',
+  scanMode: 'scan',
   currentLog: { ...DEFAULT_LOG },
   collection: [],
   extractedKeys: { nose: [], palate: [], finish: [] },
   isDirty: false,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setScanMode: (mode) => set({ scanMode: mode }),
 
   updateCurrentLog: (fields) =>
     set({ currentLog: { ...get().currentLog, ...fields }, isDirty: true }),
@@ -46,7 +50,7 @@ export const useStore = create<DramStore>()((set, get) => ({
       currentLog: { ...DEFAULT_LOG },
       isDirty: false,
       extractedKeys: { nose: [], palate: [], finish: [] },
-      activeTab: 'scan',
+      activeTab: 'home',
     }),
 
   loadLog: (log) =>

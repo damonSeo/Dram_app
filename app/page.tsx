@@ -2,10 +2,12 @@
 import { useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import TopBar from '@/components/TopBar'
+import HomePage from '@/components/HomePage'
 import ScanPage from '@/components/ScanPage'
 import TastingPage from '@/components/TastingPage'
 import CollectionPage from '@/components/CollectionPage'
 import SharePage from '@/components/SharePage'
+import CocktailPage from '@/components/CocktailPage'
 import { ToastProvider } from '@/components/Toast'
 import type { WhiskyLog } from '@/types'
 
@@ -25,8 +27,10 @@ export default function Home() {
     <ToastProvider>
       <TopBar />
       <main style={{ paddingTop: '56px', minHeight: '100vh', position: 'relative', zIndex: 1 }}>
+        {activeTab === 'home' && <HomePage />}
         {activeTab === 'scan' && <ScanPage />}
         {activeTab === 'tasting' && <TastingPage />}
+        {activeTab === 'cocktail' && <CocktailPage />}
         {activeTab === 'collection' && <CollectionPage />}
         {activeTab === 'share' && <SharePage />}
       </main>

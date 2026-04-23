@@ -222,6 +222,9 @@ html { -webkit-text-size-adjust: 100%; }
   /* TopBar — hide scan/notes labels? No, just shrink */
   header { padding: 0 0.75rem !important; }
   header > span.display { font-size: 1.05rem !important; letter-spacing: 0.15em !important; }
+  /* Stacked brand logo — shrink on small screens */
+  .brand-logo .display:first-child { font-size: 0.85rem !important; letter-spacing: 0.22em !important; }
+  .brand-logo .display:last-child { font-size: 0.52rem !important; letter-spacing: 0.18em !important; }
   header nav button.mono { padding: 0 0.4rem !important; font-size: 0.55rem !important; letter-spacing: 0.05em !important; }
   header button[title="새 노트 시작"] {
     padding: 0.35rem 0.55rem !important;

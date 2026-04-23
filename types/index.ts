@@ -47,4 +47,4 @@ export interface ExtractedKeys {
   finish: string[]
 }
 
-export type TabName = 'scan' | 'tasting' | 'collection' | 'share'
+export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail'
