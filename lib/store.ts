@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { WhiskyLog, TabName, ExtractedKeys } from '@/types'
 
 const DEFAULT_LOG: Partial<WhiskyLog> = {
+  spirit_type: 'whisky',
   color: 'Deep Gold',
   score: 7.0,
   casks: [],
@@ -10,14 +11,14 @@ const DEFAULT_LOG: Partial<WhiskyLog> = {
 interface DramStore {
   activeTab: TabName
   scanMode: 'scan' | 'manual'
-  archiveSubTab: 'whisky' | 'cocktail'
+  archiveSubTab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
   currentLog: Partial<WhiskyLog>
   collection: WhiskyLog[]
   extractedKeys: ExtractedKeys
   isDirty: boolean
   setActiveTab: (tab: TabName) => void
   setScanMode: (mode: 'scan' | 'manual') => void
-  setArchiveSubTab: (tab: 'whisky' | 'cocktail') => void
+  setArchiveSubTab: (tab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail') => void
   updateCurrentLog: (fields: Partial<WhiskyLog>) => void
   resetCurrentLog: () => void
   startNewNote: () => void
@@ -54,7 +55,7 @@ export const useStore = create<DramStore>()((set, get) => ({
       currentLog: { ...DEFAULT_LOG },
       isDirty: false,
       extractedKeys: { nose: [], palate: [], finish: [] },
-      activeTab: 'home',
+      activeTab: 'scan',
     }),
 
   loadLog: (log) =>

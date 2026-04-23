@@ -3,7 +3,7 @@ import { useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl } from '@/lib/imageUtils'
-import type { WhiskyLog } from '@/types'
+import type { WhiskyLog, SpiritType } from '@/types'
 
 const COLOR_HEX: Record<string, string> = {
   'Pale Straw': '#F5E6A3',
@@ -354,9 +354,18 @@ export default function CollectionPage() {
   const [editLog, setEditLog] = useState<WhiskyLog | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  // local sub-tab synced from store (so Home card → Cocktail deep-links correctly)
-  const [subTab, setSubTab] = useState<'whisky' | 'cocktail'>(archiveSubTab)
-  const handleSubTab = (t: 'whisky' | 'cocktail') => { setSubTab(t); setArchiveSubTab(t) }
+  type SubTab = 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
+  const [subTab, setSubTab] = useState<SubTab>(archiveSubTab)
+  const handleSubTab = (t: SubTab) => { setSubTab(t); setArchiveSubTab(t) }
+
+  // Filter collection by spirit_type for each sub-tab
+  const filteredLogs = (tab: SubTab): WhiskyLog[] => {
+    if (tab === 'whisky')  return collection.filter((l) => !l.spirit_type || l.spirit_type === 'whisky')
+    if (tab === 'bourbon') return collection.filter((l) => l.spirit_type === 'bourbon')
+    if (tab === 'cognac')  return collection.filter((l) => l.spirit_type === 'cognac')
+    return [] // cocktail — placeholder
+  }
+  const visibleLogs = filteredLogs(subTab)
 
   const openShare = (log: WhiskyLog) => {
     loadLog({ ...log })
@@ -401,17 +410,19 @@ export default function CollectionPage() {
       {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1.5rem' }}>
         {([
-          { id: 'whisky', label: `🥃 Whisky · ${collection.length}` },
-          { id: 'cocktail', label: '🍸 Cocktail' },
-        ] as { id: 'whisky' | 'cocktail'; label: string }[]).map((t) => (
+          { id: 'whisky',  label: `🥃 Whisky`,  count: filteredLogs('whisky').length },
+          { id: 'bourbon', label: `🌽 Bourbon`,  count: filteredLogs('bourbon').length },
+          { id: 'cognac',  label: `🍇 Cognac`,   count: filteredLogs('cognac').length },
+          { id: 'cocktail',label: '🍸 Cocktail', count: 0 },
+        ] as { id: SubTab; label: string; count: number }[]).map((t) => (
           <button key={t.id} onClick={() => handleSubTab(t.id)} className="mono" style={{
-            flex: 1, padding: '0.55rem', border: 'none', cursor: 'pointer',
+            flex: 1, padding: '0.55rem 0.25rem', border: 'none', cursor: 'pointer',
             background: subTab === t.id ? 'var(--gp)' : 'var(--c2)',
             color: subTab === t.id ? 'var(--gold)' : 'var(--tx2)',
-            fontSize: '0.68rem', letterSpacing: '0.08em',
+            fontSize: '0.62rem', letterSpacing: '0.05em',
             borderBottom: subTab === t.id ? '1px solid var(--gold)' : '1px solid transparent',
           }}>
-            {t.label}
+            {t.label}{t.count > 0 ? ` · ${t.count}` : ''}
           </button>
         ))}
       </div>
@@ -447,16 +458,16 @@ export default function CollectionPage() {
         </div>
       )}
 
-      {/* Whisky sub-tab */}
-      {subTab === 'whisky' && collection.length === 0 && (
+      {/* Whisky / Bourbon / Cognac sub-tabs — card grid */}
+      {subTab !== 'cocktail' && visibleLogs.length === 0 && (
         <p style={{ color: 'var(--tx2)', fontStyle: 'italic', textAlign: 'center', padding: '4rem 0' }}>
-          아직 기록이 없습니다. 홈에서 라벨을 스캔해서 첫 번째 위스키를 추가해보세요.
+          아직 기록이 없습니다. Input에서 새 노트를 추가해보세요.
         </p>
       )}
 
-      {subTab === 'whisky' && collection.length > 0 && (
+      {subTab !== 'cocktail' && visibleLogs.length > 0 && (
         <div className="m-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
-          {collection.map((log) => (
+          {visibleLogs.map((log) => (
             <div
               key={log.id}
               onClick={() => openShare(log)}
@@ -474,8 +485,11 @@ export default function CollectionPage() {
               )}
 
               <div style={{ padding: '0.75rem 0.9rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>
-                  {log.region?.toLowerCase()}
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.3rem', display:'flex', justifyContent:'space-between' }}>
+                  <span>{log.region?.toLowerCase()}</span>
+                  {log.spirit_type && log.spirit_type !== 'whisky' && (
+                    <span style={{ color:'var(--tx3)', textTransform:'uppercase', letterSpacing:'0.06em' }}>{log.spirit_type === 'bourbon' ? '🌽' : '🍇'} {log.spirit_type}</span>
+                  )}
                 </p>
                 <p className="display" style={{ fontSize: '1.2rem', lineHeight: 1.2, marginBottom: '0.25rem', color: 'var(--tx)' }}>
                   {log.brand || '—'}

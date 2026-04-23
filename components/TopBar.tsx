@@ -6,6 +6,7 @@ import type { TabName } from '@/types'
 
 const TABS: { id: TabName; label: string }[] = [
   { id: 'home', label: 'Home' },
+  { id: 'scan', label: 'Input' },
   { id: 'tasting', label: 'Notes' },
   { id: 'collection', label: 'Archive' },
   { id: 'share', label: 'Share' },
@@ -20,8 +21,7 @@ export default function TopBar() {
   const [busy, setBusy] = useState(false)
 
   const canTriggerDirty = activeTab === 'scan' || activeTab === 'tasting'
-  // home tab highlights also when on scan (home is the parent of scan)
-  const isTabActive = (id: TabName) => activeTab === id || (id === 'home' && activeTab === 'scan')
+  const isTabActive = (id: TabName) => activeTab === id
 
   const handleTabClick = (tab: TabName) => {
     if (tab === activeTab) return

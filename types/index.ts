@@ -1,6 +1,7 @@
 export interface WhiskyLog {
   id: string
   user_id: string
+  spirit_type?: SpiritType
   brand: string
   region: string
   bottler: string
@@ -47,4 +48,5 @@ export interface ExtractedKeys {
   finish: string[]
 }
 
+export type SpiritType = 'whisky' | 'bourbon' | 'cognac'
 export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail'
