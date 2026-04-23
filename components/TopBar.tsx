@@ -5,10 +5,9 @@ import { useToast } from '@/components/Toast'
 import type { TabName } from '@/types'
 
 const TABS: { id: TabName; label: string }[] = [
-  { id: 'scan', label: 'Scan' },
+  { id: 'home', label: 'Home' },
   { id: 'tasting', label: 'Notes' },
-  { id: 'cocktail', label: 'Cocktail' },
-  { id: 'collection', label: 'Collection' },
+  { id: 'collection', label: 'Archive' },
   { id: 'share', label: 'Share' },
 ]
 
@@ -21,6 +20,8 @@ export default function TopBar() {
   const [busy, setBusy] = useState(false)
 
   const canTriggerDirty = activeTab === 'scan' || activeTab === 'tasting'
+  // home tab highlights also when on scan (home is the parent of scan)
+  const isTabActive = (id: TabName) => activeTab === id || (id === 'home' && activeTab === 'scan')
 
   const handleTabClick = (tab: TabName) => {
     if (tab === activeTab) return
@@ -85,7 +86,7 @@ export default function TopBar() {
           className="brand-logo"
           style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
+            display: 'flex', flexDirection: 'column', alignItems: 'center',
             lineHeight: 1, padding: '0.1rem 0', gap: '2px',
           }}
         >
@@ -111,8 +112,8 @@ export default function TopBar() {
               style={{
                 background: 'transparent',
                 border: 'none',
-                borderBottom: activeTab === tab.id ? '2px solid var(--gold)' : '2px solid transparent',
-                color: activeTab === tab.id ? 'var(--gold)' : 'var(--tx2)',
+                borderBottom: isTabActive(tab.id) ? '2px solid var(--gold)' : '2px solid transparent',
+                color: isTabActive(tab.id) ? 'var(--gold)' : 'var(--tx2)',
                 padding: '0 1rem',
                 height: '56px',
                 fontSize: '0.7rem',
@@ -123,7 +124,7 @@ export default function TopBar() {
               }}
             >
               {tab.label}
-              {tab.id === activeTab && isDirty && canTriggerDirty && (
+              {isTabActive(tab.id) && isDirty && canTriggerDirty && (
                 <span style={{ marginLeft: 6, color: '#cf7e7e', fontSize: '0.6rem' }}>●</span>
               )}
             </button>

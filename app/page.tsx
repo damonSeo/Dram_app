@@ -7,7 +7,6 @@ import ScanPage from '@/components/ScanPage'
 import TastingPage from '@/components/TastingPage'
 import CollectionPage from '@/components/CollectionPage'
 import SharePage from '@/components/SharePage'
-import CocktailPage from '@/components/CocktailPage'
 import { ToastProvider } from '@/components/Toast'
 import type { WhiskyLog } from '@/types'
 
@@ -30,7 +29,6 @@ export default function Home() {
         {activeTab === 'home' && <HomePage />}
         {activeTab === 'scan' && <ScanPage />}
         {activeTab === 'tasting' && <TastingPage />}
-        {activeTab === 'cocktail' && <CocktailPage />}
         {activeTab === 'collection' && <CollectionPage />}
         {activeTab === 'share' && <SharePage />}
       </main>

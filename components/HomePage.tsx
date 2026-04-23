@@ -17,7 +17,7 @@ const cardBase: React.CSSProperties = {
 }
 
 export default function HomePage() {
-  const { setActiveTab, setScanMode, loadLog, collection } = useStore()
+  const { setActiveTab, setScanMode, setArchiveSubTab, loadLog, collection } = useStore()
 
   const hoverIn = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.borderColor = 'var(--gold)'
@@ -30,7 +30,7 @@ export default function HomePage() {
 
   const goScan = () => { setScanMode('scan'); setActiveTab('scan') }
   const goManual = () => { setScanMode('manual'); setActiveTab('scan') }
-  const goCocktail = () => setActiveTab('cocktail')
+  const goCocktail = () => { setArchiveSubTab('cocktail'); setActiveTab('collection') }
 
   return (
     <div className="m-page fade-up" style={{ maxWidth: 860, margin: '0 auto', padding: '2.5rem 1.5rem' }}>

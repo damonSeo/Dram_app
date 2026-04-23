@@ -349,11 +349,14 @@ function EditModal({ log, onClose }: EditModalProps) {
 // ── Collection Page ─────────────────────────────────────────────────────────
 
 export default function CollectionPage() {
-  const { collection, loadLog, setActiveTab, removeFromCollection } = useStore()
+  const { collection, loadLog, setActiveTab, removeFromCollection, archiveSubTab, setArchiveSubTab } = useStore()
   const { showToast } = useToast()
   const [editLog, setEditLog] = useState<WhiskyLog | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  // local sub-tab synced from store (so Home card → Cocktail deep-links correctly)
+  const [subTab, setSubTab] = useState<'whisky' | 'cocktail'>(archiveSubTab)
+  const handleSubTab = (t: 'whisky' | 'cocktail') => { setSubTab(t); setArchiveSubTab(t) }
 
   const openShare = (log: WhiskyLog) => {
     loadLog({ ...log })
@@ -387,19 +390,71 @@ export default function CollectionPage() {
 
   return (
     <div className="m-page" style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--bd)', paddingBottom: '1rem' }}>
-        <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>Collection</h1>
-        <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--gold)' }}>{collection.length} Drams</span>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1.25rem' }}>
+        <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>Archive</h1>
         <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx3)', marginLeft: 'auto' }}>
           카드 → 공유 · ✎ → 수정 · 🗑 → 삭제
         </span>
       </div>
 
-      {collection.length === 0 ? (
+      {/* Sub-tabs */}
+      <div style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1.5rem' }}>
+        {([
+          { id: 'whisky', label: `🥃 Whisky · ${collection.length}` },
+          { id: 'cocktail', label: '🍸 Cocktail' },
+        ] as { id: 'whisky' | 'cocktail'; label: string }[]).map((t) => (
+          <button key={t.id} onClick={() => handleSubTab(t.id)} className="mono" style={{
+            flex: 1, padding: '0.55rem', border: 'none', cursor: 'pointer',
+            background: subTab === t.id ? 'var(--gp)' : 'var(--c2)',
+            color: subTab === t.id ? 'var(--gold)' : 'var(--tx2)',
+            fontSize: '0.68rem', letterSpacing: '0.08em',
+            borderBottom: subTab === t.id ? '1px solid var(--gold)' : '1px solid transparent',
+          }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Cocktail sub-tab */}
+      {subTab === 'cocktail' && (
+        <div className="fade-up" style={{
+          border: '1px solid var(--bd2)',
+          background: 'linear-gradient(180deg, rgba(201,168,76,0.08) 0%, rgba(28,28,28,0.95) 100%)',
+          padding: '3rem 1.5rem', textAlign: 'center',
+        }}>
+          <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', marginBottom: '0.5rem' }}>🍸</p>
+          <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.25em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+            Coming Soon
+          </p>
+          <h2 className="display" style={{ fontSize: '1.7rem', color: 'var(--tx)', marginBottom: '0.75rem' }}>Cocktail Archive</h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--tx2)', lineHeight: 1.7, maxWidth: 440, margin: '0 auto 1.5rem' }}>
+            위스키·와인 베이스 칵테일 레시피와 시음 기록을 담는 공간입니다. 곧 준비해서 선보일게요.
+          </p>
+          <div style={{ display: 'grid', gap: '0.6rem', maxWidth: 460, margin: '0 auto', textAlign: 'left' }}>
+            {[
+              ['🧪', '클래식 칵테일 레시피 아카이브 (올드패션드, 맨해튼, 사워...)'],
+              ['📝', '베이스 스피릿·가니시·재료별 개인 기록'],
+              ['⭐', '별점과 한줄평, 사진 저장'],
+              ['🔗', '시음한 위스키 노트와 연결해서 추천 페어링'],
+            ].map(([icon, text]) => (
+              <div key={text as string} style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start', padding: '0.6rem 0.75rem', background: 'var(--c3)', border: '1px solid var(--bd)' }}>
+                <span style={{ flexShrink: 0 }}>{icon}</span>
+                <p style={{ fontSize: '0.78rem', color: 'var(--tx)', lineHeight: 1.5 }}>{text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Whisky sub-tab */}
+      {subTab === 'whisky' && collection.length === 0 && (
         <p style={{ color: 'var(--tx2)', fontStyle: 'italic', textAlign: 'center', padding: '4rem 0' }}>
-          컬렉션이 비어 있습니다. 라벨을 스캔해서 첫 번째 위스키를 추가해보세요.
+          아직 기록이 없습니다. 홈에서 라벨을 스캔해서 첫 번째 위스키를 추가해보세요.
         </p>
-      ) : (
+      )}
+
+      {subTab === 'whisky' && collection.length > 0 && (
         <div className="m-card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '1px', background: 'var(--bd)' }}>
           {collection.map((log) => (
             <div
