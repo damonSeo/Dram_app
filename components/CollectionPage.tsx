@@ -1,9 +1,10 @@
 'use client'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl } from '@/lib/imageUtils'
-import type { WhiskyLog, SpiritType } from '@/types'
+import type { WhiskyLog, Profile } from '@/types'
+import PersonalNotePanel from '@/components/PersonalNotePanel'
 
 const COLOR_HEX: Record<string, string> = {
   'Pale Straw': '#F5E6A3',
@@ -349,23 +350,46 @@ function EditModal({ log, onClose }: EditModalProps) {
 // ── Collection Page ─────────────────────────────────────────────────────────
 
 export default function CollectionPage() {
-  const { collection, loadLog, setActiveTab, removeFromCollection, archiveSubTab, setArchiveSubTab } = useStore()
+  const { collection, loadLog, setActiveTab, removeFromCollection, archiveSubTab, setArchiveSubTab,
+          archiveView, setArchiveView, currentUserId, currentProfile } = useStore()
   const { showToast } = useToast()
   const [editLog, setEditLog] = useState<WhiskyLog | null>(null)
+  const [noteLog, setNoteLog] = useState<WhiskyLog | null>(null)
   const [confirmId, setConfirmId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [profiles, setProfiles] = useState<Pick<Profile, 'id' | 'nickname'>[]>([])
   type SubTab = 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
   const [subTab, setSubTab] = useState<SubTab>(archiveSubTab)
   const handleSubTab = (t: SubTab) => { setSubTab(t); setArchiveSubTab(t) }
 
-  // Filter collection by spirit_type for each sub-tab
+  // 사용자 프로필 목록 로드 (Archive 보기 전환용)
+  useEffect(() => {
+    fetch('/api/profile?list=1')
+      .then((r) => r.json())
+      .then((j: { data?: Pick<Profile, 'id'|'nickname'>[] }) => setProfiles(j.data || []))
+      .catch(() => {})
+  }, [])
+
+  // archiveView에 따른 user_id 필터링 ('mine' = currentUserId, 'all' = 모두, 그 외 = 특정 user_id)
+  const userFiltered = (() => {
+    if (archiveView === 'all') return collection
+    if (archiveView === 'mine') {
+      if (!currentUserId) return collection.filter((l) => l.user_id === 'anonymous')
+      return collection.filter((l) => l.user_id === currentUserId)
+    }
+    return collection.filter((l) => l.user_id === archiveView)
+  })()
+
+  // Filter by spirit_type per sub-tab
   const filteredLogs = (tab: SubTab): WhiskyLog[] => {
-    if (tab === 'whisky')  return collection.filter((l) => !l.spirit_type || l.spirit_type === 'whisky')
-    if (tab === 'bourbon') return collection.filter((l) => l.spirit_type === 'bourbon')
-    if (tab === 'cognac')  return collection.filter((l) => l.spirit_type === 'cognac')
-    return [] // cocktail — placeholder
+    if (tab === 'whisky')  return userFiltered.filter((l) => !l.spirit_type || l.spirit_type === 'whisky')
+    if (tab === 'bourbon') return userFiltered.filter((l) => l.spirit_type === 'bourbon')
+    if (tab === 'cognac')  return userFiltered.filter((l) => l.spirit_type === 'cognac')
+    return userFiltered.filter((l) => l.spirit_type === 'cocktail')
   }
   const visibleLogs = filteredLogs(subTab)
+
+  const isOwnLog = (log: WhiskyLog) => currentUserId && log.user_id === currentUserId
 
   const openShare = (log: WhiskyLog) => {
     loadLog({ ...log })
@@ -400,11 +424,56 @@ export default function CollectionPage() {
   return (
     <div className="m-page" style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1rem' }}>
         <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>Archive</h1>
-        <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx3)', marginLeft: 'auto' }}>
-          카드 → 공유 · ✎ → 수정 · 🗑 → 삭제
+        <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', marginLeft: 'auto' }}>
+          카드 → 상세 · 📝 → 개인 노트
         </span>
+      </div>
+
+      {/* User filter — 내 기록 / 전체 / 다른 사용자 */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <button onClick={() => setArchiveView('all')} className="mono"
+          style={{
+            padding: '0.4rem 0.75rem', cursor: 'pointer', fontSize: '0.65rem',
+            background: archiveView === 'all' ? 'var(--gold)' : 'var(--c2)',
+            color: archiveView === 'all' ? '#000' : 'var(--tx2)',
+            border: `1px solid ${archiveView === 'all' ? 'var(--gold)' : 'var(--bd)'}`,
+            letterSpacing: '0.05em', fontWeight: archiveView === 'all' ? 600 : 400,
+          }}>
+          🌐 전체
+        </button>
+        <button onClick={() => setArchiveView('mine')} className="mono"
+          disabled={!currentUserId}
+          style={{
+            padding: '0.4rem 0.75rem', cursor: currentUserId ? 'pointer' : 'not-allowed',
+            fontSize: '0.65rem',
+            background: archiveView === 'mine' ? 'var(--gold)' : 'var(--c2)',
+            color: archiveView === 'mine' ? '#000' : currentUserId ? 'var(--tx2)' : 'var(--tx3)',
+            border: `1px solid ${archiveView === 'mine' ? 'var(--gold)' : 'var(--bd)'}`,
+            letterSpacing: '0.05em', opacity: currentUserId ? 1 : 0.5,
+          }}>
+          ◈ 내 기록 {currentProfile && `(${currentProfile.nickname})`}
+        </button>
+        {profiles.length > 0 && (
+          <select
+            value={archiveView !== 'all' && archiveView !== 'mine' ? archiveView : ''}
+            onChange={(e) => { if (e.target.value) setArchiveView(e.target.value) }}
+            style={{
+              padding: '0.4rem 0.6rem', background: 'var(--c2)', color: 'var(--tx2)',
+              border: '1px solid var(--bd)', fontSize: '0.65rem', fontFamily: 'var(--mono)', cursor: 'pointer',
+            }}>
+            <option value="">👥 다른 사용자 선택...</option>
+            {profiles.filter((p) => p.id !== currentUserId).map((p) => (
+              <option key={p.id} value={p.id}>{p.nickname}</option>
+            ))}
+          </select>
+        )}
+        {!currentUserId && (
+          <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginLeft: 'auto' }}>
+            로그인하면 내 기록만 따로 볼 수 있어요
+          </span>
+        )}
       </div>
 
       {/* Sub-tabs */}
@@ -511,14 +580,15 @@ export default function CollectionPage() {
                 </div>
               </div>
 
-              {/* 액션 버튼들 (편집/삭제) — 카드 바디 클릭과 분리 */}
+              {/* 액션 버튼들 — 카드 바디 클릭과 분리 */}
               <div style={{
                 position: 'absolute', top: '0.5rem', right: '0.5rem',
                 display: 'flex', gap: '0.3rem',
               }}>
+                {/* 개인 노트 (모든 카드) */}
                 <button
-                  onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
-                  title="수정"
+                  onClick={(e) => { e.stopPropagation(); setNoteLog(log) }}
+                  title="개인 노트"
                   style={{
                     background: 'rgba(20,20,20,0.75)', border: '1px solid var(--bd)',
                     color: 'var(--gold)', fontSize: '0.85rem',
@@ -529,26 +599,47 @@ export default function CollectionPage() {
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,20,20,0.75)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
                 >
-                  ✎
+                  📝
                 </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(log.id) }}
-                  disabled={deletingId === log.id}
-                  title={confirmId === log.id ? '한 번 더 눌러 삭제' : '삭제'}
-                  style={{
-                    background: confirmId === log.id ? '#cf7e7e' : 'rgba(20,20,20,0.75)',
-                    border: `1px solid ${confirmId === log.id ? '#cf7e7e' : 'var(--bd)'}`,
-                    color: confirmId === log.id ? '#fff' : '#cf7e7e',
-                    fontSize: '0.8rem',
-                    minWidth: 28, height: 28, padding: confirmId === log.id ? '0 0.5rem' : 0,
-                    cursor: deletingId === log.id ? 'wait' : 'pointer',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backdropFilter: 'blur(4px)',
-                    fontFamily: 'var(--mono)',
-                  }}
-                >
-                  {deletingId === log.id ? '…' : confirmId === log.id ? '확인?' : '🗑'}
-                </button>
+                {/* 수정 — 내 기록만 */}
+                {isOwnLog(log) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
+                    title="수정"
+                    style={{
+                      background: 'rgba(20,20,20,0.75)', border: '1px solid var(--bd)',
+                      color: 'var(--gold)', fontSize: '0.85rem',
+                      width: 28, height: 28, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backdropFilter: 'blur(4px)',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,20,20,0.75)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                  >
+                    ✎
+                  </button>
+                )}
+                {/* 삭제 — 내 기록만 */}
+                {isOwnLog(log) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(log.id) }}
+                    disabled={deletingId === log.id}
+                    title={confirmId === log.id ? '한 번 더 눌러 삭제' : '삭제'}
+                    style={{
+                      background: confirmId === log.id ? '#cf7e7e' : 'rgba(20,20,20,0.75)',
+                      border: `1px solid ${confirmId === log.id ? '#cf7e7e' : 'var(--bd)'}`,
+                      color: confirmId === log.id ? '#fff' : '#cf7e7e',
+                      fontSize: '0.8rem',
+                      minWidth: 28, height: 28, padding: confirmId === log.id ? '0 0.5rem' : 0,
+                      cursor: deletingId === log.id ? 'wait' : 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backdropFilter: 'blur(4px)',
+                      fontFamily: 'var(--mono)',
+                    }}
+                  >
+                    {deletingId === log.id ? '…' : confirmId === log.id ? '확인?' : '🗑'}
+                  </button>
+                )}
               </div>
             </div>
           ))}
@@ -556,6 +647,7 @@ export default function CollectionPage() {
       )}
 
       {editLog && <EditModal log={editLog} onClose={() => setEditLog(null)} />}
+      {noteLog && <PersonalNotePanel log={noteLog} onClose={() => setNoteLog(null)} />}
     </div>
   )
 }

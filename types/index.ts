@@ -50,3 +50,22 @@ export interface ExtractedKeys {
 
 export type SpiritType = 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
 export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail'
+
+export interface Profile {
+  id: string
+  nickname: string
+  avatar_url?: string | null
+  created_at?: string
+  updated_at?: string
+}
+
+export interface PersonalNote {
+  id: string
+  user_id: string
+  log_id: string
+  content: string
+  selected_keys: string[]
+  author_nickname?: string
+  created_at: string
+  updated_at: string
+}

@@ -3,6 +3,8 @@ import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
+import EmojiKeySelector from '@/components/EmojiKeySelector'
+import { findEmojiForLabel } from '@/lib/tastingEmojis'
 import type { WhiskyLog, ExtractedKeys } from '@/types'
 
 const COLORS = [
@@ -40,6 +42,22 @@ export default function TastingPage() {
   const { showToast } = useToast()
 
   const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
+
+  // 직접 키워드 선택 (이모지 칩) — 선택 순서대로 보존
+  const [manualKeys, setManualKeys] = useState<{ nose: string[]; palate: string[]; finish: string[] }>({ nose: [], palate: [], finish: [] })
+  const [showKeyPicker, setShowKeyPicker] = useState<'nose' | 'palate' | 'finish' | null>(null)
+
+  const applyManualKeys = (field: 'nose'|'palate'|'finish') => {
+    const list = manualKeys[field]
+    if (list.length === 0) return
+    const text = list.join(', ')
+    const existing = (currentLog[field] || '').trim()
+    const merged = existing ? `${existing} / ${text}` : text
+    updateCurrentLog({ [field]: merged })
+    setManualKeys((p) => ({ ...p, [field]: [] }))
+    setShowKeyPicker(null)
+    showToast(`${field} 키워드 적용됨`, 'ok')
+  }
 
   // Comments flow
   const [comment, setComment] = useState(currentLog.comment || '')
@@ -176,38 +194,65 @@ export default function TastingPage() {
     }
   }
 
-  const noteCard = (field: 'nose'|'palate'|'finish', label: string, fullWidth?: boolean) => (
-    <div style={{
-      border: '1px solid var(--bd)', background: 'var(--c2)',
-      gridColumn: fullWidth ? '1 / -1' : undefined,
-    }}>
+  const noteCard = (field: 'nose'|'palate'|'finish', label: string, fullWidth?: boolean) => {
+    const isPickerOpen = showKeyPicker === field
+    return (
       <div style={{
-        padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        border: '1px solid var(--bd)', background: 'var(--c2)',
+        gridColumn: fullWidth ? '1 / -1' : undefined,
       }}>
-        <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</p>
-        <div style={{ display: 'flex', gap: '0.4rem' }}>
-          <button className="btn-ghost" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
-            onClick={() => openAI(`◈ 요약 — ${label}`, 'compress_note', field, { field, raw: currentLog[field] || '' })}>
-            ◈ 요약
-          </button>
-          <button className="btn-outline-gold" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
-            onClick={() => openAI(`✦ AI 확장 — ${label}`, 'expand_note', field, { field, raw: currentLog[field] || '', ...aiPayload() })}>
-            ✦ AI 확장
-          </button>
+        <div style={{
+          padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.4rem',
+        }}>
+          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</p>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <button className="btn-ghost" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
+              onClick={() => setShowKeyPicker(isPickerOpen ? null : field)}>
+              {isPickerOpen ? '🔽' : '🎯'} 키 선택
+            </button>
+            <button className="btn-ghost" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
+              onClick={() => openAI(`◈ 요약 — ${label}`, 'compress_note', field, { field, raw: currentLog[field] || '' })}>
+              ◈ 요약
+            </button>
+            <button className="btn-outline-gold" style={{ fontSize: '0.65rem', padding: '0.25rem 0.6rem' }}
+              onClick={() => openAI(`✦ AI 확장 — ${label}`, 'expand_note', field, { field, raw: currentLog[field] || '', ...aiPayload() })}>
+              ✦ AI 확장
+            </button>
+          </div>
+        </div>
+
+        {/* 이모지 키 선택 패널 */}
+        {isPickerOpen && (
+          <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
+            <EmojiKeySelector
+              fields={[field]}
+              selected={manualKeys[field]}
+              onChange={(next) => setManualKeys((p) => ({ ...p, [field]: next }))}
+            />
+            <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.6rem', justifyContent: 'flex-end' }}>
+              <button className="btn-ghost" style={{ fontSize: '0.7rem' }} onClick={() => setShowKeyPicker(null)}>취소</button>
+              <button className="btn-gold" style={{ fontSize: '0.7rem' }}
+                disabled={manualKeys[field].length === 0}
+                onClick={() => applyManualKeys(field)}>
+                ✓ 노트에 추가 ({manualKeys[field].length})
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ padding: '0.75rem 1rem' }}>
+          <textarea
+            rows={3}
+            value={currentLog[field] || ''}
+            onChange={(e) => updateCurrentLog({ [field]: e.target.value })}
+            placeholder={`${label} 노트를 입력하거나 🎯 키 선택을 사용해보세요...`}
+            style={{ lineHeight: 1.6 }}
+          />
         </div>
       </div>
-      <div style={{ padding: '0.75rem 1rem' }}>
-        <textarea
-          rows={3}
-          value={currentLog[field] || ''}
-          onChange={(e) => updateCurrentLog({ [field]: e.target.value })}
-          placeholder={`${label} 노트를 입력하세요...`}
-          style={{ lineHeight: 1.6 }}
-        />
-      </div>
-    </div>
-  )
+    )
+  }
 
   const toggleKey = (k: string) => {
     setExcludedKeys((prev) => {
@@ -346,10 +391,15 @@ export default function TastingPage() {
                     {field === 'nose' ? 'Nose 향' : field === 'palate' ? 'Palate 맛' : 'Finish 여운'}
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
-                    {extractedKeys[field].map((k) => (
-                      <span key={k} className={`key-tag${excludedKeys.has(k) ? ' excluded' : ''}`}
-                        onClick={() => toggleKey(k)}>{k}</span>
-                    ))}
+                    {extractedKeys[field].map((k) => {
+                      const e = findEmojiForLabel(k, field)
+                      return (
+                        <span key={k} className={`key-tag${excludedKeys.has(k) ? ' excluded' : ''}`}
+                          onClick={() => toggleKey(k)}>
+                          {e && <span style={{ marginRight: 3 }}>{e}</span>}{k}
+                        </span>
+                      )
+                    })}
                   </div>
                 </div>
               ))}

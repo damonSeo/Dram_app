@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
+import UserMenu from '@/components/UserMenu'
 import type { TabName } from '@/types'
 
 const TABS: { id: TabName; label: string }[] = [
@@ -148,6 +149,9 @@ export default function TopBar() {
           >
             + New Note
           </button>
+          <div style={{ marginLeft: '0.5rem' }}>
+            <UserMenu />
+          </div>
         </nav>
       </header>
 

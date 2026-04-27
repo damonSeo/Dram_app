@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { getServerClient } from '@/lib/supabaseServer'
 
-function getSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!url || !key || url.includes('placeholder')) {
-    throw new Error('Supabase env vars not configured')
-  }
-  return createClient(url, key)
-}
-
-export async function GET() {
+// GET /api/whisky-logs                 → all logs (visible to everyone)
+// GET /api/whisky-logs?user_id=<uuid>  → logs of a specific user
+// GET /api/whisky-logs?mine=1          → current user's logs only
+export async function GET(req: NextRequest) {
   try {
-    const supabase = getSupabase()
-    const { data, error } = await supabase
-      .from('whisky_logs')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const supabase = await getServerClient()
+    const userId = req.nextUrl.searchParams.get('user_id')
+    const mine = req.nextUrl.searchParams.get('mine')
+
+    let query = supabase.from('whisky_logs').select('*').order('created_at', { ascending: false })
+    if (mine) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ data: [] })
+      query = query.eq('user_id', user.id)
+    } else if (userId) {
+      query = query.eq('user_id', userId)
+    }
+    const { data, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   } catch (e: unknown) {
@@ -26,11 +28,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getServerClient()
     const body = await req.json()
+    const { data: { user } } = await supabase.auth.getUser()
     const log = {
       ...body,
-      user_id: 'anonymous',
+      user_id: user?.id || 'anonymous',
       date: body.date || new Date().toISOString().split('T')[0],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -45,15 +48,14 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getServerClient()
     const body = await req.json()
     const { id, ...fields } = body
-    const { data, error } = await supabase
-      .from('whisky_logs')
-      .update({ ...fields, updated_at: new Date().toISOString() })
-      .eq('id', id)
-      .select()
-      .single()
+    // Only allow update if user owns the log (RLS will enforce, but we filter explicitly)
+    const { data: { user } } = await supabase.auth.getUser()
+    let query = supabase.from('whisky_logs').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id)
+    if (user) query = query.eq('user_id', user.id)
+    const { data, error } = await query.select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ data })
   } catch (e: unknown) {
@@ -63,9 +65,12 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const supabase = getSupabase()
+    const supabase = await getServerClient()
     const { id } = await req.json() as { id: string }
-    const { error } = await supabase.from('whisky_logs').delete().eq('id', id)
+    const { data: { user } } = await supabase.auth.getUser()
+    let query = supabase.from('whisky_logs').delete().eq('id', id)
+    if (user) query = query.eq('user_id', user.id)
+    const { error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
   } catch (e: unknown) {

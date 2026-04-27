@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { WhiskyLog, TabName, ExtractedKeys } from '@/types'
+import type { WhiskyLog, TabName, ExtractedKeys, Profile } from '@/types'
 
 const DEFAULT_LOG: Partial<WhiskyLog> = {
   spirit_type: 'whisky',
@@ -12,13 +12,20 @@ interface DramStore {
   activeTab: TabName
   scanMode: 'scan' | 'manual'
   archiveSubTab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
+  // archive view: 'mine' = current user only · 'all' = everyone · uuid = specific user
+  archiveView: 'mine' | 'all' | string
   currentLog: Partial<WhiskyLog>
   collection: WhiskyLog[]
   extractedKeys: ExtractedKeys
   isDirty: boolean
+  // Auth state
+  currentUserId: string | null
+  currentProfile: Profile | null
   setActiveTab: (tab: TabName) => void
   setScanMode: (mode: 'scan' | 'manual') => void
   setArchiveSubTab: (tab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail') => void
+  setArchiveView: (view: 'mine' | 'all' | string) => void
+  setCurrentUser: (userId: string | null, profile: Profile | null) => void
   updateCurrentLog: (fields: Partial<WhiskyLog>) => void
   resetCurrentLog: () => void
   startNewNote: () => void
@@ -35,14 +42,19 @@ export const useStore = create<DramStore>()((set, get) => ({
   activeTab: 'home',
   scanMode: 'scan',
   archiveSubTab: 'whisky',
+  archiveView: 'all',
   currentLog: { ...DEFAULT_LOG },
   collection: [],
   extractedKeys: { nose: [], palate: [], finish: [] },
   isDirty: false,
+  currentUserId: null,
+  currentProfile: null,
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setScanMode: (mode) => set({ scanMode: mode }),
   setArchiveSubTab: (tab) => set({ archiveSubTab: tab }),
+  setArchiveView: (view) => set({ archiveView: view }),
+  setCurrentUser: (userId, profile) => set({ currentUserId: userId, currentProfile: profile }),
 
   updateCurrentLog: (fields) =>
     set({ currentLog: { ...get().currentLog, ...fields }, isDirty: true }),
