@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'DRAM — Whisky Archive',
-  description: 'Your personal whisky tasting archive powered by Gemini',
+  title: 'Oak The Record — Whisky Archive',
+  description: 'Whisky · Wine · Fellowship — Private tasting archive',
 }
 
 export const viewport: Viewport = {
@@ -11,7 +11,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 5,
   userScalable: true,
-  themeColor: '#141414',
+  themeColor: '#FAF6EC',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

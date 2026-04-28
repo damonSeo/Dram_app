@@ -5,6 +5,7 @@ import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl } from '@/lib/imageUtils'
 import type { WhiskyLog, Profile } from '@/types'
 import PersonalNotePanel from '@/components/PersonalNotePanel'
+import { scoreToHundred } from '@/lib/scoreFormat'
 
 const COLOR_HEX: Record<string, string> = {
   'Pale Straw': '#F5E6A3',
@@ -567,9 +568,12 @@ export default function CollectionPage() {
               </div>
 
               <div style={{ padding: '0 0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="display" style={{ fontSize: '1.1rem', color: 'var(--gold)' }}>
+                <span className="display" style={{ fontSize: '1.1rem', color: 'var(--gold)', display:'flex', alignItems:'baseline', gap:'0.4rem' }}>
                   ★ {log.score?.toFixed(1)}
-                  <span style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}> /10</span>
+                  <span style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}>/10</span>
+                  <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--gd)', letterSpacing: '0.04em' }}>
+                    · {scoreToHundred(log.score)}/100
+                  </span>
                 </span>
                 <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {(log.casks || []).slice(0, 2).map((c) => (
@@ -590,14 +594,14 @@ export default function CollectionPage() {
                   onClick={(e) => { e.stopPropagation(); setNoteLog(log) }}
                   title="개인 노트"
                   style={{
-                    background: 'rgba(20,20,20,0.75)', border: '1px solid var(--bd)',
+                    background: 'var(--icon-bg)', border: '1px solid var(--bd)',
                     color: 'var(--gold)', fontSize: '0.85rem',
                     width: 28, height: 28, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     backdropFilter: 'blur(4px)',
                   }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,20,20,0.75)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--icon-bg)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
                 >
                   📝
                 </button>
@@ -607,14 +611,14 @@ export default function CollectionPage() {
                     onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
                     title="수정"
                     style={{
-                      background: 'rgba(20,20,20,0.75)', border: '1px solid var(--bd)',
+                      background: 'var(--icon-bg)', border: '1px solid var(--bd)',
                       color: 'var(--gold)', fontSize: '0.85rem',
                       width: 28, height: 28, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       backdropFilter: 'blur(4px)',
                     }}
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(20,20,20,0.75)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--icon-bg)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
                   >
                     ✎
                   </button>
@@ -626,7 +630,7 @@ export default function CollectionPage() {
                     disabled={deletingId === log.id}
                     title={confirmId === log.id ? '한 번 더 눌러 삭제' : '삭제'}
                     style={{
-                      background: confirmId === log.id ? '#cf7e7e' : 'rgba(20,20,20,0.75)',
+                      background: confirmId === log.id ? '#cf7e7e' : 'var(--icon-bg)',
                       border: `1px solid ${confirmId === log.id ? '#cf7e7e' : 'var(--bd)'}`,
                       color: confirmId === log.id ? '#fff' : '#cf7e7e',
                       fontSize: '0.8rem',

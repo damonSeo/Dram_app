@@ -5,6 +5,7 @@ import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
 import EmojiKeySelector from '@/components/EmojiKeySelector'
 import { findEmojiForLabel } from '@/lib/tastingEmojis'
+import { scoreToHundred } from '@/lib/scoreFormat'
 import type { WhiskyLog, ExtractedKeys } from '@/types'
 
 const COLORS = [
@@ -308,6 +309,9 @@ export default function TastingPage() {
             <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', lineHeight: 1 }}>
               {(currentLog.score ?? 7.0).toFixed(1)}
               <span style={{ fontSize: '1rem', color: 'var(--tx3)' }}> / 10</span>
+            </p>
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gd)', marginTop: '0.25rem', letterSpacing: '0.08em' }}>
+              ≈ {scoreToHundred(currentLog.score ?? 7.0)} / 100
             </p>
             <div style={{ margin: '0.75rem 0 0.5rem', display: 'flex', justifyContent: 'center', gap: '0.35rem' }}>
               {[1,2,3,4,5].map((s) => (

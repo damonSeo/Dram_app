@@ -143,10 +143,16 @@ export default function SharePage() {
             <div style={{ height: 1, background: 'rgba(201,168,76,0.3)', marginBottom: '1.25rem' }} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <p className="display" style={{ fontSize: '2.5rem', color: 'var(--gold)' }}>
-                ★ {(currentLog.score ?? 7.0).toFixed(1)}
-              </p>
-              <p className="display" style={{ fontSize: '1rem', color: 'var(--tx3)', letterSpacing: '0.15em' }}>DRAM</p>
+              <div>
+                <p className="display" style={{ fontSize: '2.5rem', color: 'var(--gold)', lineHeight: 1 }}>
+                  ★ {(currentLog.score ?? 7.0).toFixed(1)}
+                  <span style={{ fontSize: '0.9rem', color: 'var(--tx3)' }}> / 10</span>
+                </p>
+                <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gd)', marginTop: '0.2rem', letterSpacing: '0.06em' }}>
+                  {Math.round((currentLog.score ?? 7) * 10)} / 100
+                </p>
+              </div>
+              <p className="display" style={{ fontSize: '1rem', color: 'var(--tx3)', letterSpacing: '0.15em' }}>OAK · THE RECORD</p>
             </div>
           </div>
         </div>

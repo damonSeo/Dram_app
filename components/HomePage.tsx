@@ -4,7 +4,7 @@ import type { WhiskyLog } from '@/types'
 
 const cardBase: React.CSSProperties = {
   border: '1px solid var(--bd2)',
-  background: 'linear-gradient(180deg, rgba(201,168,76,0.06) 0%, rgba(28,28,28,0.9) 100%)',
+  background: 'linear-gradient(180deg, rgba(168,132,42,0.05) 0%, var(--c2) 100%)',
   padding: '1.4rem 1.2rem',
   cursor: 'pointer',
   transition: 'all 0.2s ease',
@@ -21,11 +21,12 @@ export default function HomePage() {
 
   const hoverIn = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.borderColor = 'var(--gold)'
-    e.currentTarget.style.background = 'linear-gradient(180deg, rgba(201,168,76,0.14) 0%, rgba(36,36,36,0.95) 100%)'
+    e.currentTarget.style.background = 'linear-gradient(180deg, rgba(168,132,42,0.14) 0%, var(--c4) 100%)'
   }
   const hoverOut = (e: React.MouseEvent<HTMLDivElement>) => {
     e.currentTarget.style.borderColor = 'var(--bd2)'
-    e.currentTarget.style.background = 'linear-gradient(180deg, rgba(201,168,76,0.06) 0%, rgba(28,28,28,0.9) 100%)'
+    e.currentTarget.style.background = 'linear-gradient(180deg, rgba(168,132,42,0.05) 0%, var(--c2) 100%)'
+    e.currentTarget.style.borderColor = 'var(--bd2)'
   }
 
   const goScan = () => { setScanMode('scan'); setActiveTab('scan') }
@@ -167,9 +168,14 @@ export default function HomePage() {
                     {[log.age, log.abv].filter(Boolean).join(' · ')}
                   </p>
                 </div>
-                <span className="display" style={{ fontSize: '0.9rem', color: 'var(--gold)', flexShrink: 0 }}>
-                  ★ {log.score?.toFixed(1)}
-                </span>
+                <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                  <span className="display" style={{ fontSize: '0.9rem', color: 'var(--gold)' }}>
+                    ★ {log.score?.toFixed(1)}
+                  </span>
+                  <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gd)', letterSpacing: '0.04em', marginTop: '0.1rem' }}>
+                    {(((log.score ?? 0) * 10) | 0)}/100
+                  </p>
+                </div>
               </div>
             ))}
           </div>

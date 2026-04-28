@@ -2,18 +2,31 @@
 @import "tailwindcss";
 
 :root {
-  --gold: #C9A84C;
-  --gd: #8A6F2E;
-  --gp: rgba(201,168,76,.10);
-  --ch: #141414;
-  --c2: #1C1C1C;
-  --c3: #242424;
-  --c4: #2E2E2E;
-  --tx: #F0EDE6;
-  --tx2: #8A877F;
-  --tx3: #4A4843;
-  --bd: rgba(201,168,76,.15);
-  --bd2: rgba(201,168,76,.35);
+  /* ─── Oak The Record · Light theme (whiskynotes-inspired parchment) ─── */
+  /* Gold/brass accent — slightly darker than dark-mode for contrast on cream */
+  --gold: #A8842A;
+  --gold-bright: #C9A84C;   /* logo/key headings can use the brighter tone */
+  --gd: #6E5722;
+  --gp: rgba(168,132,42,.08);
+
+  /* Backgrounds — warm parchment scale */
+  --ch: #FAF6EC;            /* page background — warm cream */
+  --c2: #FFFFFF;            /* primary panel — white card */
+  --c3: #F5EFE0;            /* subtle panel — aged paper */
+  --c4: #ECE3CE;            /* hover / nested */
+
+  /* Text — warm dark scale for readability on cream */
+  --tx: #1F1A12;            /* primary text — almost black */
+  --tx2: #6B5E48;           /* secondary — warm gray-brown */
+  --tx3: #A89A82;           /* tertiary — light tan */
+
+  /* Borders — warm tan with proper contrast */
+  --bd: rgba(168,132,42,.20);
+  --bd2: rgba(168,132,42,.45);
+
+  /* Icon button (used on Archive cards) — dark to pop on light cards */
+  --icon-bg: rgba(31,26,18,0.78);
+  --icon-bg-hover: var(--gold);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -32,7 +45,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.04;
+  opacity: 0.025;
+  mix-blend-mode: multiply;
   pointer-events: none;
   z-index: 0;
 }
@@ -93,58 +107,64 @@ body::before {
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.6rem;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--bd2);
   font-family: 'DM Mono', monospace;
   font-size: 0.7rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
   color: var(--tx2);
-  background: transparent;
+  background: var(--c2);
   white-space: nowrap;
 }
 .chip:hover { border-color: var(--gold); color: var(--gold); background: var(--gp); }
-.chip.active { border-color: var(--gold); color: var(--gold); background: var(--gp); }
+.chip.active { border-color: var(--gold); color: #fff; background: var(--gold); }
 
 .ctag {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   padding: 0.2rem 0.6rem;
-  border: 1px solid var(--bd2);
+  border: 1px solid var(--gold);
   font-family: 'DM Mono', monospace;
   font-size: 0.65rem;
-  color: var(--gold);
+  color: var(--gd);
   background: var(--gp);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
+  font-weight: 500;
 }
 .ctag.excluded {
   text-decoration: line-through;
-  opacity: 0.4;
+  opacity: 0.5;
   border-color: var(--bd);
   color: var(--tx3);
-  background: transparent;
+  background: var(--c3);
+  font-weight: 400;
 }
 
 .key-tag {
   display: inline-flex;
   align-items: center;
   padding: 0.2rem 0.5rem;
-  border: 1px solid var(--bd2);
+  border: 1px solid var(--gold);
   font-family: 'DM Mono', monospace;
   font-size: 0.65rem;
-  color: var(--gold);
+  color: var(--gd);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.18s;
   background: var(--gp);
+  font-weight: 500;
 }
+.key-tag:hover { background: var(--gold); color: #fff; }
 .key-tag.excluded {
   text-decoration: line-through;
-  opacity: 0.35;
+  opacity: 0.45;
   border-color: var(--bd);
   color: var(--tx3);
-  background: transparent;
+  background: var(--c3);
+  font-weight: 400;
 }
+.key-tag.excluded:hover { background: var(--c3); color: var(--tx3); }
 
 .spinner {
   width: 13px;
@@ -176,11 +196,22 @@ textarea, input[type='text'], input[type='number'], select {
   width: 100%;
   resize: none;
 }
-select option { background: var(--c3); color: var(--tx); }
+select option { background: var(--c2); color: var(--tx); }
 
-::-webkit-scrollbar { width: 4px; }
-::-webkit-scrollbar-track { background: var(--ch); }
-::-webkit-scrollbar-thumb { background: var(--bd2); }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bd2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--gold); }
+
+/* Subtle drop-shadow on white panels for paper-like depth */
+.paper {
+  box-shadow: 0 1px 2px rgba(31,26,18,0.04), 0 1px 3px rgba(31,26,18,0.06);
+}
+
+/* Section card baseline — used by manual-input sections, archive cards, modals */
+.m-card-grid > * {
+  box-shadow: 0 1px 0 rgba(31,26,18,0.03);
+}
 
 /* ─────────────────────── Mobile responsive ─────────────────────── */
 
