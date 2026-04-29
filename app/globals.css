@@ -196,6 +196,14 @@ textarea, input[type='text'], input[type='number'], select {
   width: 100%;
   resize: none;
 }
+
+/* Hide native number-input spinners — score uses our own +/- buttons */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] { -moz-appearance: textfield; }
 select option { background: var(--c2); color: var(--tx); }
 
 ::-webkit-scrollbar { width: 6px; }

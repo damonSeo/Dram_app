@@ -306,31 +306,55 @@ export default function TastingPage() {
             <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score · / 100</p>
           </div>
           <div style={{ padding: '1rem', textAlign: 'center' }}>
-            <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', lineHeight: 1 }}>
-              {toHundred(currentLog.score ?? 70)}
-              <span style={{ fontSize: '1rem', color: 'var(--tx3)' }}> / 100</span>
+            {/* 큰 숫자 — 직접 입력 가능 */}
+            <div style={{ display: 'inline-flex', alignItems: 'baseline', justifyContent: 'center', gap: '0.3rem' }}>
+              <input
+                type="number" min={0} max={100} step={1}
+                value={toHundred(currentLog.score ?? 70)}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value)
+                  if (!isNaN(v)) updateCurrentLog({ score: Math.max(0, Math.min(100, v)) })
+                  else if (e.target.value === '') updateCurrentLog({ score: 0 })
+                }}
+                onFocus={(e) => e.target.select()}
+                className="display"
+                style={{
+                  fontSize: '3rem', color: 'var(--gold)', lineHeight: 1,
+                  width: '5.5rem', textAlign: 'center',
+                  background: 'transparent', border: 'none', outline: 'none',
+                  borderBottom: '2px dashed var(--bd2)',
+                  padding: '0 0 0.15rem',
+                  fontFamily: 'inherit',
+                  MozAppearance: 'textfield',
+                }}
+              />
+              <span className="display" style={{ fontSize: '1.2rem', color: 'var(--tx3)' }}>/ 100</span>
+            </div>
+            <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', marginTop: '0.3rem', letterSpacing: '0.06em' }}>
+              ✎ 숫자 클릭해서 직접 입력
             </p>
-            <div style={{ margin: '0.75rem 0 0.5rem', display: 'flex', justifyContent: 'center', gap: '0.35rem' }}>
+
+            {/* +/- 미세조정 + 별 프리셋 */}
+            <div style={{ margin: '0.75rem 0 0.5rem', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.4rem' }}>
+              <button onClick={() => updateCurrentLog({ score: Math.max(0, toHundred(currentLog.score ?? 70) - 1) })}
+                className="mono"
+                style={{ background: 'var(--c3)', border: '1px solid var(--bd2)', color: 'var(--tx)', cursor: 'pointer', width: 28, height: 28, fontSize: '0.9rem' }}>−</button>
               {[1,2,3,4,5].map((s) => (
                 <button key={s} onClick={() => updateCurrentLog({ score: s * 20 })}
                   title={`${s * 20}점`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem',
                     color: toHundred(currentLog.score ?? 70) >= s * 20 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
               ))}
+              <button onClick={() => updateCurrentLog({ score: Math.min(100, toHundred(currentLog.score ?? 70) + 1) })}
+                className="mono"
+                style={{ background: 'var(--c3)', border: '1px solid var(--bd2)', color: 'var(--tx)', cursor: 'pointer', width: 28, height: 28, fontSize: '0.9rem' }}>+</button>
             </div>
+
+            {/* 슬라이더 */}
             <input type="range" min={0} max={100} step={1}
               value={toHundred(currentLog.score ?? 70)}
               onChange={(e) => updateCurrentLog({ score: parseInt(e.target.value) })}
               style={{ width: '100%', accentColor: 'var(--gold)' }} />
-            <input type="number" min={0} max={100} step={1}
-              value={toHundred(currentLog.score ?? 70)}
-              onChange={(e) => {
-                const v = parseInt(e.target.value)
-                if (!isNaN(v)) updateCurrentLog({ score: Math.max(0, Math.min(100, v)) })
-              }}
-              className="mono"
-              style={{ width: '5rem', marginTop: '0.5rem', textAlign: 'center', fontSize: '0.8rem',
-                border: '1px solid var(--bd)', background: 'var(--c3)', color: 'var(--tx)', padding: '0.3rem' }} />
           </div>
         </div>
 

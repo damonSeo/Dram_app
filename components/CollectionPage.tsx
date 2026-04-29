@@ -279,29 +279,47 @@ function EditModal({ log, onClose }: EditModalProps) {
             </div>
             <div>
               <span style={label}>점수 (/ 100)</span>
-              <p className="display" style={{ fontSize: '2rem', color: 'var(--gold)', lineHeight: 1, margin: '0.3rem 0' }}>
-                {toHundred(form.score ?? 70)}
-                <span style={{ fontSize: '0.8rem', color: 'var(--tx3)' }}> / 100</span>
-              </p>
-              <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '0.3rem', marginBottom: '0.5rem' }}>
+              {/* 큰 숫자 — 직접 입력 */}
+              <div style={{ display: 'inline-flex', alignItems: 'baseline', gap: '0.3rem', margin: '0.3rem 0' }}>
+                <input
+                  type="number" min={0} max={100} step={1}
+                  value={toHundred(form.score ?? 70)}
+                  onChange={(e) => {
+                    const v = parseInt(e.target.value)
+                    if (!isNaN(v)) upd({ score: Math.max(0, Math.min(100, v)) })
+                    else if (e.target.value === '') upd({ score: 0 })
+                  }}
+                  onFocus={(e) => e.target.select()}
+                  className="display"
+                  style={{
+                    fontSize: '2rem', color: 'var(--gold)', lineHeight: 1,
+                    width: '4rem', textAlign: 'center',
+                    background: 'transparent', border: 'none', outline: 'none',
+                    borderBottom: '2px dashed var(--bd2)',
+                    padding: '0 0 0.1rem',
+                    fontFamily: 'inherit',
+                    MozAppearance: 'textfield',
+                  }}
+                />
+                <span className="display" style={{ fontSize: '0.85rem', color: 'var(--tx3)' }}>/ 100</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                <button onClick={() => upd({ score: Math.max(0, toHundred(form.score ?? 70) - 1) })}
+                  className="mono"
+                  style={{ background: 'var(--c3)', border: '1px solid var(--bd2)', color: 'var(--tx)', cursor: 'pointer', width: 26, height: 26, fontSize: '0.85rem' }}>−</button>
                 {[1,2,3,4,5].map((s) => (
                   <button key={s} onClick={() => upd({ score: s * 20 })}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem',
                       color: toHundred(form.score ?? 70) >= s * 20 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
                 ))}
+                <button onClick={() => upd({ score: Math.min(100, toHundred(form.score ?? 70) + 1) })}
+                  className="mono"
+                  style={{ background: 'var(--c3)', border: '1px solid var(--bd2)', color: 'var(--tx)', cursor: 'pointer', width: 26, height: 26, fontSize: '0.85rem' }}>+</button>
               </div>
               <input type="range" min={0} max={100} step={1}
                 value={toHundred(form.score ?? 70)}
                 onChange={(e) => upd({ score: parseInt(e.target.value) })}
                 style={{ width: '100%', accentColor: 'var(--gold)', marginBottom: '0.4rem' }} />
-              <input type="number" min={0} max={100} step={1}
-                value={toHundred(form.score ?? 70)}
-                onChange={(e) => {
-                  const v = parseInt(e.target.value)
-                  if (!isNaN(v)) upd({ score: Math.max(0, Math.min(100, v)) })
-                }}
-                className="mono"
-                style={{ ...inp, width: '5rem', textAlign: 'center' }} />
             </div>
           </div>
 
