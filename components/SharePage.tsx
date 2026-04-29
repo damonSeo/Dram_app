@@ -16,10 +16,51 @@ async function callAI(action: string, payload: object): Promise<string> {
 }
 
 export default function SharePage() {
-  const { currentLog, collection, updateCurrentLog } = useStore()
+  const { currentLog, collection, updateCurrentLog, removeFromCollection, setActiveTab, currentUserId, loadLog } = useStore()
   const { showToast } = useToast()
 
   const [modal, setModal] = useState({ open: false, title: '', text: '', loading: false, action: '', payload: {} as object })
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  // 편집/삭제 권한: 본인 기록이거나 레거시 anonymous 기록
+  const canEdit =
+    !currentLog.user_id ||
+    currentLog.user_id === 'anonymous' ||
+    (currentUserId && currentLog.user_id === currentUserId)
+
+  const handleEdit = () => {
+    // 현재 로그를 그대로 들고 Tasting 탭으로 이동 → 거기서 수정 후 컬렉션에 저장
+    loadLog({ ...currentLog })
+    setActiveTab('tasting')
+    showToast('수정 모드로 전환됨', 'ok')
+  }
+
+  const handleDelete = async () => {
+    if (!currentLog.id) return
+    if (!confirmDelete) {
+      setConfirmDelete(true)
+      setTimeout(() => setConfirmDelete(false), 3000)
+      return
+    }
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/whisky-logs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: currentLog.id }),
+      })
+      if (!res.ok) throw new Error('삭제 실패')
+      removeFromCollection(currentLog.id as string)
+      showToast('삭제됨', 'ok')
+      setActiveTab('collection')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '삭제 실패', 'err')
+    } finally {
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
 
   const openModal = async (title: string, action: string, payload: object) => {
     setModal({ open: true, title, text: '', loading: true, action, payload })
@@ -187,6 +228,40 @@ export default function SharePage() {
 
         {/* RIGHT — Controls */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+
+          {/* Manage — 수정 / 삭제 */}
+          {currentLog.id && canEdit && (
+            <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', marginBottom: '1px' }}>
+              <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
+                <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                  Manage
+                </p>
+              </div>
+              <div style={{ padding: '1rem', display: 'flex', gap: '0.5rem' }}>
+                <button className="btn-outline-gold" style={{ flex: 1, justifyContent: 'center' }}
+                  onClick={handleEdit}>
+                  ✎ 수정하기
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  style={{
+                    flex: confirmDelete ? 1.4 : 1,
+                    background: confirmDelete ? '#cf7e7e' : 'transparent',
+                    border: `1px solid ${confirmDelete ? '#cf7e7e' : '#cf7e7e'}`,
+                    color: confirmDelete ? '#fff' : '#cf7e7e',
+                    padding: '0.5rem 0.85rem',
+                    cursor: deleting ? 'wait' : 'pointer',
+                    fontSize: '0.72rem',
+                    fontFamily: 'var(--mono)',
+                    transition: 'all 0.15s',
+                  }}>
+                  {deleting ? <span className="spinner" style={{ borderTopColor: '#cf7e7e' }} /> :
+                   confirmDelete ? '🗑 정말 삭제?' : '🗑 삭제'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Export */}
           <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>

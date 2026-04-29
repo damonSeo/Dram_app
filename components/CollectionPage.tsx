@@ -408,7 +408,12 @@ export default function CollectionPage() {
   }
   const visibleLogs = filteredLogs(subTab)
 
-  const isOwnLog = (log: WhiskyLog) => currentUserId && log.user_id === currentUserId
+  // 편집 권한: (1) 본인 기록 (2) 레거시 anonymous 기록 — 둘 다 ✎/🗑 노출
+  const canEdit = (log: WhiskyLog) => {
+    if (!log.user_id || log.user_id === 'anonymous') return true
+    return currentUserId === log.user_id
+  }
+  const isOwnLog = canEdit  // 기존 호출부 호환
 
   const openShare = (log: WhiskyLog) => {
     loadLog({ ...log })
