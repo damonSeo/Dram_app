@@ -606,15 +606,14 @@ export default function CollectionPage() {
                 </div>
               </div>
 
-              {/* 액션 버튼들 — 카드 바디 클릭과 분리 */}
+              {/* 액션 버튼 — 📝 개인 노트 단 하나로 정리 (수정/삭제는 노트 패널 안으로 이동) */}
               <div style={{
                 position: 'absolute', top: '0.5rem', right: '0.5rem',
                 display: 'flex', gap: '0.3rem',
               }}>
-                {/* 개인 노트 (모든 카드) */}
                 <button
                   onClick={(e) => { e.stopPropagation(); setNoteLog(log) }}
-                  title="개인 노트"
+                  title="개인 노트 · 수정 · 삭제"
                   style={{
                     background: 'var(--icon-bg)', border: '1px solid var(--bd)',
                     color: 'var(--gold)', fontSize: '0.85rem',
@@ -622,50 +621,11 @@ export default function CollectionPage() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     backdropFilter: 'blur(4px)',
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff' }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--icon-bg)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
                 >
                   📝
                 </button>
-                {/* 수정 — 내 기록만 */}
-                {isOwnLog(log) && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
-                    title="수정"
-                    style={{
-                      background: 'var(--icon-bg)', border: '1px solid var(--bd)',
-                      color: 'var(--gold)', fontSize: '0.85rem',
-                      width: 28, height: 28, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      backdropFilter: 'blur(4px)',
-                    }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#000' }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--icon-bg)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
-                  >
-                    ✎
-                  </button>
-                )}
-                {/* 삭제 — 내 기록만 */}
-                {isOwnLog(log) && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(log.id) }}
-                    disabled={deletingId === log.id}
-                    title={confirmId === log.id ? '한 번 더 눌러 삭제' : '삭제'}
-                    style={{
-                      background: confirmId === log.id ? '#cf7e7e' : 'var(--icon-bg)',
-                      border: `1px solid ${confirmId === log.id ? '#cf7e7e' : 'var(--bd)'}`,
-                      color: confirmId === log.id ? '#fff' : '#cf7e7e',
-                      fontSize: '0.8rem',
-                      minWidth: 28, height: 28, padding: confirmId === log.id ? '0 0.5rem' : 0,
-                      cursor: deletingId === log.id ? 'wait' : 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      backdropFilter: 'blur(4px)',
-                      fontFamily: 'var(--mono)',
-                    }}
-                  >
-                    {deletingId === log.id ? '…' : confirmId === log.id ? '확인?' : '🗑'}
-                  </button>
-                )}
               </div>
             </div>
           ))}
@@ -673,7 +633,29 @@ export default function CollectionPage() {
       )}
 
       {editLog && <EditModal log={editLog} onClose={() => setEditLog(null)} />}
-      {noteLog && <PersonalNotePanel log={noteLog} onClose={() => setNoteLog(null)} />}
+      {noteLog && (
+        <PersonalNotePanel
+          log={noteLog}
+          onClose={() => setNoteLog(null)}
+          onEdit={(log) => setEditLog(log)}
+          onDelete={async (log) => {
+            // 즉시 삭제 (PersonalNotePanel에서 이미 2단계 확인 처리)
+            try {
+              const res = await fetch('/api/whisky-logs', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: log.id }),
+              })
+              if (!res.ok) throw new Error('삭제 실패')
+              removeFromCollection(log.id)
+              showToast('삭제됨', 'ok')
+            } catch (e: unknown) {
+              showToast(e instanceof Error ? e.message : '삭제 실패', 'err')
+              throw e
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

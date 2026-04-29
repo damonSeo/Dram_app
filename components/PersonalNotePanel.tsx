@@ -9,9 +9,11 @@ import type { WhiskyLog, PersonalNote } from '@/types'
 interface Props {
   log: WhiskyLog
   onClose: () => void
+  onEdit?: (log: WhiskyLog) => void
+  onDelete?: (log: WhiskyLog) => Promise<void> | void
 }
 
-export default function PersonalNotePanel({ log, onClose }: Props) {
+export default function PersonalNotePanel({ log, onClose, onEdit, onDelete }: Props) {
   const { currentUserId } = useStore()
   const { showToast } = useToast()
   const [notes, setNotes] = useState<PersonalNote[]>([])
@@ -19,10 +21,37 @@ export default function PersonalNotePanel({ log, onClose }: Props) {
   const [content, setContent] = useState('')
   const [keys, setKeys] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  const isOwnLog = currentUserId && log.user_id === currentUserId
+  // 본인 기록이거나 레거시 anonymous 기록이면 수정/삭제 가능
+  const canEdit =
+    !log.user_id || log.user_id === 'anonymous' ||
+    (currentUserId && log.user_id === currentUserId)
+  const isOwnLog = canEdit
   const myNote = notes.find((n) => n.user_id === currentUserId)
   const otherNotes = notes.filter((n) => n.user_id !== currentUserId)
+
+  const handleEditClick = () => {
+    if (onEdit) onEdit(log)
+    onClose()
+  }
+
+  const handleDeleteClick = async () => {
+    if (!confirmDel) {
+      setConfirmDel(true)
+      setTimeout(() => setConfirmDel(false), 3000)
+      return
+    }
+    setDeleting(true)
+    try {
+      if (onDelete) await onDelete(log)
+      onClose()
+    } catch {
+      setDeleting(false)
+      setConfirmDel(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -99,12 +128,60 @@ export default function PersonalNotePanel({ log, onClose }: Props) {
       <div onClick={(e) => e.stopPropagation()}
         className="m-modal-panel"
         style={{ background: 'var(--c2)', border: '1px solid var(--gold)', maxWidth: 680, width: '100%', marginTop: '4vh', marginBottom: '4vh' }}>
-        {/* Header — 원본 정보 */}
-        <div style={{ padding: '0.85rem 1.25rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--c2)', zIndex: 1 }}>
+        {/* Header — 타이틀 + 우상단 수정/삭제/닫기 */}
+        <div style={{ padding: '0.7rem 1rem 0.7rem 1.25rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, background: 'var(--c2)', zIndex: 1, gap: '0.5rem' }}>
           <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
             📝 개인 노트
           </p>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            {canEdit && onEdit && (
+              <button
+                onClick={handleEditClick}
+                title="수정"
+                className="mono"
+                style={{
+                  background: 'transparent',
+                  border: '1px solid var(--bd2)',
+                  color: 'var(--gold)',
+                  padding: '0.3rem 0.6rem',
+                  cursor: 'pointer',
+                  fontSize: '0.68rem',
+                  letterSpacing: '0.05em',
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+              >
+                ✎ 수정
+              </button>
+            )}
+            {canEdit && onDelete && (
+              <button
+                onClick={handleDeleteClick}
+                disabled={deleting}
+                title={confirmDel ? '한 번 더 눌러 삭제' : '삭제'}
+                className="mono"
+                style={{
+                  background: confirmDel ? '#cf7e7e' : 'transparent',
+                  border: '1px solid #cf7e7e',
+                  color: confirmDel ? '#fff' : '#cf7e7e',
+                  padding: '0.3rem 0.6rem',
+                  cursor: deleting ? 'wait' : 'pointer',
+                  fontSize: '0.68rem',
+                  letterSpacing: '0.05em',
+                  display: 'flex', alignItems: 'center', gap: '0.25rem',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {deleting ? <span className="spinner" style={{ borderTopColor: '#cf7e7e' }} /> : confirmDel ? '🗑 정말?' : '🗑 삭제'}
+              </button>
+            )}
+            <button onClick={onClose}
+              title="닫기"
+              style={{ background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: '1rem', padding: '0.2rem 0.4rem', marginLeft: '0.2rem' }}>
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* 원본 위스키 정보 */}
