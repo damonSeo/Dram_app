@@ -107,8 +107,34 @@ export default function SharePage() {
             padding: '2rem', minHeight: 400,
           }}>
             <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.15em', marginBottom: '1.5rem' }}>
-              Tasting Note · DRAM
+              Tasting Note · OAK THE RECORD
             </p>
+
+            {/* 업로드한 라벨 사진 */}
+            {currentLog.image_url && (
+              <div style={{
+                marginBottom: '1.25rem',
+                width: '100%',
+                aspectRatio: '4 / 3',
+                background: '#0c0c0c',
+                border: '1px solid rgba(201,168,76,0.25)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                <img
+                  src={currentLog.image_url}
+                  alt="라벨"
+                  crossOrigin="anonymous"
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    display: 'block',
+                  }}
+                />
+              </div>
+            )}
+
             <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.12em', marginBottom: '0.35rem', textTransform: 'lowercase' }}>
               {currentLog.region || ''}
             </p>
