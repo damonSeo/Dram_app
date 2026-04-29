@@ -5,7 +5,7 @@ import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
 import EmojiKeySelector from '@/components/EmojiKeySelector'
 import { findEmojiForLabel } from '@/lib/tastingEmojis'
-import { scoreToHundred } from '@/lib/scoreFormat'
+import { toHundred } from '@/lib/scoreFormat'
 import type { WhiskyLog, ExtractedKeys } from '@/types'
 
 const COLORS = [
@@ -170,7 +170,7 @@ export default function TastingPage() {
         region: currentLog.region || '',
         bottler: currentLog.bottler || 'OB',
         color: currentLog.color || 'Deep Gold',
-        score: currentLog.score ?? 7.0,
+        score: currentLog.score ?? 70,
         casks: currentLog.casks || [],
         date: currentLog.date || new Date().toISOString().split('T')[0],
         comment,
@@ -300,35 +300,33 @@ export default function TastingPage() {
           )}
         </div>
 
-        {/* Score card — 10점 만점 */}
+        {/* Score card — 100점 만점 */}
         <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)' }}>
           <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
-            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score · /10</p>
+            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Score · / 100</p>
           </div>
           <div style={{ padding: '1rem', textAlign: 'center' }}>
             <p className="display" style={{ fontSize: '3rem', color: 'var(--gold)', lineHeight: 1 }}>
-              {(currentLog.score ?? 7.0).toFixed(1)}
-              <span style={{ fontSize: '1rem', color: 'var(--tx3)' }}> / 10</span>
-            </p>
-            <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gd)', marginTop: '0.25rem', letterSpacing: '0.08em' }}>
-              ≈ {scoreToHundred(currentLog.score ?? 7.0)} / 100
+              {toHundred(currentLog.score ?? 70)}
+              <span style={{ fontSize: '1rem', color: 'var(--tx3)' }}> / 100</span>
             </p>
             <div style={{ margin: '0.75rem 0 0.5rem', display: 'flex', justifyContent: 'center', gap: '0.35rem' }}>
               {[1,2,3,4,5].map((s) => (
-                <button key={s} onClick={() => updateCurrentLog({ score: s * 2 })}
+                <button key={s} onClick={() => updateCurrentLog({ score: s * 20 })}
+                  title={`${s * 20}점`}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.25rem',
-                    color: (currentLog.score ?? 7) >= s * 2 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
+                    color: toHundred(currentLog.score ?? 70) >= s * 20 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
               ))}
             </div>
-            <input type="range" min={0} max={10} step={0.1}
-              value={currentLog.score ?? 7.0}
-              onChange={(e) => updateCurrentLog({ score: parseFloat(e.target.value) })}
+            <input type="range" min={0} max={100} step={1}
+              value={toHundred(currentLog.score ?? 70)}
+              onChange={(e) => updateCurrentLog({ score: parseInt(e.target.value) })}
               style={{ width: '100%', accentColor: 'var(--gold)' }} />
-            <input type="number" min={0} max={10} step={0.1}
-              value={(currentLog.score ?? 7.0).toFixed(1)}
+            <input type="number" min={0} max={100} step={1}
+              value={toHundred(currentLog.score ?? 70)}
               onChange={(e) => {
-                const v = parseFloat(e.target.value)
-                if (!isNaN(v)) updateCurrentLog({ score: Math.max(0, Math.min(10, v)) })
+                const v = parseInt(e.target.value)
+                if (!isNaN(v)) updateCurrentLog({ score: Math.max(0, Math.min(100, v)) })
               }}
               className="mono"
               style={{ width: '5rem', marginTop: '0.5rem', textAlign: 'center', fontSize: '0.8rem',
@@ -460,6 +458,49 @@ export default function TastingPage() {
               </button>
             </div>
           </div>
+        )}
+      </div>
+
+      {/* 재구매 의사 — 한 병 다 마신 다음 다시 살까? */}
+      <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', marginBottom: '1rem' }}>
+        <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)' }}>
+          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            🍾 한 병 다 마셨을 때 — 다시 살까?
+          </p>
+        </div>
+        <div style={{ padding: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          {([
+            { v: 'yes',   emoji: '🍾✓', label: '꼭 다시 산다',  border: 'var(--gold)',  bg: 'var(--gold)',     color: '#fff' },
+            { v: 'maybe', emoji: '🤷',   label: '잘 모르겠어',   border: 'var(--bd2)',   bg: 'var(--c3)',       color: 'var(--tx)' },
+            { v: 'no',    emoji: '✕',    label: '다시 안 산다',  border: '#cf7e7e',      bg: '#cf7e7e',         color: '#fff' },
+          ] as { v: 'yes'|'maybe'|'no'; emoji: string; label: string; border: string; bg: string; color: string }[]).map((opt) => {
+            const active = currentLog.would_rebuy === opt.v
+            return (
+              <button key={opt.v} className="mono"
+                onClick={() => updateCurrentLog({ would_rebuy: active ? null : opt.v })}
+                style={{
+                  flex: '1 1 130px',
+                  padding: '0.7rem 0.9rem',
+                  cursor: 'pointer',
+                  border: `1px solid ${active ? opt.border : 'var(--bd)'}`,
+                  background: active ? opt.bg : 'var(--c3)',
+                  color: active ? opt.color : 'var(--tx2)',
+                  fontSize: '0.78rem',
+                  letterSpacing: '0.04em',
+                  fontWeight: active ? 600 : 400,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                  transition: 'all 0.15s',
+                }}>
+                <span style={{ fontSize: '1rem' }}>{opt.emoji}</span>
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+        {currentLog.would_rebuy && (
+          <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', padding: '0 1rem 0.75rem', letterSpacing: '0.04em' }}>
+            (선택 취소하려면 같은 버튼을 한 번 더 누르세요)
+          </p>
         )}
       </div>
 

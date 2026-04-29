@@ -4,7 +4,7 @@ import type { WhiskyLog, TabName, ExtractedKeys, Profile } from '@/types'
 const DEFAULT_LOG: Partial<WhiskyLog> = {
   spirit_type: 'whisky',
   color: 'Deep Gold',
-  score: 7.0,
+  score: 70, // /100 — 70 = 평균
   casks: [],
 }
 
@@ -106,7 +106,7 @@ export const useStore = create<DramStore>()((set, get) => ({
       region: currentLog.region || '',
       bottler: currentLog.bottler || 'OB',
       color: currentLog.color || 'Deep Gold',
-      score: currentLog.score ?? 7.0,
+      score: currentLog.score ?? 70,
       casks: currentLog.casks || [],
       date: currentLog.date || new Date().toISOString().split('T')[0],
     }

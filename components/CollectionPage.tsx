@@ -5,7 +5,7 @@ import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl } from '@/lib/imageUtils'
 import type { WhiskyLog, Profile } from '@/types'
 import PersonalNotePanel from '@/components/PersonalNotePanel'
-import { scoreToHundred } from '@/lib/scoreFormat'
+import { toHundred } from '@/lib/scoreFormat'
 
 const COLOR_HEX: Record<string, string> = {
   'Pale Straw': '#F5E6A3',
@@ -278,27 +278,27 @@ function EditModal({ log, onClose }: EditModalProps) {
               <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)', marginTop: '0.35rem' }}>{form.color}</p>
             </div>
             <div>
-              <span style={label}>점수 (/ 10)</span>
+              <span style={label}>점수 (/ 100)</span>
               <p className="display" style={{ fontSize: '2rem', color: 'var(--gold)', lineHeight: 1, margin: '0.3rem 0' }}>
-                ★ {(form.score ?? 7.0).toFixed(1)}
-                <span style={{ fontSize: '0.8rem', color: 'var(--tx3)' }}> / 10</span>
+                {toHundred(form.score ?? 70)}
+                <span style={{ fontSize: '0.8rem', color: 'var(--tx3)' }}> / 100</span>
               </p>
               <div style={{ display: 'flex', justifyContent: 'flex-start', gap: '0.3rem', marginBottom: '0.5rem' }}>
                 {[1,2,3,4,5].map((s) => (
-                  <button key={s} onClick={() => upd({ score: s * 2 })}
+                  <button key={s} onClick={() => upd({ score: s * 20 })}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem',
-                      color: (form.score ?? 7) >= s * 2 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
+                      color: toHundred(form.score ?? 70) >= s * 20 ? 'var(--gold)' : 'var(--tx3)' }}>★</button>
                 ))}
               </div>
-              <input type="range" min={0} max={10} step={0.1}
-                value={form.score ?? 7.0}
-                onChange={(e) => upd({ score: parseFloat(e.target.value) })}
+              <input type="range" min={0} max={100} step={1}
+                value={toHundred(form.score ?? 70)}
+                onChange={(e) => upd({ score: parseInt(e.target.value) })}
                 style={{ width: '100%', accentColor: 'var(--gold)', marginBottom: '0.4rem' }} />
-              <input type="number" min={0} max={10} step={0.1}
-                value={(form.score ?? 7.0).toFixed(1)}
+              <input type="number" min={0} max={100} step={1}
+                value={toHundred(form.score ?? 70)}
                 onChange={(e) => {
-                  const v = parseFloat(e.target.value)
-                  if (!isNaN(v)) upd({ score: Math.max(0, Math.min(10, v)) })
+                  const v = parseInt(e.target.value)
+                  if (!isNaN(v)) upd({ score: Math.max(0, Math.min(100, v)) })
                 }}
                 className="mono"
                 style={{ ...inp, width: '5rem', textAlign: 'center' }} />
@@ -568,12 +568,11 @@ export default function CollectionPage() {
               </div>
 
               <div style={{ padding: '0 0.9rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span className="display" style={{ fontSize: '1.1rem', color: 'var(--gold)', display:'flex', alignItems:'baseline', gap:'0.4rem' }}>
-                  ★ {log.score?.toFixed(1)}
-                  <span style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}>/10</span>
-                  <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--gd)', letterSpacing: '0.04em' }}>
-                    · {scoreToHundred(log.score)}/100
-                  </span>
+                <span className="display" style={{ fontSize: '1.25rem', color: 'var(--gold)', display:'flex', alignItems:'baseline', gap:'0.25rem' }}>
+                  {toHundred(log.score)}
+                  <span style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}>/100</span>
+                  {log.would_rebuy === 'yes' && <span title="다시 살 의향" style={{ fontSize: '0.85rem', marginLeft: '0.3rem' }}>🍾</span>}
+                  {log.would_rebuy === 'no' && <span title="재구매 안함" style={{ fontSize: '0.7rem', color: '#cf7e7e', marginLeft: '0.3rem' }}>✕</span>}
                 </span>
                 <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                   {(log.casks || []).slice(0, 2).map((c) => (

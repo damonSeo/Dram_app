@@ -1,6 +1,7 @@
 'use client'
 import { useStore } from '@/lib/store'
 import type { WhiskyLog } from '@/types'
+import { toHundred } from '@/lib/scoreFormat'
 
 const cardBase: React.CSSProperties = {
   border: '1px solid var(--bd2)',
@@ -33,8 +34,68 @@ export default function HomePage() {
   const goManual = () => { setScanMode('manual'); setActiveTab('scan') }
   const goCocktail = () => { setScanMode('manual'); setActiveTab('scan') }
 
+  // Exceptional Scores: 90+ /100 (모든 stype 포함, 점수 정렬)
+  const exceptional = [...collection]
+    .filter((l) => toHundred(l.score) >= 90)
+    .sort((a, b) => toHundred(b.score) - toHundred(a.score))
+    .slice(0, 8)
+
   return (
-    <div className="m-page fade-up" style={{ maxWidth: 860, margin: '0 auto', padding: '2.5rem 1.5rem' }}>
+    <div className="m-page fade-up home-shell" style={{ maxWidth: 1160, margin: '0 auto', padding: '2.5rem 1.5rem', display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: '1.5rem' }}>
+      {/* ── LEFT — Exceptional Scores rail ── */}
+      <aside className="home-rail" style={{ alignSelf: 'start', position: 'sticky', top: 76 }}>
+        <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
+          <div style={{ padding: '0.55rem 0.85rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
+            <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              🏆 Exceptional
+            </p>
+            <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', letterSpacing: '0.05em', marginTop: '0.15rem' }}>
+              90+ / 100 명작들
+            </p>
+          </div>
+          {exceptional.length === 0 ? (
+            <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', padding: '1.25rem 0.85rem', lineHeight: 1.6 }}>
+              아직 90+ 점수의 기록이 없어요. 첫 명작을 발견해보세요.
+            </p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {exceptional.map((log, i) => (
+                <button key={log.id}
+                  onClick={() => { loadLog({ ...log }); setActiveTab('share') }}
+                  className="mono"
+                  style={{
+                    display: 'flex', alignItems: 'baseline', gap: '0.5rem',
+                    padding: '0.55rem 0.85rem',
+                    background: 'transparent', border: 'none', cursor: 'pointer',
+                    borderBottom: i === exceptional.length - 1 ? 'none' : '1px solid var(--bd)',
+                    textAlign: 'left', width: '100%',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gp)' }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}
+                >
+                  <span className="display" style={{ fontSize: '0.95rem', color: 'var(--gold)', minWidth: '2rem' }}>
+                    {toHundred(log.score)}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+                      {log.brand || '—'}
+                    </p>
+                    <p style={{ fontSize: '0.55rem', color: 'var(--tx3)', letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '0.1rem' }}>
+                      {[log.age, log.abv].filter(Boolean).join(' · ') || (log.region || '—')}
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', textAlign: 'right', marginTop: '0.5rem', letterSpacing: '0.05em' }}>
+          /home rail · v1
+        </p>
+      </aside>
+
+      {/* ── RIGHT — main content ── */}
+      <div>
       {/* Hero — title + logo */}
       <div style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
         <p className="mono" style={{
@@ -169,18 +230,15 @@ export default function HomePage() {
                   </p>
                 </div>
                 <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  <span className="display" style={{ fontSize: '0.9rem', color: 'var(--gold)' }}>
-                    ★ {log.score?.toFixed(1)}
-                  </span>
-                  <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gd)', letterSpacing: '0.04em', marginTop: '0.1rem' }}>
-                    {(((log.score ?? 0) * 10) | 0)}/100
-                  </p>
+                  <span className="display" style={{ fontSize: '1rem', color: 'var(--gold)' }}>{toHundred(log.score)}</span>
+                  <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gd)', letterSpacing: '0.04em' }}>/ 100</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

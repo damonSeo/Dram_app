@@ -13,6 +13,9 @@ Supabase 대시보드 → 좌측 사이드바 → **SQL Editor** → **New query
 -- spirit_type 컬럼 (이미 추가했다면 스킵)
 alter table whisky_logs add column if not exists spirit_type text default 'whisky';
 
+-- 재구매 의사 컬럼 ('yes' | 'no' | 'maybe' | null)
+alter table whisky_logs add column if not exists would_rebuy text;
+
 -- 1) profiles 테이블
 create table if not exists profiles (
   id uuid primary key references auth.users on delete cascade,

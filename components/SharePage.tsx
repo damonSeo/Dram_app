@@ -145,12 +145,14 @@ export default function SharePage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <div>
                 <p className="display" style={{ fontSize: '2.5rem', color: 'var(--gold)', lineHeight: 1 }}>
-                  ★ {(currentLog.score ?? 7.0).toFixed(1)}
-                  <span style={{ fontSize: '0.9rem', color: 'var(--tx3)' }}> / 10</span>
+                  {Math.round((currentLog.score ?? 70) <= 10 ? (currentLog.score ?? 70) * 10 : (currentLog.score ?? 70))}
+                  <span style={{ fontSize: '0.9rem', color: 'var(--tx3)' }}> / 100</span>
                 </p>
-                <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gd)', marginTop: '0.2rem', letterSpacing: '0.06em' }}>
-                  {Math.round((currentLog.score ?? 7) * 10)} / 100
-                </p>
+                {currentLog.would_rebuy === 'yes' && (
+                  <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--gd)', marginTop: '0.3rem', letterSpacing: '0.06em' }}>
+                    🍾 다시 사고 싶은 한 병
+                  </p>
+                )}
               </div>
               <p className="display" style={{ fontSize: '1rem', color: 'var(--tx3)', letterSpacing: '0.15em' }}>OAK · THE RECORD</p>
             </div>
@@ -199,7 +201,7 @@ export default function SharePage() {
                     onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c3)' }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent' }}>
                     <span style={{ fontSize: '0.8rem', color: 'var(--tx)' }}>{log.brand || '—'} {log.age || ''}</span>
-                    <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)' }}>★{log.score?.toFixed(1)}</span>
+                    <span className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)' }}>{Math.round((log.score ?? 0) <= 10 ? (log.score ?? 0) * 10 : (log.score ?? 0))}/100</span>
                   </button>
                 ))}
               </div>

@@ -218,6 +218,12 @@ select option { background: var(--c2); color: var(--tx); }
 /* Prevent tiny text and horizontal scroll on mobile */
 html { -webkit-text-size-adjust: 100%; }
 
+@media (max-width: 900px) {
+  /* HomePage rail collapses to top strip */
+  .home-shell { grid-template-columns: 1fr !important; gap: 1rem !important; padding: 1.5rem 1rem !important; }
+  .home-rail { position: static !important; }
+}
+
 @media (max-width: 768px) {
   /* Page wrappers — tighter padding */
   .m-page { padding: 1rem 0.75rem !important; max-width: 100% !important; }

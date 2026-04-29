@@ -1,24 +1,33 @@
 /**
- * 점수 표시 유틸 — 내부 저장은 0–10 (소수점 1자리),
- * UI에는 /10 와 /100 둘 다 보여줌 (whiskynotes.be 식 호환).
+ * 점수 시스템 — /100 점제 (whiskynotes.be 호환)
  *
- * 7.5 → 75/100,  8.0 → 80/100,  9.2 → 92/100
- * 환산은 단순 ×10 — 직관적이고 손실 없음.
+ * 신규 기록은 0~100 정수로 저장.
+ * 레거시 기록은 0~10 (소수점) 으로 저장돼 있을 수 있어
+ * 화면 표시·필터링 시 자동 정규화함.
  */
-export function scoreToHundred(score: number | null | undefined): number {
+
+/** /100 으로 정규화 — 레거시(0~10) 자동 환산 */
+export function toHundred(score: number | null | undefined): number {
   if (typeof score !== 'number' || isNaN(score)) return 0
-  return Math.round(score * 10)
+  // 0보다 크고 10 이하면 레거시 /10 으로 간주 → ×10
+  if (score > 0 && score <= 10) return Math.round(score * 10)
+  return Math.round(score)
 }
 
-/** "★ 8.5/10 · 85/100" 처럼 한 줄로 보여줄 때 */
-export function formatScoreFull(score: number | null | undefined): string {
-  const ten = typeof score === 'number' ? score.toFixed(1) : '—'
-  const hundred = scoreToHundred(score)
-  return `★ ${ten}/10 · ${hundred}/100`
+/** 5점 만점 별 (0~5) — /100 기준 */
+export function toStars(score: number | null | undefined): number {
+  return toHundred(score) / 20
 }
 
-/** 컴팩트 — "8.5/10 (85)" */
-export function formatScoreCompact(score: number | null | undefined): string {
-  if (typeof score !== 'number') return '—'
-  return `${score.toFixed(1)}/10 · ${scoreToHundred(score)}/100`
+/** "85 / 100" — 메인 표시 */
+export function formatHundred(score: number | null | undefined): string {
+  return `${toHundred(score)} / 100`
 }
+
+/** 카드 컴팩트 — "85" */
+export function formatHundredCompact(score: number | null | undefined): string {
+  return `${toHundred(score)}`
+}
+
+/* ─── Backward-compat ─── */
+export const scoreToHundred = toHundred

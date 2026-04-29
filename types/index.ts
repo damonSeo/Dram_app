@@ -24,6 +24,8 @@ export interface WhiskyLog {
   comment_insta?: string
   blog_post?: string
   insta_post?: string
+  /** 재구매 의사: 'yes' = 다시 살래 · 'no' = 안 살래 · 'maybe' = 잘 모르겠어 */
+  would_rebuy?: 'yes' | 'no' | 'maybe' | null
   date: string
   created_at: string
   updated_at: string
