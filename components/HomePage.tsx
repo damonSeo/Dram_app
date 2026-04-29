@@ -41,9 +41,9 @@ export default function HomePage() {
     .slice(0, 8)
 
   return (
-    <div className="m-page fade-up home-shell" style={{ maxWidth: 1160, margin: '0 auto', padding: '2.5rem 1.5rem', display: 'grid', gridTemplateColumns: '220px minmax(0, 1fr)', gap: '1.5rem' }}>
-      {/* ── LEFT — Exceptional Scores rail ── */}
-      <aside className="home-rail" style={{ alignSelf: 'start', position: 'sticky', top: 76 }}>
+    <div className="m-page fade-up home-shell" style={{ maxWidth: 1160, margin: '0 auto', padding: '2.5rem 1.5rem', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 240px', gap: '1.5rem' }}>
+      {/* ── RIGHT (top) — Exceptional Scores rail ── */}
+      <aside className="home-rail" style={{ alignSelf: 'start', position: 'sticky', top: 76, gridColumn: 2, gridRow: 1 }}>
         <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
           <div style={{ padding: '0.55rem 0.85rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
             <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
@@ -89,13 +89,21 @@ export default function HomePage() {
             </div>
           )}
         </div>
-        <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', textAlign: 'right', marginTop: '0.5rem', letterSpacing: '0.05em' }}>
-          /home rail · v1
-        </p>
+        {exceptional.length > 0 && (
+          <button onClick={() => setActiveTab('collection')} className="mono"
+            style={{
+              background: 'transparent', border: 'none',
+              color: 'var(--tx3)', fontSize: '0.6rem',
+              cursor: 'pointer', marginTop: '0.5rem', padding: '0.2rem 0',
+              letterSpacing: '0.05em', textAlign: 'right', width: '100%',
+            }}>
+            전체 Archive →
+          </button>
+        )}
       </aside>
 
-      {/* ── RIGHT — main content ── */}
-      <div>
+      {/* ── LEFT — main content ── */}
+      <div style={{ gridColumn: 1, gridRow: 1 }}>
       {/* Hero — title + logo */}
       <div style={{ textAlign: 'center', marginBottom: '2.25rem' }}>
         <p className="mono" style={{

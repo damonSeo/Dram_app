@@ -219,9 +219,10 @@ select option { background: var(--c2); color: var(--tx); }
 html { -webkit-text-size-adjust: 100%; }
 
 @media (max-width: 900px) {
-  /* HomePage rail collapses to top strip */
+  /* HomePage rail collapses to BELOW main on mobile (rail moved to top-right on desktop) */
   .home-shell { grid-template-columns: 1fr !important; gap: 1rem !important; padding: 1.5rem 1rem !important; }
-  .home-rail { position: static !important; }
+  .home-rail { position: static !important; grid-column: 1 !important; grid-row: 2 !important; }
+  .home-shell > div:not(.home-rail) { grid-column: 1 !important; grid-row: 1 !important; }
 }
 
 @media (max-width: 768px) {
