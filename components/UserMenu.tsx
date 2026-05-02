@@ -14,6 +14,15 @@ export default function UserMenu() {
   const [saving, setSaving] = useState(false)
   const [loggingIn, setLoggingIn] = useState(false)
 
+  // 카카오 페이지에서 뒤로 왔을 때 스피너 리셋
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') setLoggingIn(false)
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [])
+
   // 초기 로딩: 현재 세션 확인
   useEffect(() => {
     let mounted = true
