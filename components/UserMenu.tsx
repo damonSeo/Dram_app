@@ -61,7 +61,10 @@ export default function UserMenu() {
       const supabase = getBrowserClient()
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'kakao',
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          scopes: 'profile nickname', // account_email 제외 (비즈니스 앱 심사 불필요)
+        },
       })
       if (error) throw error
     } catch (e: unknown) {
