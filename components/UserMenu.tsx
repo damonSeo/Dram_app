@@ -143,33 +143,46 @@ export default function UserMenu() {
           🔑 로그인
         </button>
 
-        {/* 로그인 — 풀스크린 페이지 */}
+        {/* 로그인 — 풀스크린 */}
         {loginOpen && (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 9500,
-            background: 'linear-gradient(160deg, #1A1614 0%, #2C1E17 45%, #1A1614 100%)',
-            display: 'flex', flexDirection: 'column',
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem 1rem',
           }}>
-            {/* 닫기 버튼 */}
+            {/* 닫기 버튼 — 우상단 */}
             <button
               onClick={() => setLoginOpen(false)}
               style={{
                 position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 10,
-                background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+                background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)',
                 color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
                 width: 36, height: 36, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: '0.9rem', transition: 'all 0.2s',
+                fontSize: '0.9rem',
               }}>
               ✕
             </button>
 
-            {/* 배경 장식 */}
-            <div style={{ position: 'absolute', top: -120, right: -120, width: 500, height: 500, borderRadius: '50%', background: 'rgba(198,107,61,0.08)', pointerEvents: 'none' }} />
-            <div style={{ position: 'absolute', bottom: -80, left: -80, width: 320, height: 320, borderRadius: '50%', background: 'rgba(198,107,61,0.05)', pointerEvents: 'none' }} />
+            {/* 중앙 카드 — 완전 불투명 */}
+            <div style={{
+              background: 'linear-gradient(160deg, #1A1614 0%, #2C1E17 50%, #1E1A18 100%)',
+              border: '1px solid rgba(198,107,61,0.3)',
+              width: '100%', maxWidth: 420,
+              padding: '3rem 2.5rem',
+              position: 'relative', overflow: 'hidden',
+            }}>
+              {/* 배경 원형 장식 */}
+              <div style={{ position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(198,107,61,0.08)', pointerEvents: 'none' }} />
+              <div style={{ position: 'absolute', bottom: -60, left: -60, width: 200, height: 200, borderRadius: '50%', background: 'rgba(198,107,61,0.05)', pointerEvents: 'none' }} />
 
             {/* 중앙 콘텐츠 */}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '2rem 1.5rem' }}>
+            <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
               {/* 브랜드 */}
               <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
@@ -252,6 +265,7 @@ export default function UserMenu() {
               <p className="mono" style={{ fontSize: '0.58rem', color: 'rgba(255,255,255,0.25)', marginTop: '2rem', lineHeight: 1.8, textAlign: 'center', letterSpacing: '0.04em' }}>
                 로그인하면 개인 아카이브와 테이스팅 노트를 저장할 수 있어요
               </p>
+            </div>
             </div>
           </div>
         )}
