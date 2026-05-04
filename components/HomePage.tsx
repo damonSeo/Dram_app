@@ -239,42 +239,35 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* Instagram */}
-          <a
-            href={`https://instagram.com/${INSTAGRAM_HANDLE}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '0.85rem',
-              padding: '1rem', border: '1px solid var(--bd2)',
-              background: 'var(--c2)', textDecoration: 'none',
-              transition: 'border-color 0.2s, background 0.2s',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#C13584'; (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--bd2)'; (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)' }}>
-            {/* Instagram gradient icon */}
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-              <defs>
-                <linearGradient id="ig" x1="0%" y1="100%" x2="100%" y2="0%">
-                  <stop offset="0%" stopColor="#F58529"/>
-                  <stop offset="50%" stopColor="#DD2A7B"/>
-                  <stop offset="100%" stopColor="#8134AF"/>
-                </linearGradient>
-              </defs>
-              <rect x="2" y="2" width="20" height="20" rx="5" stroke="url(#ig)" strokeWidth="1.8" fill="none"/>
-              <circle cx="12" cy="12" r="4" stroke="url(#ig)" strokeWidth="1.8" fill="none"/>
-              <circle cx="17.5" cy="6.5" r="1" fill="url(#ig)"/>
-            </svg>
-            <div>
-              <p className="mono" style={{ fontSize: '0.68rem', color: 'var(--tx)', letterSpacing: '0.04em' }}>
-                @{INSTAGRAM_HANDLE}
-              </p>
-              <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', marginTop: '0.15rem', letterSpacing: '0.05em' }}>
-                Follow on Instagram
-              </p>
+          {/* Social Links */}
+          <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)', padding: '0.85rem 1rem' }}>
+            <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>Follow</p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+              {/* Instagram */}
+              <a href={`https://instagram.com/${INSTAGRAM_HANDLE}`} target="_blank" rel="noopener noreferrer"
+                title={`@${INSTAGRAM_HANDLE} on Instagram`}
+                style={{ width: 40, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--bd)', background: 'var(--c3)', textDecoration: 'none', transition: 'border-color 0.2s, background 0.2s', flexShrink: 0 }}
+                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#DD2A7B'; (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c4)' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--bd)'; (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <defs>
+                    <linearGradient id="ig2" x1="0%" y1="100%" x2="100%" y2="0%">
+                      <stop offset="0%" stopColor="#F58529"/>
+                      <stop offset="50%" stopColor="#DD2A7B"/>
+                      <stop offset="100%" stopColor="#8134AF"/>
+                    </linearGradient>
+                  </defs>
+                  <rect x="2" y="2" width="20" height="20" rx="5" stroke="url(#ig2)" strokeWidth="1.8" fill="none"/>
+                  <circle cx="12" cy="12" r="4" stroke="url(#ig2)" strokeWidth="1.8" fill="none"/>
+                  <circle cx="17.5" cy="6.5" r="1" fill="url(#ig2)"/>
+                </svg>
+              </a>
+
+              {/* 추가 아이콘 자리 — 계정 알려주시면 연결해드려요 */}
+
             </div>
-            <span style={{ marginLeft: 'auto', color: 'var(--tx3)', fontSize: '0.8rem' }}>↗</span>
-          </a>
+          </div>
 
           {/* About */}
           <div style={{ padding: '1rem', border: '1px solid var(--bd)', background: 'var(--c2)' }}>
