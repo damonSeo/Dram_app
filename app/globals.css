@@ -236,6 +236,8 @@ html { -webkit-text-size-adjust: 100%; }
 @media (max-width: 768px) {
   /* 로그인 모달 — 모바일에서 좌측 브랜드 패널 숨김 */
   .login-brand-panel { display: none !important; }
+  /* 로그인 모달 오버레이 — 모바일 세로 중앙 */
+  .login-overlay { align-items: center !important; padding: 1.5rem 1rem !important; }
 
   /* Page wrappers — tighter padding */
   .m-page { padding: 1rem 0.75rem !important; max-width: 100% !important; }

@@ -138,10 +138,24 @@ export default function UserMenu() {
         {loginOpen && (
           <div
             onClick={() => !loadingProvider && setLoginOpen(false)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.88)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            style={{
+              position: 'fixed', inset: 0, zIndex: 2000,
+              background: 'rgba(0,0,0,0.88)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+              overflowY: 'auto',
+            }}>
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ position: 'relative', display: 'flex', maxWidth: 640, width: '100%', minHeight: 400, border: '1px solid var(--bd2)', overflow: 'hidden' }}>
+              style={{
+                position: 'relative', display: 'flex',
+                maxWidth: 640, width: '100%',
+                minHeight: 400,
+                margin: 'auto',
+                border: '1px solid var(--bd2)', overflow: 'hidden',
+              }}>
 
               {/* 닫기 버튼 — 우상단 */}
               <button
