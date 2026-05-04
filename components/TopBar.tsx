@@ -75,7 +75,7 @@ export default function TopBar() {
     <>
       <header style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        background: 'rgba(250,246,236,0.92)', backdropFilter: 'blur(10px)',
+        background: 'rgba(48,44,44,0.95)', backdropFilter: 'blur(10px)',
         borderBottom: '1px solid var(--bd2)',
         boxShadow: '0 1px 0 rgba(31,26,18,0.04)',
         height: '56px', display: 'flex', alignItems: 'center',

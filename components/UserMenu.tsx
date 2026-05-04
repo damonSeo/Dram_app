@@ -139,12 +139,14 @@ export default function UserMenu() {
           <div
             onClick={() => !loadingProvider && setLoginOpen(false)}
             style={{
-              position: 'fixed', inset: 0, zIndex: 2000,
+              position: 'fixed',
+              top: 56, left: 0, right: 0, bottom: 0,
+              zIndex: 2000,
               background: 'rgba(0,0,0,0.88)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '1rem',
+              padding: '1.5rem 1rem',
               overflowY: 'auto',
             }}>
             <div
