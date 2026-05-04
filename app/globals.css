@@ -2,31 +2,31 @@
 @import "tailwindcss";
 
 :root {
-  /* ─── Oak The Record · Light theme (whiskynotes-inspired parchment) ─── */
-  /* Gold/brass accent — slightly darker than dark-mode for contrast on cream */
-  --gold: #A8842A;
-  --gold-bright: #C9A84C;   /* logo/key headings can use the brighter tone */
-  --gd: #6E5722;
-  --gp: rgba(168,132,42,.08);
+  /* ─── Oak The Record · Charcoal × Terracotta theme ─── */
+  /* Terracotta accent */
+  --gold: #C66B3D;
+  --gold-bright: #D4795A;
+  --gd: #A85830;
+  --gp: rgba(198,107,61,0.12);
 
-  /* Backgrounds — warm parchment scale */
-  --ch: #FAF6EC;            /* page background — warm cream */
-  --c2: #FFFFFF;            /* primary panel — white card */
-  --c3: #F5EFE0;            /* subtle panel — aged paper */
-  --c4: #ECE3CE;            /* hover / nested */
+  /* Backgrounds — warm charcoal scale (slightly lighter than pure black) */
+  --ch: #302C2C;            /* page background — warm charcoal */
+  --c2: #3A3535;            /* primary panel */
+  --c3: #272323;            /* subtle panel — deeper */
+  --c4: #454040;            /* hover / nested */
 
-  /* Text — warm dark scale for readability on cream */
-  --tx: #1F1A12;            /* primary text — almost black */
-  --tx2: #6B5E48;           /* secondary — warm gray-brown */
-  --tx3: #A89A82;           /* tertiary — light tan */
+  /* Text — warm light scale */
+  --tx: #F2EDE7;            /* primary text — warm white */
+  --tx2: #B8A89A;           /* secondary — warm gray */
+  --tx3: #7A6A60;           /* tertiary — muted brown */
 
-  /* Borders — warm tan with proper contrast */
-  --bd: rgba(168,132,42,.20);
-  --bd2: rgba(168,132,42,.45);
+  /* Borders — terracotta tinted */
+  --bd: rgba(198,107,61,0.18);
+  --bd2: rgba(198,107,61,0.42);
 
-  /* Icon button (used on Archive cards) — dark to pop on light cards */
-  --icon-bg: rgba(31,26,18,0.78);
-  --icon-bg-hover: var(--gold);
+  /* Icon button */
+  --icon-bg: rgba(242,237,231,0.10);
+  --icon-bg-hover: #C66B3D;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -45,8 +45,8 @@ body::before {
   position: fixed;
   inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-  opacity: 0.025;
-  mix-blend-mode: multiply;
+  opacity: 0.04;
+  mix-blend-mode: overlay;
   pointer-events: none;
   z-index: 0;
 }
@@ -56,7 +56,7 @@ body::before {
 
 .btn-gold {
   background: var(--gold);
-  color: #000;
+  color: #fff;
   border: 1px solid var(--gold);
   padding: 0.5rem 1.25rem;
   font-family: 'DM Mono', monospace;
