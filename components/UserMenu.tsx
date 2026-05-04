@@ -67,9 +67,18 @@ export default function UserMenu() {
         provider,
         options: { redirectTo: `${window.location.origin}/auth/callback`, ...opts },
       })
-      if (error) throw error
+      if (error) {
+        if (provider === 'google') {
+          showToast('Google 로그인을 사용하려면 Supabase에서 Google provider를 활성화해야 합니다.', 'err')
+        } else {
+          showToast(error.message || '로그인 실패', 'err')
+        }
+        throw error
+      }
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : '로그인 실패', 'err')
+      if (e instanceof Error && !e.message.includes('provider')) {
+        showToast(provider === 'google' ? 'Google 로그인 설정이 필요합니다 (Supabase → Auth → Providers → Google)' : e.message, 'err')
+      }
       setLoadingProvider(null)
     }
   }
