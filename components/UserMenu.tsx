@@ -152,9 +152,6 @@ export default function UserMenu() {
             WebkitBackdropFilter: 'blur(8px)',
             overflowY: 'auto',
             display: 'flex',
-            alignItems: 'flex-start',
-            justifyContent: 'center',
-            padding: '0',
           }}>
             {/* 닫기 버튼 — 우상단 */}
             <button
@@ -170,7 +167,7 @@ export default function UserMenu() {
               ✕
             </button>
 
-            {/* 중앙 카드 — 완전 불투명, 세로 중앙 */}
+            {/* 중앙 카드 */}
             <div style={{
               background: 'linear-gradient(160deg, #1A1614 0%, #2C1E17 50%, #1E1A18 100%)',
               border: '1px solid rgba(198,107,61,0.3)',
@@ -178,8 +175,6 @@ export default function UserMenu() {
               padding: '2.5rem 2.5rem',
               position: 'relative', overflow: 'hidden',
               margin: 'auto',
-              alignSelf: 'center',
-              minHeight: 'min-content',
             }}>
               {/* 배경 원형 장식 */}
               <div style={{ position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(198,107,61,0.08)', pointerEvents: 'none' }} />
