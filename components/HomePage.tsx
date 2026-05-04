@@ -4,7 +4,7 @@ import type { WhiskyLog } from '@/types'
 import { toHundred } from '@/lib/scoreFormat'
 
 // ── 인스타그램 계정 변경은 여기서
-const INSTAGRAM_HANDLE = 'oaktherecord'
+const INSTAGRAM_HANDLE = 'the_oakarchive'
 
 export default function HomePage() {
   const { setActiveTab, setScanMode, loadLog, collection } = useStore()
