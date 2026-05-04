@@ -147,19 +147,20 @@ export default function UserMenu() {
         {loginOpen && (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 9500,
-            background: 'rgba(0,0,0,0.75)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(0,0,0,0.82)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
+            overflowY: 'auto',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             justifyContent: 'center',
-            padding: '2rem 1rem',
+            padding: '0',
           }}>
             {/* 닫기 버튼 — 우상단 */}
             <button
               onClick={() => setLoginOpen(false)}
               style={{
-                position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 10,
+                position: 'fixed', top: '1.25rem', right: '1.25rem', zIndex: 10,
                 background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.18)',
                 color: 'rgba(255,255,255,0.7)', cursor: 'pointer',
                 width: 36, height: 36, borderRadius: '50%',
@@ -169,13 +170,16 @@ export default function UserMenu() {
               ✕
             </button>
 
-            {/* 중앙 카드 — 완전 불투명 */}
+            {/* 중앙 카드 — 완전 불투명, 세로 중앙 */}
             <div style={{
               background: 'linear-gradient(160deg, #1A1614 0%, #2C1E17 50%, #1E1A18 100%)',
               border: '1px solid rgba(198,107,61,0.3)',
               width: '100%', maxWidth: 420,
-              padding: '3rem 2.5rem',
+              padding: '2.5rem 2.5rem',
               position: 'relative', overflow: 'hidden',
+              margin: 'auto',
+              alignSelf: 'center',
+              minHeight: 'min-content',
             }}>
               {/* 배경 원형 장식 */}
               <div style={{ position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(198,107,61,0.08)', pointerEvents: 'none' }} />
@@ -185,27 +189,24 @@ export default function UserMenu() {
             <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
               {/* 브랜드 */}
-              <div style={{ textAlign: 'center', marginBottom: '3rem' }}>
-                <p className="mono" style={{ fontSize: '0.6rem', color: 'rgba(198,107,61,0.65)', letterSpacing: '0.28em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+              <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '1rem', marginBottom: '0.6rem' }}>
+                  <div style={{ width: 28, height: 28, opacity: 0.35 }}>
+                    <svg width="28" height="35" viewBox="0 0 120 150" fill="none">
+                      <path d="M25 10 L95 10 L75 90 L60 100 L45 90 Z" stroke="#C66B3D" strokeWidth="4" fill="none"/>
+                      <path d="M45 90 L45 130 L75 130 L75 90" stroke="#C66B3D" strokeWidth="4" fill="none"/>
+                      <path d="M35 130 L85 130" stroke="#C66B3D" strokeWidth="4"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="display" style={{ fontSize: '2.2rem', color: '#F2EDE7', letterSpacing: '0.12em', lineHeight: 1 }}>OAK</p>
+                    <p className="display" style={{ fontSize: '0.72rem', color: 'var(--gold)', letterSpacing: '0.35em', textTransform: 'uppercase' }}>The Record</p>
+                  </div>
+                </div>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'rgba(198,107,61,0.5)', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
                   Private Whisky Archive
                 </p>
-                <p className="display" style={{ fontSize: '3.5rem', color: '#F2EDE7', letterSpacing: '0.12em', lineHeight: 1, marginBottom: '0.3rem' }}>
-                  OAK
-                </p>
-                <p className="display" style={{ fontSize: '1rem', color: 'var(--gold)', letterSpacing: '0.35em', textTransform: 'uppercase' }}>
-                  The Record
-                </p>
-                <div style={{ width: 40, height: 1, background: 'rgba(198,107,61,0.4)', margin: '1.25rem auto 0' }} />
-              </div>
-
-              {/* 위스키 글라스 장식 */}
-              <div style={{ marginBottom: '2.5rem', opacity: 0.25 }}>
-                <svg width="48" height="60" viewBox="0 0 120 150" fill="none">
-                  <path d="M25 10 L95 10 L75 90 L60 100 L45 90 Z" stroke="#C66B3D" strokeWidth="3" fill="none"/>
-                  <path d="M45 90 L45 130 L75 130 L75 90" stroke="#C66B3D" strokeWidth="3" fill="none"/>
-                  <path d="M35 130 L85 130" stroke="#C66B3D" strokeWidth="3.5"/>
-                  <ellipse cx="60" cy="52" rx="26" ry="9" stroke="#C66B3D" strokeWidth="1.5" fill="rgba(198,107,61,0.2)"/>
-                </svg>
+                <div style={{ width: 32, height: 1, background: 'rgba(198,107,61,0.3)', margin: '1rem auto 0' }} />
               </div>
 
               {/* 로그인 버튼 영역 */}
