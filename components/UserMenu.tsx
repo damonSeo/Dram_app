@@ -140,8 +140,8 @@ export default function UserMenu() {
             onClick={() => !loadingProvider && setLoginOpen(false)}
             style={{
               position: 'fixed',
-              top: 56, left: 0, right: 0, bottom: 0,
-              zIndex: 2000,
+              inset: 0,
+              zIndex: 9500,
               background: 'rgba(0,0,0,0.88)',
               display: 'flex',
               alignItems: 'center',
@@ -296,7 +296,7 @@ export default function UserMenu() {
       {/* 프로필 모달 */}
       {profileOpen && (
         <div onClick={() => !saving && setProfileOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 9500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div onClick={(e) => e.stopPropagation()}
             style={{ background: 'var(--c2)', border: '1px solid var(--gold)', maxWidth: 400, width: '100%' }}>
             <div style={{ padding: '0.85rem 1.25rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
