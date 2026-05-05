@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { getBrowserClient } from '@/lib/supabaseClient'
@@ -143,8 +144,8 @@ export default function UserMenu() {
           🔑 로그인
         </button>
 
-        {/* 로그인 — 풀스크린 */}
-        {loginOpen && (
+        {/* 로그인 — 풀스크린 (Portal로 body에 직접 렌더링) */}
+        {loginOpen && createPortal(
           <div style={{
             position: 'fixed', inset: 0, zIndex: 9500,
             background: 'rgba(0,0,0,0.82)',
@@ -263,7 +264,8 @@ export default function UserMenu() {
               </p>
             </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </>
     )
@@ -286,8 +288,8 @@ export default function UserMenu() {
         </span>
       </button>
 
-      {/* 프로필 모달 */}
-      {profileOpen && (
+      {/* 프로필 모달 — Portal */}
+      {profileOpen && createPortal(
         <div onClick={() => !saving && setProfileOpen(false)}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.82)', zIndex: 9500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div onClick={(e) => e.stopPropagation()}
@@ -344,7 +346,8 @@ export default function UserMenu() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )
