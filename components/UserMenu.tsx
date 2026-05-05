@@ -60,26 +60,27 @@ export default function UserMenu() {
     setLoadingProvider(provider)
     try {
       const supabase = getBrowserClient()
-      const opts =
-        provider === 'kakao'
-          ? { scopes: 'profile nickname' }
-          : {}
-      const { error } = await supabase.auth.signInWithOAuth({
+      const redirectTo = `${window.location.origin}/auth/callback`
+      console.log('[loginWith]', provider, 'redirectTo:', redirectTo)
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/auth/callback`, ...opts },
+        options: {
+          redirectTo,
+          ...(provider === 'kakao' ? { scopes: 'profile nickname' } : {}),
+        },
       })
+      console.log('[loginWith] result:', { data, error })
+
       if (error) {
-        if (provider === 'google') {
-          showToast('Google 로그인을 사용하려면 Supabase에서 Google provider를 활성화해야 합니다.', 'err')
-        } else {
-          showToast(error.message || '로그인 실패', 'err')
-        }
-        throw error
+        showToast(`[${provider}] ${error.message}`, 'err')
+        setLoadingProvider(null)
       }
+      // 성공 시 브라우저가 OAuth 페이지로 이동 — 여기서 끝
     } catch (e: unknown) {
-      if (e instanceof Error && !e.message.includes('provider')) {
-        showToast(provider === 'google' ? 'Google 로그인 설정이 필요합니다 (Supabase → Auth → Providers → Google)' : e.message, 'err')
-      }
+      const msg = e instanceof Error ? e.message : String(e)
+      console.error('[loginWith] catch:', msg)
+      showToast(`로그인 오류: ${msg}`, 'err')
       setLoadingProvider(null)
     }
   }
