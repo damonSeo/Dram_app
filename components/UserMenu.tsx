@@ -146,14 +146,16 @@ export default function UserMenu() {
 
         {/* 로그인 — 풀스크린 (Portal로 body에 직접 렌더링) */}
         {loginOpen && createPortal(
-          <div style={{
-            position: 'fixed', inset: 0, zIndex: 9500,
-            background: 'rgba(0,0,0,0.82)',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            overflowY: 'auto',
-            display: 'flex',
-          }}>
+          <div
+            onClick={() => !loadingProvider && setLoginOpen(false)}
+            style={{
+              position: 'fixed', inset: 0, zIndex: 9500,
+              background: 'rgba(0,0,0,0.82)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              overflowY: 'auto',
+              display: 'flex',
+            }}>
             {/* 닫기 버튼 — 우상단 */}
             <button
               onClick={() => setLoginOpen(false)}
@@ -176,7 +178,8 @@ export default function UserMenu() {
               padding: '2.5rem 2.5rem',
               position: 'relative', overflow: 'hidden',
               margin: 'auto',
-            }}>
+            }}
+            onClick={e => e.stopPropagation()}>
               {/* 배경 원형 장식 */}
               <div style={{ position: 'absolute', top: -80, right: -80, width: 280, height: 280, borderRadius: '50%', background: 'rgba(198,107,61,0.08)', pointerEvents: 'none' }} />
               <div style={{ position: 'absolute', bottom: -60, left: -60, width: 200, height: 200, borderRadius: '50%', background: 'rgba(198,107,61,0.05)', pointerEvents: 'none' }} />
