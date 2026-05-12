@@ -51,7 +51,7 @@ export interface ExtractedKeys {
 }
 
 export type SpiritType = 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
-export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail'
+export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail' | 'search'
 
 export interface Profile {
   id: string

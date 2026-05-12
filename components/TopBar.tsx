@@ -10,6 +10,7 @@ const TABS: { id: TabName; label: string }[] = [
   { id: 'scan', label: 'Input' },
   { id: 'tasting', label: 'Notes' },
   { id: 'collection', label: 'Archive' },
+  { id: 'search', label: 'Search' },
   { id: 'share', label: 'Share' },
 ]
 
