@@ -223,80 +223,91 @@ select option { background: var(--c2); color: var(--tx); }
 
 /* ─────────────────────── Mobile responsive ─────────────────────── */
 
-/* Prevent tiny text and horizontal scroll on mobile */
 html { -webkit-text-size-adjust: 100%; }
 
+/* 모바일 하단 네비 — 기본 숨김 (데스크탑) */
+.bottom-nav {
+  display: none;
+}
+
+/* ── 900px 이하 ── */
 @media (max-width: 900px) {
-  /* HomePage rail collapses to BELOW main on mobile (rail moved to top-right on desktop) */
   .home-shell { grid-template-columns: 1fr !important; gap: 1rem !important; padding: 1.5rem 1rem !important; }
-  .home-rail { position: static !important; grid-column: 1 !important; grid-row: 2 !important; }
-  .home-shell > div:not(.home-rail) { grid-column: 1 !important; grid-row: 1 !important; }
+  .home-rail { position: static !important; }
 }
 
+/* ── 768px 이하 (태블릿 · 모바일) ── */
 @media (max-width: 768px) {
-  /* 로그인 모달 — 모바일에서 좌측 브랜드 패널 숨김 */
-  .login-brand-panel { display: none !important; }
-  /* 로그인 모달 오버레이 — 모바일 세로 중앙 */
-  .login-overlay { align-items: center !important; padding: 1.5rem 1rem !important; }
-  /* 홈 Hero stats 패널 — 모바일 숨김 */
-  .home-stats-panel { display: none !important; }
+  /* 페이지 하단 여백 — 바텀 네비 높이만큼 */
+  main { padding-bottom: 64px !important; }
 
-  /* Page wrappers — tighter padding */
-  .m-page { padding: 1rem 0.75rem !important; max-width: 100% !important; }
+  /* 상단 탭 숨기고 모바일 우측 버튼 표시 */
+  .topbar-nav { display: none !important; }
+  .topbar-mobile-right { display: flex !important; }
 
-  /* Collapse 2-col / auto-fit grids to single column */
-  .m-grid-collapse { grid-template-columns: 1fr !important; }
-
-  /* Share page specifically — card + controls stack */
-  .m-share-grid { grid-template-columns: 1fr !important; gap: 1rem !important; }
-
-  /* 3-column keyword section → 1 col */
-  .m-grid-3-col { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
-
-  /* Collection cards — smaller min width */
-  .m-card-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)) !important; }
-
-  /* Recent drams strip on ScanPage */
-  .m-recent-grid { grid-template-columns: 1fr !important; }
-
-  /* Modal full-width with breathing room */
-  .m-modal-panel { padding: 1rem 0.5rem !important; }
-  .m-modal-body { padding: 0 0.85rem 1.25rem !important; }
-
-  /* Headers — smaller display text */
-  .m-display-lg { font-size: 1.5rem !important; }
-
-  /* TopBar — compact spacing & font */
-  header nav button.mono { padding: 0 0.55rem !important; font-size: 0.6rem !important; }
-  header nav { overflow-x: auto; flex-wrap: nowrap; }
-}
-
-@media (max-width: 480px) {
-  /* TopBar — hide scan/notes labels? No, just shrink */
-  header { padding: 0 0.75rem !important; }
-  header > span.display { font-size: 1.05rem !important; letter-spacing: 0.15em !important; }
-  /* Stacked brand logo — shrink on small screens */
-  .brand-logo .display:first-child { font-size: 0.85rem !important; letter-spacing: 0.22em !important; }
-  .brand-logo .display:last-child { font-size: 0.52rem !important; letter-spacing: 0.18em !important; }
-  header nav button.mono { padding: 0 0.4rem !important; font-size: 0.55rem !important; letter-spacing: 0.05em !important; }
-  header button[title="새 노트 시작"] {
-    padding: 0.35rem 0.55rem !important;
-    margin-left: 0.35rem !important;
-    font-size: 0.55rem !important;
-    letter-spacing: 0.05em !important;
+  /* 하단 네비 활성화 */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 100;
+    height: 60px;
+    background: rgba(39,35,35,0.97);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid var(--bd2);
   }
 
-  /* EditModal dialog — mostly full-screen */
+  /* 홈 stats 패널 숨김 */
+  .home-stats-panel { display: none !important; }
+
+  /* 페이지 패딩 */
+  .m-page { padding: 1rem 0.85rem !important; max-width: 100% !important; }
+
+  /* 그리드 단일 컬럼 */
+  .m-grid-collapse { grid-template-columns: 1fr !important; }
+  .m-share-grid    { grid-template-columns: 1fr !important; gap: 1rem !important; }
+  .m-grid-3-col   { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
+  .m-recent-grid  { grid-template-columns: 1fr !important; }
+
+  /* 컬렉션 카드 */
+  .m-card-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important; }
+
+  /* 모달 */
+  .m-modal-panel { padding: 1rem 0.5rem !important; }
+  .m-modal-body  { padding: 0 0.85rem 1.25rem !important; }
+  .m-display-lg  { font-size: 1.4rem !important; }
+
+  /* 홈 hero 패딩 축소 */
+  .home-shell > div { padding: 1.25rem 0.85rem !important; }
+}
+
+/* ── 480px 이하 (소형 폰) ── */
+@media (max-width: 480px) {
+  header { padding: 0 0.85rem !important; }
+
+  .brand-logo .display:first-child  { font-size: 0.9rem !important; letter-spacing: 0.22em !important; }
+  .brand-logo .display:last-child   { font-size: 0.54rem !important; letter-spacing: 0.18em !important; }
+
+  /* 모달 오버레이 */
   .m-modal-overlay { padding: 0.5rem !important; align-items: flex-start !important; }
 
-  /* Confirm dialog buttons wrap nicely */
+  /* 확인 버튼 세로 배치 */
   .m-confirm-actions { flex-direction: column !important; align-items: stretch !important; }
   .m-confirm-actions > button { width: 100% !important; justify-content: center !important; }
 
-  /* ScanPage drop zone a bit shorter */
+  /* 드롭존 */
   .m-dropzone { padding: 1.75rem 1rem !important; }
 
-  /* Share card: slightly smaller brand display */
-  #shareCard { padding: 1.25rem !important; }
-  #shareCard .display { font-size: 1.35rem !important; }
+  /* Share 카드 */
+  #shareCard { padding: 1.1rem !important; }
+  #shareCard .display { font-size: 1.25rem !important; }
+
+  /* 검색 사이드바 — 모바일에서 숨김 */
+  .search-sidebar { display: none !important; }
+
+  /* 홈 hero 축소 */
+  .home-hero-content h1 { font-size: 2.8rem !important; }
+  .home-hero-cta { flex-direction: column !important; }
+  .home-hero-cta button { width: 100% !important; justify-content: center !important; }
 }

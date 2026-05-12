@@ -247,7 +247,7 @@ export default function SearchPage() {
         </div>
 
         {/* 사이드 — 빠른 검색 */}
-        <aside>
+        <aside className="search-sidebar">
           <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
             <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
               <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
