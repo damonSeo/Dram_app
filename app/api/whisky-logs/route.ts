@@ -51,12 +51,43 @@ export async function PATCH(req: NextRequest) {
     const supabase = await getServerClient()
     const body = await req.json()
     const { id, ...fields } = body
-    // Only allow update if user owns the log (RLS will enforce, but we filter explicitly)
     const { data: { user } } = await supabase.auth.getUser()
-    let query = supabase.from('whisky_logs').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id)
-    if (user) query = query.eq('user_id', user.id)
-    const { data, error } = await query.select().single()
+
+    const updatePayload = { ...fields, updated_at: new Date().toISOString() }
+
+    // 1차: 본인 소유 레코드 업데이트 시도
+    if (user) {
+      const { data, error } = await supabase
+        .from('whisky_logs')
+        .update(updatePayload)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select()
+        .maybeSingle()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      if (data) return NextResponse.json({ data })
+
+      // 2차: user_id가 'anonymous'인 레코드도 허용 (기존 데이터 호환)
+      const { data: data2, error: error2 } = await supabase
+        .from('whisky_logs')
+        .update({ ...updatePayload, user_id: user.id })
+        .eq('id', id)
+        .in('user_id', ['anonymous', ''])
+        .select()
+        .maybeSingle()
+      if (error2) return NextResponse.json({ error: error2.message }, { status: 500 })
+      if (data2) return NextResponse.json({ data: data2 })
+    }
+
+    // 3차: 비로그인 상태 fallback
+    const { data, error } = await supabase
+      .from('whisky_logs')
+      .update(updatePayload)
+      .eq('id', id)
+      .select()
+      .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) return NextResponse.json({ error: '수정할 노트를 찾을 수 없어요' }, { status: 404 })
     return NextResponse.json({ data })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Error' }, { status: 500 })
