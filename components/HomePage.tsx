@@ -1,4 +1,5 @@
 'use client'
+import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import type { WhiskyLog } from '@/types'
 import { toHundred } from '@/lib/scoreFormat'
@@ -6,8 +7,20 @@ import { toHundred } from '@/lib/scoreFormat'
 // ── 인스타그램 계정 변경은 여기서
 const INSTAGRAM_HANDLE = 'the_oakarchive'
 
+const QUICK_DISTILLERIES = [
+  'Macallan', 'Ardbeg', 'Glenfarclas', 'Laphroaig', 'Yamazaki',
+  'Glenfiddich', 'Highland Park', 'Springbank', 'Kavalan', 'Nikka',
+]
+
 export default function HomePage() {
-  const { setActiveTab, setScanMode, loadLog, collection } = useStore()
+  const { setActiveTab, setScanMode, loadLog, collection, setSearchQuery } = useStore()
+  const [homeSearchInput, setHomeSearchInput] = useState('')
+
+  const goSearch = (name: string) => {
+    if (!name.trim()) return
+    setSearchQuery(name.trim())
+    setActiveTab('search')
+  }
 
   const goScan   = () => { setScanMode('scan');   setActiveTab('scan') }
   const goManual = () => { setScanMode('manual'); setActiveTab('scan') }
@@ -186,6 +199,44 @@ export default function HomePage() {
 
         {/* ── RIGHT RAIL ── */}
         <aside className="home-rail" style={{ alignSelf: 'start', position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {/* Distillery Search */}
+          <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
+            <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
+              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>🏭 Distillery Search</p>
+            </div>
+            <div style={{ padding: '0.85rem 1rem' }}>
+              <form onSubmit={e => { e.preventDefault(); goSearch(homeSearchInput) }}
+                style={{ display: 'flex', gap: '0', border: '1px solid var(--bd2)', marginBottom: '0.75rem' }}>
+                <input
+                  type="text"
+                  value={homeSearchInput}
+                  onChange={e => setHomeSearchInput(e.target.value)}
+                  placeholder="증류소 검색..."
+                  className="mono"
+                  style={{
+                    flex: 1, padding: '0.5rem 0.75rem',
+                    background: 'var(--c3)', border: 'none', outline: 'none',
+                    color: 'var(--tx)', fontSize: '0.72rem',
+                  }}
+                />
+                <button type="submit" className="mono"
+                  style={{ background: 'var(--gold)', border: 'none', color: '#000', padding: '0.5rem 0.75rem', cursor: 'pointer', fontSize: '0.65rem', fontWeight: 600, flexShrink: 0 }}>
+                  →
+                </button>
+              </form>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                {QUICK_DISTILLERIES.map(name => (
+                  <button key={name} onClick={() => goSearch(name)} className="mono"
+                    style={{ fontSize: '0.6rem', padding: '0.2rem 0.55rem', border: '1px solid var(--bd)', background: 'var(--c3)', color: 'var(--tx2)', cursor: 'pointer', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--bd)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--tx2)' }}>
+                    {name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* Exceptional Scores */}
           <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>

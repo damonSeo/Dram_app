@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { toHundred } from '@/lib/scoreFormat'
 
@@ -18,12 +18,21 @@ interface DistilleryInfo {
 }
 
 export default function SearchPage() {
-  const { collection, setActiveTab, loadLog } = useStore()
+  const { collection, setActiveTab, loadLog, searchQuery, setSearchQuery } = useStore()
   const [query, setQuery] = useState('')
   const [distilleryInfo, setDistilleryInfo] = useState<DistilleryInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // 홈에서 검색어를 가져왔으면 자동 실행
+  useEffect(() => {
+    if (searchQuery) {
+      searchDistillery(searchQuery)
+      setSearchQuery('')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // 컬렉션 내 검색 결과
   const filteredLogs = query.trim().length > 1

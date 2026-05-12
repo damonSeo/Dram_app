@@ -21,6 +21,9 @@ interface DramStore {
   // Auth state
   currentUserId: string | null
   currentProfile: Profile | null
+  // Search
+  searchQuery: string
+  setSearchQuery: (q: string) => void
   setActiveTab: (tab: TabName) => void
   setScanMode: (mode: 'scan' | 'manual') => void
   setArchiveSubTab: (tab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail') => void
@@ -49,8 +52,10 @@ export const useStore = create<DramStore>()((set, get) => ({
   isDirty: false,
   currentUserId: null,
   currentProfile: null,
+  searchQuery: '',
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setSearchQuery: (q) => set({ searchQuery: q }),
   setScanMode: (mode) => set({ scanMode: mode }),
   setArchiveSubTab: (tab) => set({ archiveSubTab: tab }),
   setArchiveView: (view) => set({ archiveView: view }),
