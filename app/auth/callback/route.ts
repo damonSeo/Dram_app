@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
       const { data: existing } = await supabase.from('profiles').select('id').eq('id', user.id).maybeSingle()
       if (!existing) {
         const fallbackName =
+          (user.user_metadata?.nickname as string) ||
           (user.user_metadata?.name as string) ||
           (user.user_metadata?.preferred_username as string) ||
           (user.email?.split('@')[0]) ||
