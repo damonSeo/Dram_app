@@ -154,24 +154,24 @@ export default function HomePage() {
         <div>
 
           {/* 1. 위스키 뉴스 — 최상단 */}
-          <section style={{ marginBottom: '2.5rem' }}>
+          <section className="news-section" style={{ marginBottom: '2.5rem' }}>
             {/* 헤더 */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--bd)' }}>
-              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+            <div className="news-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--bd)' }}>
+              <p className="mono news-title" style={{ fontSize: '0.6rem', color: 'var(--tx3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 📰 Whisky News
               </p>
             </div>
 
             {/* 소스 탭 */}
-            <div style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderBottom: '1px solid var(--bd)', overflowX: 'auto' }}>
+            <div className="news-tabs" style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderBottom: '1px solid var(--bd)', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               {NEWS_SOURCES.map(src => (
-                <button key={src} onClick={() => handleNewsTab(src)} className="mono"
+                <button key={src} onClick={() => handleNewsTab(src)} className="mono news-tab"
                   style={{
-                    padding: '0.5rem 0.9rem', background: 'none', border: 'none', cursor: 'pointer',
-                    fontSize: '0.6rem', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                    padding: '0.55rem 0.9rem', background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: '0.62rem', letterSpacing: '0.06em', whiteSpace: 'nowrap',
                     color: newsTab === src ? 'var(--gold)' : 'var(--tx3)',
                     borderBottom: newsTab === src ? '2px solid var(--gold)' : '2px solid transparent',
-                    marginBottom: '-1px', transition: 'all 0.15s',
+                    marginBottom: '-1px', transition: 'all 0.15s', flexShrink: 0,
                   }}>
                   {src}
                   {src !== 'All' && !newsLoading && (
@@ -201,56 +201,57 @@ export default function HomePage() {
             {/* 뉴스 목록 */}
             {!newsLoading && visibleNews.length > 0 && (
               <>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
+                <div className="news-list" style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
                   {visibleNews.map((item, i) => {
                     const bm = isBookmarked(item.link)
                     return (
-                      <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+                      <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="news-item"
                         style={{ display: 'flex', gap: '0.85rem', padding: '0.9rem 1rem', background: 'var(--c2)', textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start' }}
                         onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
                         onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
                         {item.image ? (
-                          <img src={item.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
+                          <img src={item.image} alt="" className="news-thumb" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
                             onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                         ) : (
-                          <div style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--bd)' }}>🥃</div>
+                          <div className="news-thumb" style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--bd)' }}>🥃</div>
                         )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                        <div className="news-body" style={{ flex: 1, minWidth: 0 }}>
+                          <div className="news-meta" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                             {newsTab === 'All' && (
-                              <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
+                              <span className="mono news-source" style={{ fontSize: '0.48rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
                                 {item.source}
                               </span>
                             )}
-                            <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--tx3)' }}>
+                            <span className="mono news-date" style={{ fontSize: '0.48rem', color: 'var(--tx3)' }}>
                               {item.pubDate ? new Date(item.pubDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : ''}
                             </span>
                           </div>
-                          <p style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.25rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                          <p className="news-title-text" style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.25rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                             {item.title}
                           </p>
                           {item.description && (
-                            <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                            <p className="mono news-desc" style={{ fontSize: '0.58rem', color: 'var(--tx3)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
                               {item.description}
                             </p>
                           )}
                         </div>
 
                         {/* 북마크 버튼 */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                        <div className="news-actions" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
                           <button onClick={(e) => toggleBookmark(item, e)}
                             disabled={bookmarking === item.link}
                             title={bm ? '아카이브에서 제거' : '아카이브에 저장'}
+                            className="news-bookmark"
                             style={{
                               background: bm ? 'var(--gp)' : 'transparent',
                               border: `1px solid ${bm ? 'var(--gold)' : 'var(--bd)'}`,
                               color: bm ? 'var(--gold)' : 'var(--tx3)',
-                              cursor: 'pointer', fontSize: '0.75rem', padding: '0.25rem 0.45rem',
-                              transition: 'all 0.15s', minWidth: 28,
+                              cursor: 'pointer', fontSize: '0.85rem', padding: '0.35rem 0.55rem',
+                              transition: 'all 0.15s', minWidth: 32, minHeight: 32,
                             }}>
                             {bookmarking === item.link ? '…' : (bm ? '★' : '☆')}
                           </button>
-                          <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>↗</span>
+                          <span className="news-arrow" style={{ color: 'var(--gold)', fontSize: '0.75rem' }}>↗</span>
                         </div>
                       </a>
                     )
@@ -259,11 +260,11 @@ export default function HomePage() {
 
                 {/* 더보기 */}
                 {hasMore && (
-                  <button onClick={() => setNewsShowAll(true)} className="mono"
+                  <button onClick={() => setNewsShowAll(true)} className="mono news-more"
                     style={{
-                      width: '100%', padding: '0.75rem', marginTop: '1px',
+                      width: '100%', padding: '0.9rem', marginTop: '1px',
                       background: 'var(--c2)', border: 'none', borderTop: '1px solid var(--bd)',
-                      color: 'var(--tx3)', fontSize: '0.62rem', letterSpacing: '0.1em',
+                      color: 'var(--tx3)', fontSize: '0.68rem', letterSpacing: '0.1em',
                       cursor: 'pointer', transition: 'all 0.15s', textAlign: 'center',
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c3)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
@@ -272,11 +273,11 @@ export default function HomePage() {
                   </button>
                 )}
                 {newsShowAll && filteredNews.length > NEWS_INIT && (
-                  <button onClick={() => setNewsShowAll(false)} className="mono"
+                  <button onClick={() => setNewsShowAll(false)} className="mono news-more"
                     style={{
-                      width: '100%', padding: '0.75rem', marginTop: '1px',
+                      width: '100%', padding: '0.9rem', marginTop: '1px',
                       background: 'var(--c2)', border: 'none', borderTop: '1px solid var(--bd)',
-                      color: 'var(--tx3)', fontSize: '0.62rem', letterSpacing: '0.1em',
+                      color: 'var(--tx3)', fontSize: '0.68rem', letterSpacing: '0.1em',
                       cursor: 'pointer', transition: 'all 0.15s', textAlign: 'center',
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c3)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
