@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import type { WhiskyLog } from '@/types'
 import { toHundred } from '@/lib/scoreFormat'
+import type { NewsItem } from '@/app/api/whisky-news/route'
 
 // ── 인스타그램 계정 변경은 여기서
 const INSTAGRAM_HANDLE = 'the_oakarchive'
@@ -15,6 +16,16 @@ const QUICK_DISTILLERIES = [
 export default function HomePage() {
   const { setActiveTab, setScanMode, loadLog, collection, setSearchQuery } = useStore()
   const [homeSearchInput, setHomeSearchInput] = useState('')
+  const [news, setNews] = useState<NewsItem[]>([])
+  const [newsLoading, setNewsLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/whisky-news')
+      .then(r => r.json())
+      .then((j: { data?: NewsItem[] }) => { if (j.data) setNews(j.data) })
+      .catch(() => {})
+      .finally(() => setNewsLoading(false))
+  }, [])
 
   const goSearch = (name: string) => {
     if (!name.trim()) return
@@ -169,6 +180,73 @@ export default function HomePage() {
               </div>
             </section>
           )}
+
+          {/* ── 위스키 뉴스 ── */}
+          <section style={{ marginBottom: '2.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--bd)' }}>
+              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
+                📰 Whisky News
+              </p>
+              <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)' }}>
+                Advocate · TWE · Scotch Whisky · MoM
+              </p>
+            </div>
+
+            {newsLoading && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '1.25rem', background: 'var(--c2)', border: '1px solid var(--bd)' }}>
+                <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)' }}>최신 뉴스 불러오는 중...</p>
+              </div>
+            )}
+
+            {!newsLoading && news.length === 0 && (
+              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx3)', padding: '1rem' }}>뉴스를 불러올 수 없어요. 잠시 후 다시 시도해주세요.</p>
+            )}
+
+            {!newsLoading && news.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
+                {news.slice(0, 8).map((item, i) => (
+                  <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', gap: '0.85rem', padding: '0.9rem 1rem', background: 'var(--c2)', textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
+
+                    {/* 썸네일 */}
+                    {item.image ? (
+                      <img src={item.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                    ) : (
+                      <div style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', border: '1px solid var(--bd)' }}>
+                        🥃
+                      </div>
+                    )}
+
+                    {/* 텍스트 */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                        <span className="mono" style={{ fontSize: '0.5rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
+                          {item.source}
+                        </span>
+                        <span className="mono" style={{ fontSize: '0.5rem', color: 'var(--tx3)' }}>
+                          {item.pubDate ? new Date(item.pubDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : ''}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.3rem', fontWeight: 400, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                        {item.title}
+                      </p>
+                      {item.description && (
+                        <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <span style={{ color: 'var(--gold)', fontSize: '0.8rem', flexShrink: 0, marginTop: '0.15rem' }}>↗</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* 입력 카드 (노트가 없을 때만 크게, 있으면 작게) */}
           <section>
