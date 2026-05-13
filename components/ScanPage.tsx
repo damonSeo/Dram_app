@@ -689,10 +689,11 @@ export default function ScanPage() {
     setBottleLoading(true)
     setBottleOpen(true)
     setBottleProfile(null)
-    setBottleStatus(lang === 'en' ? 'Phase 1/3: Analyzing image + OCR...' : '1/3 단계: 이미지 + OCR 분석 중...')
+    setBottleStatus(lang === 'en' ? 'Step 1/4: Analyzing image + OCR...' : '1/4 단계: 이미지 + OCR 분석 중...')
     try {
-      const t1 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Phase 2/3: Google + news matching...' : '2/3 단계: Google 검색 · 뉴스 매칭 중...'), 2500)
-      const t2 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Phase 3/3: Verifying & extracting notes...' : '3/3 단계: 검증 + 외부 노트 추출 중...'), 6000)
+      const t1 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Step 2/4: Google + news search...' : '2/4 단계: Google + 뉴스 검색 중...'), 2500)
+      const t2 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Step 3/4: Reading review articles directly...' : '3/4 단계: 리뷰 사이트 본문 직접 읽는 중...'), 5500)
+      const t3 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Step 4/4: Verifying & extracting tasting notes...' : '4/4 단계: 검증 + 노트 추출 중...'), 9500)
 
       const form = new FormData()
       if (scanFile) form.append('image', scanFile)
@@ -700,7 +701,7 @@ export default function ScanPage() {
       form.append('lang', lang)
 
       const res = await fetch('/api/bottle-research', { method: 'POST', body: form })
-      clearTimeout(t1); clearTimeout(t2)
+      clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
       const json = await res.json() as { data?: BottleProfile; error?: string }
       if (!res.ok) throw new Error(json.error || '분석 실패')
       if (!json.data) throw new Error('응답 데이터 없음')
@@ -1179,6 +1180,25 @@ export default function ScanPage() {
                           <p className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', marginBottom:'0.2rem', letterSpacing:'0.05em'}}>{lbl}</p>
                           <p style={{fontSize:'0.75rem', color:'var(--tx)', lineHeight:1.65}}>{v}</p>
                         </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 직접 본문을 읽은 출처 표시 */}
+                {bottleProfile.articles_fetched && bottleProfile.articles_fetched.length > 0 && (
+                  <div style={{marginBottom:'1.1rem', padding:'0.6rem 0.85rem', background:'var(--gp)', border:'1px solid var(--bd2)'}}>
+                    <p className="mono" style={{fontSize:'0.52rem', color:'var(--gold)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.4rem'}}>
+                      📖 직접 본문 확인한 출처 ({bottleProfile.articles_fetched.length})
+                    </p>
+                    <div style={{display:'flex', flexWrap:'wrap', gap:'0.3rem'}}>
+                      {bottleProfile.articles_fetched.map((a, i) => (
+                        <a key={i} href={a.link} target="_blank" rel="noopener noreferrer" className="mono"
+                          style={{fontSize:'0.55rem', padding:'0.2rem 0.5rem', background:'var(--c2)', border:'1px solid var(--bd)', color:'var(--gold)', textDecoration:'none', letterSpacing:'0.04em', transition:'all 0.15s'}}
+                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--gold)' }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = 'var(--bd)' }}>
+                          {a.source} ↗
+                        </a>
                       ))}
                     </div>
                   </div>

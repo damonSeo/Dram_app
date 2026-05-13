@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText as geminiText, generateWithImage } from '@/lib/gemini'
 
+// 본문 fetch + 2번의 Gemini 호출이 필요해 시간 여유 둠
+export const maxDuration = 60
+
 interface OcrFields {
   brand?: string
   region?: string
@@ -50,6 +53,8 @@ export interface BottleProfile {
     overall?: string
     rating?: string
   }>
+  // 실제 본문을 읽은 사이트들
+  articles_fetched: Array<{ source: string; link: string }>
 }
 
 interface SerperOrganic {
@@ -136,6 +141,92 @@ function extractJson(raw: string): Record<string, unknown> | null {
   try { return JSON.parse(match[0]) as Record<string, unknown> } catch { return null }
 }
 
+// 실제 기사 HTML을 가져와서 본문 텍스트만 추출
+async function fetchArticleText(url: string, maxChars = 3000): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; OakTheRecord/1.0; +https://dram-app.vercel.app)',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
+        'Accept-Language': 'en-US,en;q=0.9,ja;q=0.7,ko;q=0.5',
+      },
+      signal: AbortSignal.timeout(6000),
+      redirect: 'follow',
+    })
+    if (!res.ok) return ''
+    let html = await res.text()
+    if (!html || html.length < 200) return ''
+
+    // 불필요한 영역 제거
+    html = html
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<noscript[\s\S]*?<\/noscript>/gi, ' ')
+      .replace(/<head[\s\S]*?<\/head>/gi, ' ')
+      .replace(/<header[\s\S]*?<\/header>/gi, ' ')
+      .replace(/<nav[\s\S]*?<\/nav>/gi, ' ')
+      .replace(/<footer[\s\S]*?<\/footer>/gi, ' ')
+      .replace(/<aside[\s\S]*?<\/aside>/gi, ' ')
+      .replace(/<form[\s\S]*?<\/form>/gi, ' ')
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+
+    // 본문 영역 우선 추출
+    const candidates = [
+      /<article[^>]*>([\s\S]*?)<\/article>/i,
+      /<main[^>]*>([\s\S]*?)<\/main>/i,
+      /<div[^>]*?class=["'][^"']*(?:post-content|entry-content|article-content|article-body|post-body|content-body)[^"']*["'][^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*?id=["'](?:content|main|post)["'][^>]*>([\s\S]*?)<\/div>/i,
+    ]
+    for (const re of candidates) {
+      const m = html.match(re)
+      if (m && m[1].length > 300) { html = m[1]; break }
+    }
+
+    // 태그 제거 + 엔티티 변환
+    const text = html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#039;|&apos;/g, "'")
+      .replace(/&hellip;/g, '…')
+      .replace(/&mdash;/g, '—')
+      .replace(/&ndash;/g, '–')
+      .replace(/&#\d+;/g, ' ')
+      .replace(/&[a-z]+;/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+    return text.slice(0, maxChars)
+  } catch {
+    return ''
+  }
+}
+
+interface FetchedArticle {
+  source: string
+  link: string
+  title: string
+  text: string
+}
+
+// 여러 URL 병렬 fetch (타임아웃 보호)
+async function fetchArticles(targets: Array<{ link: string; source: string; title: string }>, limit = 6): Promise<FetchedArticle[]> {
+  const top = targets.slice(0, limit)
+  const results = await Promise.allSettled(
+    top.map(async t => {
+      const text = await fetchArticleText(t.link, 2800)
+      return text.length > 200 ? { source: t.source, link: t.link, title: t.title, text } : null
+    })
+  )
+  return results
+    .filter((r): r is PromiseFulfilledResult<FetchedArticle | null> => r.status === 'fulfilled')
+    .map(r => r.value)
+    .filter((x): x is FetchedArticle => x !== null)
+}
+
 // 2차 검색: 식별된 보틀명으로 더 정확한 결과 + 테이스팅 노트 수집
 async function deepSearchByName(name: string, distillery: string, bottler: string): Promise<{ snippets: string; refs: BottleProfile['references'] }> {
   const key = process.env.SERPER_API_KEY
@@ -164,7 +255,7 @@ async function deepSearchByName(name: string, distillery: string, bottler: strin
   }
 }
 
-// 3차: 증류소-보틀러 조합 검증 + 노트 추출
+// 3차: 증류소-보틀러 조합 검증 + 노트 추출 (실제 기사 본문 포함)
 const VERIFY_PROMPT = (
   candidateName: string,
   distillery: string,
@@ -173,6 +264,7 @@ const VERIFY_PROMPT = (
   draft: string,
   deepSnippets: string,
   newsLines: string,
+  articleTexts: string,
   lang: 'en' | 'ko' | 'auto',
 ) => {
   const langText = lang === 'ko'
@@ -192,22 +284,27 @@ ${draft}
 [Deep Search Results — "${candidateName} tasting notes review"]
 ${deepSnippets || '(none)'}
 
-[News / Review Matches]
+[News / Review Matches — titles only]
 ${newsLines || '(none)'}
+
+[FULL ARTICLE TEXTS — fetched directly from review/news sites]
+${articleTexts || '(no article bodies fetched)'}
 
 TASKS:
 1. VERIFY the distillery + bottler + age combination is real and consistent.
+   Use the FULL ARTICLE TEXTS as the primary truth source — quotes from these articles are concrete evidence.
    - If "${bottler}" is OB and the distillery actually bottles its own ${age} release → confirmed
-   - If "${bottler}" is an independent bottler and there's evidence they released a ${age} ${distillery} → confirmed
+   - If "${bottler}" is an independent bottler and articles mention they released a ${age} ${distillery} → confirmed
    - If sources contradict (e.g. ${bottler} never bottled ${distillery}, or wrong age) → conflicting
    - If you can't find it but it's plausible → likely
-   - If totally absent from sources → unverified
+   - If totally absent from articles → unverified
 
-2. EXTRACT actual tasting notes from the deep search snippets and news matches.
-   Look for any reviewer's nose/palate/finish/overall comments, and their rating (e.g. 87/100, 4/5, 92).
-   If multiple sources mention the same notes, list each separately.
+2. EXTRACT actual tasting notes — PRIORITISE THE FULL ARTICLE TEXTS over snippets.
+   For each source that has clear nose/palate/finish/rating, create an entry.
+   Quote the reviewer's actual wording where possible (translate to target language).
+   Look for ratings like 87/100, 4/5, ★★★★, 92, etc.
 
-3. UPDATE the draft with corrected info if verification reveals issues.
+3. UPDATE the draft with corrected info from the article bodies (better cask info, abv, vintage, release details).
 
 ${langText}
 
@@ -373,10 +470,13 @@ export async function POST(req: NextRequest) {
       ai_note: String(parsed.ai_note || ''),
       verification: { confirmed: false, distillery_bottler_match: 'unverified', note: '', conflicts: [] },
       tasting_notes_found: [],
+      articles_fetched: [],
     }
 
-    // ── PHASE 2 & 3: 식별된 이름으로 재검색 + 검증 + 노트 추출 ──
+    // ── PHASE 2 & 3: 식별된 이름으로 재검색 + 실제 본문 fetch + 검증 + 노트 추출 ──
     let allReferences = [...references]
+    let fetchedArticleSources: Array<{ source: string; link: string }> = []
+
     if (initial.identified_name && initial.identified_name !== '식별 불가' && initial.distillery) {
       const deep = await deepSearchByName(
         initial.identified_name,
@@ -389,6 +489,35 @@ export async function POST(req: NextRequest) {
         if (!seenLinks.has(r.link)) { allReferences.push(r); seenLinks.add(r.link) }
       }
       allReferences = allReferences.slice(0, 10)
+
+      // PHASE 2.5: 뉴스 + 딥서치 결과를 실제로 fetch해서 본문 추출
+      // 우선순위: WhiskyNotes/WhiskyFun/MaltManiacs 등 리뷰 사이트 > 일반 사이트
+      const REVIEW_DOMAINS = ['whiskynotes', 'whiskyfun', 'maltmaniacs', 'whiskyadvocate', 'thewhiskyexchange', 'masterofmalt', 'kannpaikai', 'whiskyhoop', 'scotchwhisky']
+      const fetchTargets = [
+        ...newsMatches.map(n => ({ link: n.link, source: n.source, title: n.title })),
+        ...deep.refs.map(r => ({ link: r.link, source: r.source, title: r.title })),
+      ]
+      // 리뷰 사이트 우선 정렬
+      fetchTargets.sort((a, b) => {
+        const aPri = REVIEW_DOMAINS.some(d => (a.link + a.source).toLowerCase().includes(d)) ? 0 : 1
+        const bPri = REVIEW_DOMAINS.some(d => (b.link + b.source).toLowerCase().includes(d)) ? 0 : 1
+        return aPri - bPri
+      })
+
+      const articles = await fetchArticles(fetchTargets, 6)
+      fetchedArticleSources = articles.map(a => ({ source: a.source, link: a.link }))
+
+      // Gemini에 전달할 본문 텍스트
+      const articleTextBlock = articles.length > 0
+        ? articles.map((a, i) => `
+─── ARTICLE ${i + 1} ───
+SOURCE: ${a.source}
+URL: ${a.link}
+TITLE: ${a.title}
+BODY:
+${a.text}
+`).join('\n')
+        : '(no articles fetched)'
 
       try {
         const verifyRaw = await geminiText(
@@ -410,6 +539,7 @@ export async function POST(req: NextRequest) {
             }, null, 2),
             deep.snippets || snippets,
             newsLines,
+            articleTextBlock,
             lang,
           )
         )
@@ -441,6 +571,7 @@ export async function POST(req: NextRequest) {
     }
 
     initial.references = allReferences
+    initial.articles_fetched = fetchedArticleSources
     return NextResponse.json({ data: initial })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error'
