@@ -579,13 +579,18 @@ export default function CollectionPage() {
                     {[log.age, log.bottler === 'IB' ? (log.ib_name || 'IB') : 'OB'].filter(Boolean).join(' · ')}
                   </p>
                 )}
-                {log.nose && (
+                {(log.nose || log.comment) && (
                   <p style={{
                     fontSize: '0.75rem', color: 'var(--tx2)', lineHeight: 1.5,
                     overflow: 'hidden', display: '-webkit-box',
-                    WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: '0.75rem',
+                    WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', marginBottom: '0.4rem',
                   }}>
-                    {log.nose}
+                    {log.nose || log.comment}
+                  </p>
+                )}
+                {log.comment && (
+                  <p className="mono" style={{ fontSize: '0.5rem', color: 'var(--gold)', letterSpacing: '0.06em', marginBottom: '0.6rem', opacity: 0.7 }}>
+                    💬 코멘트
                   </p>
                 )}
               </div>

@@ -207,6 +207,14 @@ export default function SharePage() {
               </div>
             )}
 
+            {/* 자유 코멘트 */}
+            {currentLog.comment && (
+              <div style={{ marginBottom: '1.25rem', padding: '0.75rem 0.9rem', background: 'rgba(201,168,76,0.05)', borderLeft: '2px solid var(--gold)' }}>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', marginBottom: '0.3rem', textTransform: 'uppercase' }}>한 줄 코멘트</p>
+                <p style={{ fontSize: '0.82rem', color: 'var(--tx)', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{currentLog.comment}</p>
+              </div>
+            )}
+
             <div style={{ height: 1, background: 'rgba(201,168,76,0.3)', marginBottom: '1.25rem' }} />
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
