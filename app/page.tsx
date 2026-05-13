@@ -12,7 +12,7 @@ import { ToastProvider } from '@/components/Toast'
 import type { WhiskyLog } from '@/types'
 
 export default function Home() {
-  const { activeTab, setCollection } = useStore()
+  const { activeTab, setCollection, loadBookmarks, currentUserId } = useStore()
 
   useEffect(() => {
     fetch('/api/whisky-logs')
@@ -22,6 +22,11 @@ export default function Home() {
       })
       .catch(() => {})
   }, [setCollection])
+
+  // 로그인되면 북마크 로드
+  useEffect(() => {
+    if (currentUserId) loadBookmarks()
+  }, [currentUserId, loadBookmarks])
 
   return (
     <ToastProvider>

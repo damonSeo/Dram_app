@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { WhiskyLog, TabName, ExtractedKeys, Profile } from '@/types'
+import type { NewsBookmark } from '@/app/api/news-bookmarks/route'
 
 const DEFAULT_LOG: Partial<WhiskyLog> = {
   spirit_type: 'whisky',
@@ -24,6 +25,12 @@ interface DramStore {
   // Search
   searchQuery: string
   setSearchQuery: (q: string) => void
+  // News bookmarks
+  newsBookmarks: NewsBookmark[]
+  setNewsBookmarks: (b: NewsBookmark[]) => void
+  addBookmark: (b: NewsBookmark) => void
+  removeBookmark: (link: string) => void
+  loadBookmarks: () => Promise<void>
   setActiveTab: (tab: TabName) => void
   setScanMode: (mode: 'scan' | 'manual') => void
   setArchiveSubTab: (tab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail') => void
@@ -53,9 +60,29 @@ export const useStore = create<DramStore>()((set, get) => ({
   currentUserId: null,
   currentProfile: null,
   searchQuery: '',
+  newsBookmarks: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setSearchQuery: (q) => set({ searchQuery: q }),
+  setNewsBookmarks: (b) => set({ newsBookmarks: b }),
+  addBookmark: (b) => {
+    const existing = get().newsBookmarks
+    if (existing.some(x => x.link === b.link)) {
+      set({ newsBookmarks: existing.map(x => x.link === b.link ? b : x) })
+    } else {
+      set({ newsBookmarks: [b, ...existing] })
+    }
+  },
+  removeBookmark: (link) => set({ newsBookmarks: get().newsBookmarks.filter(x => x.link !== link) }),
+  loadBookmarks: async () => {
+    try {
+      const res = await fetch('/api/news-bookmarks')
+      const json = await res.json() as { data?: NewsBookmark[] }
+      if (Array.isArray(json.data)) set({ newsBookmarks: json.data })
+    } catch {
+      // ignore
+    }
+  },
   setScanMode: (mode) => set({ scanMode: mode }),
   setArchiveSubTab: (tab) => set({ archiveSubTab: tab }),
   setArchiveView: (view) => set({ archiveView: view }),

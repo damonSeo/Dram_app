@@ -18,12 +18,22 @@ interface DistilleryInfo {
 }
 
 export default function SearchPage() {
-  const { collection, setActiveTab, loadLog, searchQuery, setSearchQuery } = useStore()
+  const { collection, setActiveTab, loadLog, searchQuery, setSearchQuery, newsBookmarks } = useStore()
   const [query, setQuery] = useState('')
   const [distilleryInfo, setDistilleryInfo] = useState<DistilleryInfo | null>(null)
   const [loading, setLoading] = useState(false)
   const [searched, setSearched] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // 검색어와 일치하는 북마크 (제목·본문에서 검색)
+  const matchedBookmarks = query.trim().length > 1
+    ? newsBookmarks.filter(b => {
+        const q = query.toLowerCase()
+        return (b.title?.toLowerCase().includes(q)) ||
+               (b.description?.toLowerCase().includes(q)) ||
+               (b.user_note?.toLowerCase().includes(q))
+      })
+    : []
 
   // 홈에서 검색어를 가져왔으면 자동 실행
   useEffect(() => {
@@ -204,6 +214,38 @@ export default function SearchPage() {
             </div>
           )}
 
+          {/* 저장된 뉴스 북마크 매칭 결과 */}
+          {matchedBookmarks.length > 0 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '0.75rem' }}>
+                📚 저장된 참고 자료 ({matchedBookmarks.length})
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
+                {matchedBookmarks.map(b => (
+                  <a key={b.id} href={b.link} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'flex', gap: '0.85rem', padding: '0.85rem 1rem', background: 'var(--c2)', textDecoration: 'none', alignItems: 'flex-start', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
+                    {b.image
+                      ? <img src={b.image} alt="" style={{ width: 50, height: 50, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 50, height: 50, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', border: '1px solid var(--bd)' }}>★</div>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                        <span className="mono" style={{ fontSize: '0.5rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem' }}>
+                          {b.source}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: '0.82rem', color: 'var(--tx)', lineHeight: 1.35 }}>{b.title}</p>
+                      {b.description && <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', marginTop: '0.25rem', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{b.description}</p>}
+                    </div>
+                    <span style={{ color: 'var(--gold)', fontSize: '0.8rem', flexShrink: 0 }}>↗</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* 내 아카이브 결과 */}
           {filteredLogs.length > 0 && (
             <div>
@@ -273,6 +315,39 @@ export default function SearchPage() {
               ))}
             </div>
           </div>
+
+          {/* 저장된 북마크 전체 목록 */}
+          {newsBookmarks.length > 0 && (
+            <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)', marginTop: '1.25rem' }}>
+              <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                  ★ Saved Notes
+                </p>
+                <span className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)' }}>{newsBookmarks.length}</span>
+              </div>
+              <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                {newsBookmarks.slice(0, 15).map((b, i) => (
+                  <a key={b.id} href={b.link} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      display: 'flex', gap: '0.5rem', padding: '0.55rem 0.75rem',
+                      borderBottom: i < Math.min(newsBookmarks.length, 15) - 1 ? '1px solid var(--bd)' : 'none',
+                      textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start',
+                    }}
+                    onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
+                    onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'}>
+                    {b.image
+                      ? <img src={b.image} alt="" style={{ width: 32, height: 32, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      : <div style={{ width: 32, height: 32, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', border: '1px solid var(--bd)' }}>★</div>
+                    }
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p className="mono" style={{ fontSize: '0.45rem', color: 'var(--gold)', letterSpacing: '0.05em', marginBottom: '0.1rem' }}>{b.source}</p>
+                      <p style={{ fontSize: '0.65rem', color: 'var(--tx2)', lineHeight: 1.3, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{b.title}</p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>

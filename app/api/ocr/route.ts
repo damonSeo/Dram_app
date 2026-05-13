@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateWithImage } from '@/lib/gemini'
+import { getServerClient } from '@/lib/supabaseServer'
 
-const OCR_PROMPT = `You are an expert whisky label analyst with 20+ years of experience. Your task is to extract every piece of information from this whisky bottle label with maximum accuracy.
+const OCR_PROMPT_BASE = `You are an expert whisky label analyst with 20+ years of experience. Your task is to extract every piece of information from this whisky bottle label with maximum accuracy.
 
 STEP 1 — READ ALL TEXT: Carefully examine the entire label including the main panel, neck label, back label, and any tax stamps. Note all text, numbers, and symbols you can see.
 
@@ -29,6 +30,26 @@ RULES:
 - For region: infer from distillery name if label doesn't state it (e.g. Ardbeg → Islay, Glenfarclas → Speyside, Nikka → Japanese)
 - Return ONLY the JSON object starting with { and ending with }`
 
+// 사용자의 저장된 북마크에서 라벨 추론에 도움되는 컨텍스트 생성
+async function buildBookmarkContext(): Promise<string> {
+  try {
+    const supabase = await getServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return ''
+    const { data } = await supabase
+      .from('news_bookmarks')
+      .select('title, description, source')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30)
+    if (!data || data.length === 0) return ''
+    const lines = data.map(b => `- ${b.title}${b.description ? ' — ' + b.description.slice(0, 120) : ''}`).join('\n')
+    return `\n\nADDITIONAL REFERENCE — User's saved whisky news/notes (use only as supporting context to disambiguate brand/release):\n${lines}\n`
+  } catch {
+    return ''
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.GEMINI_API_KEY) {
     return NextResponse.json(
@@ -45,9 +66,12 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(bytes).toString('base64')
     const mimeType = file.type || 'image/jpeg'
 
+    const bookmarkContext = await buildBookmarkContext()
+    const fullPrompt = OCR_PROMPT_BASE + bookmarkContext
+
     let raw: string
     try {
-      raw = await generateWithImage(OCR_PROMPT, base64, mimeType)
+      raw = await generateWithImage(fullPrompt, base64, mimeType)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e)
       console.error('Gemini vision error:', msg)

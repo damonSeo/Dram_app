@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
+import { useToast } from '@/components/Toast'
 import type { WhiskyLog } from '@/types'
 import { toHundred } from '@/lib/scoreFormat'
 import type { NewsItem } from '@/app/api/whisky-news/route'
@@ -10,12 +11,50 @@ const NEWS_SOURCES = ['All', 'WhiskyNotes', 'The Spirits Business', 'Just Drinks
 const NEWS_INIT = 5
 
 export default function HomePage() {
-  const { setActiveTab, setScanMode, loadLog, collection, setSearchQuery } = useStore()
+  const { setActiveTab, setScanMode, loadLog, collection, setSearchQuery,
+          newsBookmarks, addBookmark, removeBookmark, currentUserId } = useStore()
+  const { showToast } = useToast()
   const [homeSearchInput, setHomeSearchInput] = useState('')
   const [news, setNews] = useState<NewsItem[]>([])
   const [newsLoading, setNewsLoading] = useState(true)
   const [newsTab, setNewsTab] = useState<string>('All')
   const [newsShowAll, setNewsShowAll] = useState(false)
+  const [bookmarking, setBookmarking] = useState<string | null>(null)
+
+  const isBookmarked = (link: string) => newsBookmarks.some(b => b.link === link)
+
+  const toggleBookmark = async (item: NewsItem, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!currentUserId) { showToast('로그인이 필요해요', 'err'); return }
+    setBookmarking(item.link)
+    try {
+      if (isBookmarked(item.link)) {
+        const res = await fetch(`/api/news-bookmarks?link=${encodeURIComponent(item.link)}`, { method: 'DELETE' })
+        if (!res.ok) throw new Error('삭제 실패')
+        removeBookmark(item.link)
+        showToast('북마크 해제됨', 'ok')
+      } else {
+        const res = await fetch('/api/news-bookmarks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: item.title, link: item.link, description: item.description,
+            source: item.source, source_url: item.sourceUrl, image: item.image,
+            pub_date: item.pubDate,
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || '저장 실패')
+        if (json.data) addBookmark(json.data)
+        showToast('아카이브에 저장됨 ✓', 'ok')
+      }
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : '실패', 'err')
+    } finally {
+      setBookmarking(null)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/whisky-news')
@@ -163,40 +202,59 @@ export default function HomePage() {
             {!newsLoading && visibleNews.length > 0 && (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
-                  {visibleNews.map((item, i) => (
-                    <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
-                      style={{ display: 'flex', gap: '0.85rem', padding: '0.9rem 1rem', background: 'var(--c2)', textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start' }}
-                      onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
-                      onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
-                      {item.image ? (
-                        <img src={item.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      ) : (
-                        <div style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--bd)' }}>🥃</div>
-                      )}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                          {newsTab === 'All' && (
-                            <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
-                              {item.source}
-                            </span>
-                          )}
-                          <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--tx3)' }}>
-                            {item.pubDate ? new Date(item.pubDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : ''}
-                          </span>
-                        </div>
-                        <p style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.25rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                          {item.title}
-                        </p>
-                        {item.description && (
-                          <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
-                            {item.description}
-                          </p>
+                  {visibleNews.map((item, i) => {
+                    const bm = isBookmarked(item.link)
+                    return (
+                      <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+                        style={{ display: 'flex', gap: '0.85rem', padding: '0.9rem 1rem', background: 'var(--c2)', textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start' }}
+                        onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
+                        onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
+                        {item.image ? (
+                          <img src={item.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                        ) : (
+                          <div style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--bd)' }}>🥃</div>
                         )}
-                      </div>
-                      <span style={{ color: 'var(--gold)', fontSize: '0.75rem', flexShrink: 0, marginTop: '0.15rem' }}>↗</span>
-                    </a>
-                  ))}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                            {newsTab === 'All' && (
+                              <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
+                                {item.source}
+                              </span>
+                            )}
+                            <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--tx3)' }}>
+                              {item.pubDate ? new Date(item.pubDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : ''}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.25rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                            {item.title}
+                          </p>
+                          {item.description && (
+                            <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                              {item.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* 북마크 버튼 */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                          <button onClick={(e) => toggleBookmark(item, e)}
+                            disabled={bookmarking === item.link}
+                            title={bm ? '아카이브에서 제거' : '아카이브에 저장'}
+                            style={{
+                              background: bm ? 'var(--gp)' : 'transparent',
+                              border: `1px solid ${bm ? 'var(--gold)' : 'var(--bd)'}`,
+                              color: bm ? 'var(--gold)' : 'var(--tx3)',
+                              cursor: 'pointer', fontSize: '0.75rem', padding: '0.25rem 0.45rem',
+                              transition: 'all 0.15s', minWidth: 28,
+                            }}>
+                            {bookmarking === item.link ? '…' : (bm ? '★' : '☆')}
+                          </button>
+                          <span style={{ color: 'var(--gold)', fontSize: '0.7rem' }}>↗</span>
+                        </div>
+                      </a>
+                    )
+                  })}
                 </div>
 
                 {/* 더보기 */}
