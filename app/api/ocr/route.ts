@@ -43,8 +43,29 @@ async function buildBookmarkContext(): Promise<string> {
       .order('created_at', { ascending: false })
       .limit(30)
     if (!data || data.length === 0) return ''
-    const lines = data.map(b => `- ${b.title}${b.description ? ' — ' + b.description.slice(0, 120) : ''}`).join('\n')
-    return `\n\nADDITIONAL REFERENCE — User's saved whisky news/notes (use only as supporting context to disambiguate brand/release):\n${lines}\n`
+    const lines = data.map(b => `- [${b.source || 'Saved'}] ${b.title}${b.description ? ' — ' + b.description.slice(0, 120) : ''}`).join('\n')
+    return `\n\nADDITIONAL REFERENCE — User's saved whisky news/notes:\n${lines}\n`
+  } catch {
+    return ''
+  }
+}
+
+// 위스키 뉴스 피드 전체에서 최신 정보 참고 (라벨 식별 보조)
+async function buildNewsFeedContext(req: NextRequest): Promise<string> {
+  try {
+    const origin = req.nextUrl.origin
+    const res = await fetch(`${origin}/api/whisky-news`, {
+      // 캐시 활용
+      next: { revalidate: 1800 },
+    })
+    if (!res.ok) return ''
+    const json = await res.json() as { data?: Array<{ title: string; description?: string; source?: string }> }
+    if (!json.data || json.data.length === 0) return ''
+    // 최신 25개의 제목·요약만 컨텍스트로 사용
+    const lines = json.data.slice(0, 25)
+      .map(n => `- [${n.source || ''}] ${n.title}${n.description ? ' — ' + n.description.slice(0, 100) : ''}`)
+      .join('\n')
+    return `\n\nWHISKY NEWS REFERENCE — Recent releases and reviews (WhiskyNotes, Whisky Hoop, Kanpaikai, Spirits Business, etc.):\n${lines}\n`
   } catch {
     return ''
   }
@@ -66,8 +87,11 @@ export async function POST(req: NextRequest) {
     const base64 = Buffer.from(bytes).toString('base64')
     const mimeType = file.type || 'image/jpeg'
 
-    const bookmarkContext = await buildBookmarkContext()
-    const fullPrompt = OCR_PROMPT_BASE + bookmarkContext
+    const [bookmarkContext, newsContext] = await Promise.all([
+      buildBookmarkContext(),
+      buildNewsFeedContext(req),
+    ])
+    const fullPrompt = OCR_PROMPT_BASE + bookmarkContext + newsContext
 
     let raw: string
     try {

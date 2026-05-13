@@ -14,11 +14,21 @@ export interface NewsItem {
 }
 
 // 실제로 접근 가능한 위스키/스피릿 뉴스 RSS 피드
-const FEEDS = [
+export const FEEDS = [
   {
     name: 'WhiskyNotes',
     url: 'https://www.whiskynotes.be/feed/',
     home: 'https://www.whiskynotes.be',
+  },
+  {
+    name: 'Whisky Hoop',
+    url: 'https://whiskyhoop.com/?mode=rss',
+    home: 'https://whiskyhoop.com',
+  },
+  {
+    name: '乾杯会 (Kanpaikai)',
+    url: 'https://kannpaikai.com/feed/',
+    home: 'https://kannpaikai.com',
   },
   {
     name: 'The Spirits Business',
@@ -115,7 +125,8 @@ async function fetchFeed(feed: FeedConfig): Promise<NewsItem[]> {
     if (!xml.includes('<item')) return []
 
     const items: NewsItem[] = []
-    const blocks = [...xml.matchAll(/<item[^>]*>([\s\S]*?)<\/item>/g)]
+    // RSS 2.0과 RSS 1.0(RDF) 모두 매칭 — <item ...> 또는 <item rdf:about="...">
+    const blocks = [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/g)]
 
     for (const b of blocks.slice(0, 8)) {
       const block = b[1]

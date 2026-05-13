@@ -88,6 +88,29 @@ function extractJson(raw: string): Record<string, unknown> | null {
   try { return JSON.parse(match[0]) as Record<string, unknown> } catch { return null }
 }
 
+// 위스키 뉴스 피드에서 해당 증류소 관련 정보 추출 (라벨/증류소 검색 보조)
+async function getNewsContextForBrand(brand: string, origin: string): Promise<string> {
+  try {
+    const res = await fetch(`${origin}/api/whisky-news`, { next: { revalidate: 1800 } })
+    if (!res.ok) return ''
+    const json = await res.json() as { data?: Array<{ title: string; description?: string; source?: string; link?: string }> }
+    if (!json.data) return ''
+
+    const q = brand.toLowerCase()
+    const matches = json.data
+      .filter(n => {
+        const combined = `${n.title} ${n.description || ''}`.toLowerCase()
+        return combined.includes(q)
+      })
+      .slice(0, 8)
+    if (matches.length === 0) return ''
+    const lines = matches.map(m => `• [${m.source || ''}] ${m.title}${m.description ? '\n  ' + m.description.slice(0, 150) : ''}`).join('\n')
+    return `\n[Recent news/reviews mentioning ${brand}] (from WhiskyNotes, Whisky Hoop, Kanpaikai, Spirits Business)\n${lines}\n`
+  } catch {
+    return ''
+  }
+}
+
 export async function GET(req: NextRequest) {
   const brand = req.nextUrl.searchParams.get('name')?.trim()
   const region = req.nextUrl.searchParams.get('region')?.trim() || ''
@@ -101,6 +124,9 @@ export async function GET(req: NextRequest) {
     // 1단계: Gemini 1차 응답
     const draftRaw = await geminiText(FIRST_PASS_PROMPT(brand, region))
     const draftJson = extractJson(draftRaw)
+
+    // 1.5단계: 뉴스 피드에서 해당 증류소 관련 컨텍스트 수집
+    const newsContext = await getNewsContextForBrand(brand, req.nextUrl.origin)
 
     // 2단계: Google 검색으로 근거 수집 (Serper 키 있으면)
     let snippets = '(검색 결과 없음 — Serper API 키가 설정되지 않아 1차 AI 응답만 반환합니다)'
@@ -140,9 +166,14 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 3단계: 검색 결과로 검증된 최종본 생성 (검색 데이터 있을 때만)
+    // 뉴스 컨텍스트를 snippets에 병합 (Serper 결과 + 뉴스 피드 매칭)
+    if (newsContext) {
+      snippets = snippets.startsWith('(검색 결과 없음') ? newsContext : `${snippets}\n${newsContext}`
+    }
+
+    // 3단계: 검색 결과로 검증된 최종본 생성 (Serper 또는 뉴스 컨텍스트 있을 때)
     let finalJson: Record<string, unknown> | null = draftJson
-    if (serperKey && snippets && !snippets.startsWith('(검색 결과 없음')) {
+    if ((serperKey || newsContext) && snippets && !snippets.startsWith('(검색 결과 없음')) {
       try {
         const verifiedRaw = await geminiText(
           VERIFY_PROMPT(brand, JSON.stringify(draftJson ?? {}, null, 2), snippets)
