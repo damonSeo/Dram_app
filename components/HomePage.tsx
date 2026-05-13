@@ -6,12 +6,16 @@ import { toHundred } from '@/lib/scoreFormat'
 import type { NewsItem } from '@/app/api/whisky-news/route'
 
 const INSTAGRAM_HANDLE = 'the_oakarchive'
+const NEWS_SOURCES = ['All', 'WhiskyNotes', 'The Spirits Business', 'Just Drinks'] as const
+const NEWS_INIT = 5
 
 export default function HomePage() {
   const { setActiveTab, setScanMode, loadLog, collection, setSearchQuery } = useStore()
   const [homeSearchInput, setHomeSearchInput] = useState('')
   const [news, setNews] = useState<NewsItem[]>([])
   const [newsLoading, setNewsLoading] = useState(true)
+  const [newsTab, setNewsTab] = useState<string>('All')
+  const [newsShowAll, setNewsShowAll] = useState(false)
 
   useEffect(() => {
     fetch('/api/whisky-news')
@@ -20,6 +24,16 @@ export default function HomePage() {
       .catch(() => {})
       .finally(() => setNewsLoading(false))
   }, [])
+
+  // 탭 변경 시 더보기 리셋
+  const handleNewsTab = (tab: string) => {
+    setNewsTab(tab)
+    setNewsShowAll(false)
+  }
+
+  const filteredNews = newsTab === 'All' ? news : news.filter(n => n.source === newsTab)
+  const visibleNews  = newsShowAll ? filteredNews : filteredNews.slice(0, NEWS_INIT)
+  const hasMore      = filteredNews.length > NEWS_INIT && !newsShowAll
 
   const goSearch = (name: string) => {
     if (!name.trim()) return
@@ -102,57 +116,117 @@ export default function HomePage() {
 
           {/* 1. 위스키 뉴스 — 최상단 */}
           <section style={{ marginBottom: '2.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--bd)' }}>
+            {/* 헤더 */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', paddingBottom: '0.6rem', borderBottom: '1px solid var(--bd)' }}>
               <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 📰 Whisky News
               </p>
-              <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)' }}>WhiskyNotes · Spirits Business · Just Drinks</p>
             </div>
 
+            {/* 소스 탭 */}
+            <div style={{ display: 'flex', gap: '0', marginBottom: '1rem', borderBottom: '1px solid var(--bd)', overflowX: 'auto' }}>
+              {NEWS_SOURCES.map(src => (
+                <button key={src} onClick={() => handleNewsTab(src)} className="mono"
+                  style={{
+                    padding: '0.5rem 0.9rem', background: 'none', border: 'none', cursor: 'pointer',
+                    fontSize: '0.6rem', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+                    color: newsTab === src ? 'var(--gold)' : 'var(--tx3)',
+                    borderBottom: newsTab === src ? '2px solid var(--gold)' : '2px solid transparent',
+                    marginBottom: '-1px', transition: 'all 0.15s',
+                  }}>
+                  {src}
+                  {src !== 'All' && !newsLoading && (
+                    <span style={{ marginLeft: '0.3rem', opacity: 0.5 }}>
+                      ({news.filter(n => n.source === src).length})
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* 로딩 */}
             {newsLoading && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '1.25rem', background: 'var(--c2)', border: '1px solid var(--bd)' }}>
                 <span className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
                 <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)' }}>최신 뉴스 불러오는 중...</p>
               </div>
             )}
-            {!newsLoading && news.length === 0 && (
-              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx3)', padding: '1rem' }}>뉴스를 불러올 수 없어요.</p>
+
+            {/* 결과 없음 */}
+            {!newsLoading && filteredNews.length === 0 && (
+              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx3)', padding: '1.25rem 0' }}>
+                {news.length === 0 ? '뉴스를 불러올 수 없어요.' : '해당 소스의 뉴스가 없어요.'}
+              </p>
             )}
-            {!newsLoading && news.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
-                {news.slice(0, 8).map((item, i) => (
-                  <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
-                    style={{ display: 'flex', gap: '0.85rem', padding: '0.9rem 1rem', background: 'var(--c2)', textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start' }}
-                    onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
-                    onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
-                    {item.image ? (
-                      <img src={item.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                    ) : (
-                      <div style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--bd)' }}>🥃</div>
-                    )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                        <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
-                          {item.source}
-                        </span>
-                        <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--tx3)' }}>
-                          {item.pubDate ? new Date(item.pubDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : ''}
-                        </span>
-                      </div>
-                      <p style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.25rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                        {item.title}
-                      </p>
-                      {item.description && (
-                        <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
-                          {item.description}
-                        </p>
+
+            {/* 뉴스 목록 */}
+            {!newsLoading && visibleNews.length > 0 && (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
+                  {visibleNews.map((item, i) => (
+                    <a key={i} href={item.link} target="_blank" rel="noopener noreferrer"
+                      style={{ display: 'flex', gap: '0.85rem', padding: '0.9rem 1rem', background: 'var(--c2)', textDecoration: 'none', transition: 'background 0.15s', alignItems: 'flex-start' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c3)'}
+                      onMouseLeave={e => (e.currentTarget as HTMLAnchorElement).style.background = 'var(--c2)'}>
+                      {item.image ? (
+                        <img src={item.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }}
+                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                      ) : (
+                        <div style={{ width: 56, height: 56, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', border: '1px solid var(--bd)' }}>🥃</div>
                       )}
-                    </div>
-                    <span style={{ color: 'var(--gold)', fontSize: '0.75rem', flexShrink: 0, marginTop: '0.15rem' }}>↗</span>
-                  </a>
-                ))}
-              </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                          {newsTab === 'All' && (
+                            <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--gold)', letterSpacing: '0.06em', textTransform: 'uppercase', border: '1px solid var(--bd2)', padding: '0.1rem 0.4rem', flexShrink: 0 }}>
+                              {item.source}
+                            </span>
+                          )}
+                          <span className="mono" style={{ fontSize: '0.48rem', color: 'var(--tx3)' }}>
+                            {item.pubDate ? new Date(item.pubDate).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' }) : ''}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--tx)', lineHeight: 1.35, marginBottom: '0.25rem', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                          {item.title}
+                        </p>
+                        {item.description && (
+                          <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--tx3)', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical' }}>
+                            {item.description}
+                          </p>
+                        )}
+                      </div>
+                      <span style={{ color: 'var(--gold)', fontSize: '0.75rem', flexShrink: 0, marginTop: '0.15rem' }}>↗</span>
+                    </a>
+                  ))}
+                </div>
+
+                {/* 더보기 */}
+                {hasMore && (
+                  <button onClick={() => setNewsShowAll(true)} className="mono"
+                    style={{
+                      width: '100%', padding: '0.75rem', marginTop: '1px',
+                      background: 'var(--c2)', border: 'none', borderTop: '1px solid var(--bd)',
+                      color: 'var(--tx3)', fontSize: '0.62rem', letterSpacing: '0.1em',
+                      cursor: 'pointer', transition: 'all 0.15s', textAlign: 'center',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c3)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--tx3)' }}>
+                    더보기 ({filteredNews.length - NEWS_INIT}개 더) ↓
+                  </button>
+                )}
+                {newsShowAll && filteredNews.length > NEWS_INIT && (
+                  <button onClick={() => setNewsShowAll(false)} className="mono"
+                    style={{
+                      width: '100%', padding: '0.75rem', marginTop: '1px',
+                      background: 'var(--c2)', border: 'none', borderTop: '1px solid var(--bd)',
+                      color: 'var(--tx3)', fontSize: '0.62rem', letterSpacing: '0.1em',
+                      cursor: 'pointer', transition: 'all 0.15s', textAlign: 'center',
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c3)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--c2)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--tx3)' }}>
+                    접기 ↑
+                  </button>
+                )}
+              </>
             )}
           </section>
 
