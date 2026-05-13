@@ -119,49 +119,60 @@ function extractJson(raw: string): Record<string, unknown> | null {
   try { return JSON.parse(match[0]) as Record<string, unknown> } catch { return null }
 }
 
-const ANALYSIS_PROMPT = (ocr: OcrFields, snippets: string, newsLines: string) => `당신은 30년 경력의 위스키 전문가이자 보틀 식별 전문가입니다.
+type Lang = 'en' | 'ko' | 'auto'
 
-[라벨 OCR 결과 — 일부는 부정확할 수 있음]
+const ANALYSIS_PROMPT = (ocr: OcrFields, snippets: string, newsLines: string, lang: Lang) => {
+  const langInstruction = lang === 'en'
+    ? `OUTPUT LANGUAGE: Write all narrative text (description, flavor notes, release_info, price_estimate, ai_note) in NATURAL ENGLISH. Use standard whisky terminology (Sherry, Oloroso, Hogshead, NAS, etc.). Be detailed and expressive.`
+    : lang === 'ko'
+    ? `OUTPUT LANGUAGE: Write all narrative text in KOREAN. Keep whisky proper nouns in English (Macallan, Sherry Oak, etc.). Be natural and expressive.`
+    : `OUTPUT LANGUAGE: Use the language that fits the source material best. If most search/news context is English, write narrative in English. If sources are mostly Korean/Japanese, mirror that. Default to English for whisky terms, country/distillery names, and tasting notes — these read more naturally in English.`
+
+  return `You are a 30-year veteran whisky expert and bottle identification specialist.
+
+[Label OCR Result — may contain inaccuracies]
 ${JSON.stringify(ocr, null, 2)}
 
-[Google 검색 결과]
-${snippets || '(검색 결과 없음)'}
+[Google Search Results]
+${snippets || '(no results)'}
 
-[관련 위스키 뉴스/리뷰]
-${newsLines || '(매칭 없음)'}
+[Related Whisky News / Reviews]
+${newsLines || '(no matches)'}
 
-작업:
-첨부된 보틀 사진과 위 정보를 종합하여, 이 위스키가 무엇인지 식별하고 풍부한 정보를 제공하세요.
-OCR 결과가 모호하거나 부정확하면 사진과 검색 결과를 더 신뢰하세요.
+TASK:
+Identify this whisky from the attached bottle photo combined with the information above, and provide rich details.
+If OCR is ambiguous or inaccurate, trust the photo and search results more.
 
-다음 JSON 형식으로만 응답 (마크다운/코드블록 없이 순수 JSON):
+${langInstruction}
+
+Respond ONLY in this JSON format (no markdown / code fences / explanations):
 {
-  "identified_name": "추정 정식 보틀명 (예: Glenfarclas 25 Year Old, Macallan Sherry Oak 18 2023 Release)",
+  "identified_name": "Full proper bottle name (e.g. Glenfarclas 25 Year Old, Macallan Sherry Oak 18 2023 Release)",
   "confidence": "high | medium | low",
-  "distillery": "증류소 이름 (영문 권장)",
-  "bottler": "OB 또는 독립 보틀러 이름",
-  "age": "숙성연수 (예: 12yr, NAS)",
-  "vintage": "빈티지 연도 또는 null",
-  "abv": "도수 (예: 46%, 56.8%)",
-  "cask": "캐스크 타입 (영문 권장)",
-  "region": "지역",
-  "release_info": "릴리즈 정보 한 줄 (예: 2023 연례 출시, 단종, 1500병 한정)",
-  "description": "이 보틀에 대한 200~300자 한국어 개요 (역사·특징·평가 포함)",
+  "distillery": "Distillery name",
+  "bottler": "OB or independent bottler name",
+  "age": "Age statement (e.g. 12yr, NAS)",
+  "vintage": "Vintage year or null",
+  "abv": "ABV with % (e.g. 46%, 56.8%)",
+  "cask": "Cask type(s)",
+  "region": "Region",
+  "release_info": "One line about the release (e.g. 2023 Annual Release, Discontinued, 1500 bottles)",
+  "description": "200-300 character overview covering history, characteristics, and reputation",
   "flavor_profile": {
-    "nose": "향 노트 한국어 1~2문장",
-    "palate": "맛 노트 한국어 1~2문장",
-    "finish": "여운 한국어 1문장"
+    "nose": "Nose notes, 1-2 sentences",
+    "palate": "Palate notes, 1-2 sentences",
+    "finish": "Finish notes, 1 sentence"
   },
-  "price_estimate": "한국 시장 추정 가격 한 줄 (예: 약 25-35만원, 단종으로 시세 변동)",
+  "price_estimate": "Price estimate one-line (e.g. ~$200-280 USD, ~25-35만원 KRW, discontinued—volatile)",
   "rarity": "standard | limited | rare",
-  "ai_note": "OCR과 사진 사이에 불일치가 있거나 추가 확인이 필요한 부분 (없으면 'OCR과 사진이 일치합니다.')"
+  "ai_note": "Anything unclear or where OCR and photo disagree (or note alignment)"
 }
 
-규칙:
-- 확실하지 않은 항목은 null
-- description은 반드시 한국어, 영문 고유명사는 그대로 두기 (Macallan, Sherry Oak 등)
-- 가격이나 시세는 추정치임을 명시 ("약", "추정")
-- JSON 외 어떤 텍스트도 출력 금지`
+Rules:
+- Use null for any field you're not confident about
+- Always mark prices as estimates ("approx", "약", "~")
+- Output ONLY the JSON object`
+}
 
 export async function POST(req: NextRequest) {
   if (!process.env.GEMINI_API_KEY) {
@@ -172,6 +183,8 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData()
     const file = formData.get('image') as File | null
     const ocrRaw = formData.get('ocr') as string | null
+    const langRaw = (formData.get('lang') as string | null) || 'auto'
+    const lang: Lang = (['en','ko','auto'].includes(langRaw) ? langRaw : 'auto') as Lang
     const ocr: OcrFields = ocrRaw ? JSON.parse(ocrRaw) : {}
 
     const brand = ocr.brand || ''
@@ -190,7 +203,7 @@ export async function POST(req: NextRequest) {
       .map(n => `- [${n.source}] ${n.title}`)
       .join('\n')
 
-    const prompt = ANALYSIS_PROMPT(ocr, snippets, newsLines)
+    const prompt = ANALYSIS_PROMPT(ocr, snippets, newsLines, lang)
 
     let raw: string
     if (file) {

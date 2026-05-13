@@ -679,8 +679,9 @@ export default function ScanPage() {
   const [bottleLoading, setBottleLoading] = useState(false)
   const [bottleOpen, setBottleOpen] = useState(false)
   const [bottleStatus, setBottleStatus] = useState('')
+  const [bottleLang, setBottleLang] = useState<'en'|'ko'|'auto'>('en')
 
-  const runBottleResearch = async () => {
+  const runBottleResearch = async (lang: 'en'|'ko'|'auto' = bottleLang) => {
     if (!scanFields.brand.trim() && !scanFile) {
       showToast('이미지나 브랜드 정보가 필요해요', 'err')
       return
@@ -688,14 +689,15 @@ export default function ScanPage() {
     setBottleLoading(true)
     setBottleOpen(true)
     setBottleProfile(null)
-    setBottleStatus('이미지 + OCR 결과 분석 중...')
+    setBottleStatus(lang === 'en' ? 'Analyzing image + OCR...' : '이미지 + OCR 결과 분석 중...')
     try {
-      const t1 = setTimeout(() => setBottleStatus('Google 검색 · 뉴스 매칭 수집 중...'), 2000)
-      const t2 = setTimeout(() => setBottleStatus('Gemini AI로 종합 분석 중...'), 4500)
+      const t1 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Collecting Google + news matches...' : 'Google 검색 · 뉴스 매칭 수집 중...'), 2000)
+      const t2 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Synthesizing with Gemini AI...' : 'Gemini AI로 종합 분석 중...'), 4500)
 
       const form = new FormData()
       if (scanFile) form.append('image', scanFile)
       form.append('ocr', JSON.stringify(scanFields))
+      form.append('lang', lang)
 
       const res = await fetch('/api/bottle-research', { method: 'POST', body: form })
       clearTimeout(t1); clearTimeout(t2)
@@ -913,7 +915,7 @@ export default function ScanPage() {
                 <button className="btn-gold" style={{flex:'1 1 200px', justifyContent:'center'}} onClick={goToTasting}>
                   Next — Add Tasting Notes →
                 </button>
-                <button className="btn-outline-gold" style={{whiteSpace:'nowrap', justifyContent:'center'}} onClick={runBottleResearch} disabled={bottleLoading}>
+                <button className="btn-outline-gold" style={{whiteSpace:'nowrap', justifyContent:'center'}} onClick={() => runBottleResearch()} disabled={bottleLoading}>
                   {bottleLoading ? <span className="spinner"/> : '🧪'} 보틀 분석
                 </button>
                 <button className="btn-outline-gold" style={{whiteSpace:'nowrap', justifyContent:'center'}} onClick={runSearch} disabled={searching}>
@@ -1031,12 +1033,32 @@ export default function ScanPage() {
         <div onClick={()=>!bottleLoading && setBottleOpen(false)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem'}}>
           <div className="m-modal-panel fade-up" onClick={(e)=>e.stopPropagation()} style={{background:'var(--c2)', border:'1px solid var(--gold)', maxWidth:680, width:'100%', maxHeight:'88vh', overflowY:'auto'}}>
             {/* 헤더 */}
-            <div style={{padding:'0.85rem 1.1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'var(--c2)', zIndex:1}}>
-              <div>
+            <div style={{padding:'0.85rem 1.1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.5rem', position:'sticky', top:0, background:'var(--c2)', zIndex:1}}>
+              <div style={{flex:1, minWidth:0}}>
                 <p className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', letterSpacing:'0.18em', textTransform:'uppercase', marginBottom:'0.2rem'}}>🧪 Bottle Research</p>
-                <p className="mono" style={{fontSize:'0.62rem', color:'var(--tx3)'}}>이미지 + OCR + Google + 뉴스 + Gemini 종합 분석</p>
+                <p className="mono" style={{fontSize:'0.6rem', color:'var(--tx3)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>Image + OCR + Google + News + Gemini</p>
               </div>
-              <button onClick={()=>!bottleLoading && setBottleOpen(false)} style={{background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'1.1rem'}}>✕</button>
+
+              {/* 언어 토글 */}
+              <div style={{display:'flex', border:'1px solid var(--bd2)', flexShrink:0}}>
+                {(['en','ko','auto'] as const).map(l => (
+                  <button key={l} onClick={() => { setBottleLang(l); runBottleResearch(l) }}
+                    disabled={bottleLoading}
+                    className="mono"
+                    style={{
+                      padding:'0.3rem 0.55rem', background: bottleLang === l ? 'var(--gp)' : 'transparent',
+                      color: bottleLang === l ? 'var(--gold)' : 'var(--tx3)',
+                      border:'none', cursor: bottleLoading ? 'wait' : 'pointer',
+                      fontSize:'0.55rem', letterSpacing:'0.08em', textTransform:'uppercase',
+                      borderRight: l !== 'auto' ? '1px solid var(--bd)' : 'none',
+                      transition:'all 0.15s',
+                    }}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+
+              <button onClick={()=>!bottleLoading && setBottleOpen(false)} style={{background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'1.1rem', flexShrink:0}}>✕</button>
             </div>
 
             {/* 로딩 */}
