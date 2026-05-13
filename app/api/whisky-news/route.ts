@@ -16,6 +16,11 @@ export interface NewsItem {
 // 실제로 접근 가능한 위스키/스피릿 뉴스 RSS 피드
 const FEEDS = [
   {
+    name: 'WhiskyNotes',
+    url: 'https://www.whiskynotes.be/feed/',
+    home: 'https://www.whiskynotes.be',
+  },
+  {
     name: 'The Spirits Business',
     url: 'https://www.thespiritsbusiness.com/tag/whisky/feed/',
     home: 'https://www.thespiritsbusiness.com',

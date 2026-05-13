@@ -106,7 +106,7 @@ export default function HomePage() {
               <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', letterSpacing: '0.18em', textTransform: 'uppercase' }}>
                 📰 Whisky News
               </p>
-              <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)' }}>The Spirits Business · Just Drinks</p>
+              <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)' }}>WhiskyNotes · Spirits Business · Just Drinks</p>
             </div>
 
             {newsLoading && (
