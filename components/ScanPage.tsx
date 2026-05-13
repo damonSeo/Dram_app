@@ -4,6 +4,7 @@ import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl, shrinkDataUrl } from '@/lib/imageUtils'
 import type { OcrResult, SpiritType } from '@/types'
+import type { BottleProfile } from '@/app/api/bottle-research/route'
 
 /* ── constants ─────────────────────────────────────────────────────────────── */
 
@@ -673,6 +674,61 @@ export default function ScanPage() {
   const [distilleryVerified, setDistilleryVerified] = useState(false)
   const [distilleryStatus, setDistilleryStatus] = useState('')
 
+  // ── Bottle research state ────────────────────────────────────────────────
+  const [bottleProfile, setBottleProfile] = useState<BottleProfile|null>(null)
+  const [bottleLoading, setBottleLoading] = useState(false)
+  const [bottleOpen, setBottleOpen] = useState(false)
+  const [bottleStatus, setBottleStatus] = useState('')
+
+  const runBottleResearch = async () => {
+    if (!scanFields.brand.trim() && !scanFile) {
+      showToast('이미지나 브랜드 정보가 필요해요', 'err')
+      return
+    }
+    setBottleLoading(true)
+    setBottleOpen(true)
+    setBottleProfile(null)
+    setBottleStatus('이미지 + OCR 결과 분석 중...')
+    try {
+      const t1 = setTimeout(() => setBottleStatus('Google 검색 · 뉴스 매칭 수집 중...'), 2000)
+      const t2 = setTimeout(() => setBottleStatus('Gemini AI로 종합 분석 중...'), 4500)
+
+      const form = new FormData()
+      if (scanFile) form.append('image', scanFile)
+      form.append('ocr', JSON.stringify(scanFields))
+
+      const res = await fetch('/api/bottle-research', { method: 'POST', body: form })
+      clearTimeout(t1); clearTimeout(t2)
+      const json = await res.json() as { data?: BottleProfile; error?: string }
+      if (!res.ok) throw new Error(json.error || '분석 실패')
+      if (!json.data) throw new Error('응답 데이터 없음')
+      setBottleProfile(json.data)
+
+      // 신뢰도 높은 결과면 필드 자동 보강
+      const p = json.data
+      if (p.confidence !== 'low') {
+        setScanFields(prev => ({
+          brand: prev.brand || p.distillery || '',
+          region: prev.region || p.region || '',
+          age: prev.age || p.age || '',
+          vintage: prev.vintage || p.vintage || '',
+          abv: prev.abv || p.abv || '',
+          bottler: prev.bottler || p.bottler || '',
+          cask: prev.cask || p.cask || '',
+        }))
+        showToast('보틀 분석 완료 ✓', 'ok')
+      } else {
+        showToast('분석 결과 신뢰도가 낮아요. 참고만 해주세요', 'err')
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '분석 실패', 'err')
+      setBottleOpen(false)
+    } finally {
+      setBottleLoading(false)
+      setBottleStatus('')
+    }
+  }
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleFile = useCallback((file: File) => {
@@ -857,6 +913,9 @@ export default function ScanPage() {
                 <button className="btn-gold" style={{flex:'1 1 200px', justifyContent:'center'}} onClick={goToTasting}>
                   Next — Add Tasting Notes →
                 </button>
+                <button className="btn-outline-gold" style={{whiteSpace:'nowrap', justifyContent:'center'}} onClick={runBottleResearch} disabled={bottleLoading}>
+                  {bottleLoading ? <span className="spinner"/> : '🧪'} 보틀 분석
+                </button>
                 <button className="btn-outline-gold" style={{whiteSpace:'nowrap', justifyContent:'center'}} onClick={runSearch} disabled={searching}>
                   {searching ? <span className="spinner"/> : '🔍'} 유사 바틀 검색
                 </button>
@@ -964,6 +1023,162 @@ export default function ScanPage() {
           {spiritType === 'bourbon'  && <BourbonManual  photo={manualPhoto} setPhoto={setManualPhoto} />}
           {spiritType === 'cognac'   && <CognacManual   photo={manualPhoto} setPhoto={setManualPhoto} />}
           {spiritType === 'cocktail' && <CocktailManual photo={manualPhoto} setPhoto={setManualPhoto} />}
+        </div>
+      )}
+
+      {/* ── Bottle Research Modal ── */}
+      {bottleOpen && (
+        <div onClick={()=>!bottleLoading && setBottleOpen(false)} style={{position:'fixed', inset:0, background:'rgba(0,0,0,0.78)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'1rem'}}>
+          <div className="m-modal-panel fade-up" onClick={(e)=>e.stopPropagation()} style={{background:'var(--c2)', border:'1px solid var(--gold)', maxWidth:680, width:'100%', maxHeight:'88vh', overflowY:'auto'}}>
+            {/* 헤더 */}
+            <div style={{padding:'0.85rem 1.1rem', borderBottom:'1px solid var(--bd)', display:'flex', justifyContent:'space-between', alignItems:'center', position:'sticky', top:0, background:'var(--c2)', zIndex:1}}>
+              <div>
+                <p className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', letterSpacing:'0.18em', textTransform:'uppercase', marginBottom:'0.2rem'}}>🧪 Bottle Research</p>
+                <p className="mono" style={{fontSize:'0.62rem', color:'var(--tx3)'}}>이미지 + OCR + Google + 뉴스 + Gemini 종합 분석</p>
+              </div>
+              <button onClick={()=>!bottleLoading && setBottleOpen(false)} style={{background:'none', border:'none', color:'var(--tx3)', cursor:'pointer', fontSize:'1.1rem'}}>✕</button>
+            </div>
+
+            {/* 로딩 */}
+            {bottleLoading && (
+              <div style={{padding:'2.5rem 1.5rem', textAlign:'center'}}>
+                <span className="spinner" style={{width:24, height:24, borderWidth:3}}/>
+                <p className="mono" style={{fontSize:'0.65rem', color:'var(--tx2)', marginTop:'0.85rem', letterSpacing:'0.05em'}}>{bottleStatus}</p>
+              </div>
+            )}
+
+            {/* 결과 */}
+            {!bottleLoading && bottleProfile && (
+              <div style={{padding:'1rem 1.1rem'}}>
+                {/* 식별 이름 + 신뢰도 */}
+                <div style={{marginBottom:'1.1rem'}}>
+                  <div style={{display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.4rem', flexWrap:'wrap'}}>
+                    <span className="mono" style={{
+                      fontSize:'0.55rem', padding:'0.18rem 0.5rem',
+                      background: bottleProfile.confidence === 'high' ? 'var(--gp)' : bottleProfile.confidence === 'medium' ? 'rgba(255,255,255,0.06)' : 'rgba(207,126,126,0.15)',
+                      color: bottleProfile.confidence === 'high' ? 'var(--gold)' : bottleProfile.confidence === 'medium' ? 'var(--tx2)' : '#cf7e7e',
+                      border:`1px solid ${bottleProfile.confidence === 'high' ? 'var(--gold)' : bottleProfile.confidence === 'medium' ? 'var(--bd2)' : '#cf7e7e'}`,
+                      letterSpacing:'0.08em', textTransform:'uppercase',
+                    }}>
+                      신뢰도 {bottleProfile.confidence}
+                    </span>
+                    {bottleProfile.rarity && (
+                      <span className="mono" style={{fontSize:'0.55rem', padding:'0.18rem 0.5rem', border:'1px solid var(--bd)', color:'var(--tx3)', letterSpacing:'0.06em', textTransform:'uppercase'}}>
+                        {bottleProfile.rarity}
+                      </span>
+                    )}
+                  </div>
+                  <h2 className="display" style={{fontSize:'1.45rem', color:'var(--tx)', lineHeight:1.25}}>{bottleProfile.identified_name}</h2>
+                  {bottleProfile.release_info && (
+                    <p className="mono" style={{fontSize:'0.62rem', color:'var(--gold)', marginTop:'0.3rem'}}>{bottleProfile.release_info}</p>
+                  )}
+                </div>
+
+                {/* 핵심 스펙 */}
+                <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(120px, 1fr))', gap:'1px', background:'var(--bd)', marginBottom:'1.1rem'}}>
+                  {[
+                    ['Distillery', bottleProfile.distillery],
+                    ['Bottler', bottleProfile.bottler],
+                    ['Region', bottleProfile.region],
+                    ['Age', bottleProfile.age],
+                    ['Vintage', bottleProfile.vintage],
+                    ['ABV', bottleProfile.abv],
+                    ['Cask', bottleProfile.cask],
+                  ].filter(([_,v]) => v).map(([label, v]) => (
+                    <div key={label as string} style={{background:'var(--c2)', padding:'0.55rem 0.7rem'}}>
+                      <p className="mono" style={{fontSize:'0.5rem', color:'var(--tx3)', letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:'0.15rem'}}>{label}</p>
+                      <p style={{fontSize:'0.78rem', color:'var(--tx)'}}>{v}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 가격 */}
+                {bottleProfile.price_estimate && (
+                  <div style={{padding:'0.7rem 0.9rem', background:'var(--c3)', border:'1px solid var(--bd)', marginBottom:'1.1rem'}}>
+                    <p className="mono" style={{fontSize:'0.52rem', color:'var(--gold)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.25rem'}}>💰 가격 추정</p>
+                    <p style={{fontSize:'0.82rem', color:'var(--tx)'}}>{bottleProfile.price_estimate}</p>
+                  </div>
+                )}
+
+                {/* 개요 */}
+                {bottleProfile.description && (
+                  <div style={{marginBottom:'1.1rem'}}>
+                    <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.45rem'}}>Overview</p>
+                    <p style={{fontSize:'0.82rem', color:'var(--tx)', lineHeight:1.75}}>{bottleProfile.description}</p>
+                  </div>
+                )}
+
+                {/* 향·맛·여운 */}
+                {bottleProfile.flavor_profile && (
+                  <div style={{marginBottom:'1.1rem'}}>
+                    <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.45rem'}}>Flavor Profile</p>
+                    <div style={{display:'flex', flexDirection:'column', gap:'0.5rem'}}>
+                      {[
+                        ['🌸 Nose', bottleProfile.flavor_profile.nose],
+                        ['🥃 Palate', bottleProfile.flavor_profile.palate],
+                        ['✨ Finish', bottleProfile.flavor_profile.finish],
+                      ].filter(([_,v]) => v).map(([lbl, v]) => (
+                        <div key={lbl as string} style={{padding:'0.55rem 0.8rem', background:'var(--c3)', borderLeft:'2px solid var(--gold)'}}>
+                          <p className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', marginBottom:'0.2rem', letterSpacing:'0.05em'}}>{lbl}</p>
+                          <p style={{fontSize:'0.75rem', color:'var(--tx)', lineHeight:1.65}}>{v}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 매칭 뉴스 */}
+                {bottleProfile.news_matches.length > 0 && (
+                  <div style={{marginBottom:'1.1rem'}}>
+                    <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.45rem'}}>📰 관련 뉴스 / 리뷰</p>
+                    <div style={{display:'flex', flexDirection:'column', gap:'1px', background:'var(--bd)'}}>
+                      {bottleProfile.news_matches.map((n,i) => (
+                        <a key={i} href={n.link} target="_blank" rel="noopener noreferrer"
+                          style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.6rem', padding:'0.55rem 0.8rem', background:'var(--c2)', textDecoration:'none', transition:'background 0.15s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLAnchorElement).style.background='var(--c3)'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLAnchorElement).style.background='var(--c2)'}>
+                          <div style={{flex:1, minWidth:0}}>
+                            <p className="mono" style={{fontSize:'0.5rem', color:'var(--gold)', letterSpacing:'0.06em', marginBottom:'0.15rem'}}>{n.source}</p>
+                            <p style={{fontSize:'0.72rem', color:'var(--tx)', lineHeight:1.3}}>{n.title}</p>
+                          </div>
+                          <span style={{color:'var(--gold)', fontSize:'0.75rem', flexShrink:0}}>↗</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 참고 자료 */}
+                {bottleProfile.references.length > 0 && (
+                  <div style={{marginBottom:'1.1rem'}}>
+                    <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.45rem'}}>🔗 참고 (Google)</p>
+                    <div style={{display:'flex', flexDirection:'column', gap:'1px', background:'var(--bd)'}}>
+                      {bottleProfile.references.map((r,i) => (
+                        <a key={i} href={r.link} target="_blank" rel="noopener noreferrer"
+                          style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'0.6rem', padding:'0.5rem 0.8rem', background:'var(--c2)', textDecoration:'none', transition:'background 0.15s'}}
+                          onMouseEnter={e=>(e.currentTarget as HTMLAnchorElement).style.background='var(--c3)'}
+                          onMouseLeave={e=>(e.currentTarget as HTMLAnchorElement).style.background='var(--c2)'}>
+                          <div style={{flex:1, minWidth:0}}>
+                            <p style={{fontSize:'0.7rem', color:'var(--tx)', lineHeight:1.3, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{r.title}</p>
+                            <p className="mono" style={{fontSize:'0.5rem', color:'var(--tx3)', marginTop:'0.1rem'}}>{r.source}</p>
+                          </div>
+                          <span style={{color:'var(--gold)', fontSize:'0.7rem', flexShrink:0}}>↗</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* AI 노트 */}
+                {bottleProfile.ai_note && (
+                  <div style={{padding:'0.65rem 0.9rem', background:'rgba(198,107,61,0.08)', border:'1px dashed var(--bd2)', borderRadius:0}}>
+                    <p className="mono" style={{fontSize:'0.52rem', color:'var(--gold)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.25rem'}}>💡 AI Note</p>
+                    <p style={{fontSize:'0.72rem', color:'var(--tx2)', lineHeight:1.65}}>{bottleProfile.ai_note}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
