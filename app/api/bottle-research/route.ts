@@ -33,6 +33,23 @@ export interface BottleProfile {
   references: Array<{ title: string; link: string; source: string }>
   news_matches: Array<{ title: string; link: string; source: string }>
   ai_note: string
+  // 검증 결과
+  verification: {
+    confirmed: boolean
+    distillery_bottler_match: 'confirmed' | 'likely' | 'conflicting' | 'unverified'
+    note: string
+    conflicts: string[]
+  }
+  // 외부 자료에서 발견된 테이스팅 노트
+  tasting_notes_found: Array<{
+    source: string
+    link?: string
+    nose?: string
+    palate?: string
+    finish?: string
+    overall?: string
+    rating?: string
+  }>
 }
 
 interface SerperOrganic {
@@ -117,6 +134,120 @@ function extractJson(raw: string): Record<string, unknown> | null {
   const match = cleaned.match(/\{[\s\S]*\}/)
   if (!match) return null
   try { return JSON.parse(match[0]) as Record<string, unknown> } catch { return null }
+}
+
+// 2차 검색: 식별된 보틀명으로 더 정확한 결과 + 테이스팅 노트 수집
+async function deepSearchByName(name: string, distillery: string, bottler: string): Promise<{ snippets: string; refs: BottleProfile['references'] }> {
+  const key = process.env.SERPER_API_KEY
+  if (!key) return { snippets: '', refs: [] }
+  try {
+    // "정식명 tasting notes review" 검색 — 노트 추출 최적화
+    const q = `"${name}" tasting notes review`
+    const res = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ q, gl: 'us', num: 8 }),
+    })
+    if (!res.ok) return { snippets: '', refs: [] }
+    const data = await res.json() as SerperResponse
+    const parts: string[] = []
+    const refs: BottleProfile['references'] = []
+    if (data.organic) {
+      for (const o of data.organic.slice(0, 8)) {
+        parts.push(`• ${o.title} (${o.displayLink || ''})\n  ${o.snippet || ''}`)
+        refs.push({ title: o.title, link: o.link, source: o.displayLink || '' })
+      }
+    }
+    return { snippets: parts.join('\n'), refs: refs.slice(0, 8) }
+  } catch {
+    return { snippets: '', refs: [] }
+  }
+}
+
+// 3차: 증류소-보틀러 조합 검증 + 노트 추출
+const VERIFY_PROMPT = (
+  candidateName: string,
+  distillery: string,
+  bottler: string,
+  age: string,
+  draft: string,
+  deepSnippets: string,
+  newsLines: string,
+  lang: 'en' | 'ko' | 'auto',
+) => {
+  const langText = lang === 'ko'
+    ? 'Write narrative text in KOREAN (keep whisky proper nouns in English).'
+    : 'Write narrative text in NATURAL ENGLISH using standard whisky terminology.'
+
+  return `You are a whisky fact-checker and tasting-note archivist.
+
+CANDIDATE BOTTLE: ${candidateName}
+- Distillery: ${distillery || '(unknown)'}
+- Bottler: ${bottler || '(unknown)'}
+- Age: ${age || '(unknown)'}
+
+[Initial Analysis Draft]
+${draft}
+
+[Deep Search Results — "${candidateName} tasting notes review"]
+${deepSnippets || '(none)'}
+
+[News / Review Matches]
+${newsLines || '(none)'}
+
+TASKS:
+1. VERIFY the distillery + bottler + age combination is real and consistent.
+   - If "${bottler}" is OB and the distillery actually bottles its own ${age} release → confirmed
+   - If "${bottler}" is an independent bottler and there's evidence they released a ${age} ${distillery} → confirmed
+   - If sources contradict (e.g. ${bottler} never bottled ${distillery}, or wrong age) → conflicting
+   - If you can't find it but it's plausible → likely
+   - If totally absent from sources → unverified
+
+2. EXTRACT actual tasting notes from the deep search snippets and news matches.
+   Look for any reviewer's nose/palate/finish/overall comments, and their rating (e.g. 87/100, 4/5, 92).
+   If multiple sources mention the same notes, list each separately.
+
+3. UPDATE the draft with corrected info if verification reveals issues.
+
+${langText}
+
+Respond ONLY with this JSON (no markdown):
+{
+  "verification": {
+    "confirmed": true | false,
+    "distillery_bottler_match": "confirmed | likely | conflicting | unverified",
+    "note": "Short explanation of the verification outcome (1-2 sentences)",
+    "conflicts": ["list specific conflicts found, empty array if none"]
+  },
+  "tasting_notes_found": [
+    {
+      "source": "Source name (e.g. WhiskyFun, Serge Valentin, WhiskyNotes)",
+      "link": "URL if available or null",
+      "nose": "nose notes from the source (or null)",
+      "palate": "palate notes (or null)",
+      "finish": "finish notes (or null)",
+      "overall": "overall verdict/comment (or null)",
+      "rating": "rating mentioned (or null)"
+    }
+  ],
+  "updated_fields": {
+    "identified_name": "corrected name if needed",
+    "distillery": "corrected distillery",
+    "bottler": "corrected bottler",
+    "age": "corrected age",
+    "abv": "corrected abv",
+    "cask": "corrected cask",
+    "vintage": "corrected vintage",
+    "release_info": "corrected release info",
+    "rarity": "standard | limited | rare"
+  }
+}
+
+Rules:
+- For tasting_notes_found: extract verbatim style notes when possible, only include entries where at least nose, palate, finish, or overall is non-null
+- If no tasting notes found anywhere, return empty array
+- updated_fields: only include fields you have stronger evidence for; pass through unchanged otherwise
+- Output ONLY the JSON`
 }
 
 type Lang = 'en' | 'ko' | 'auto'
@@ -222,7 +353,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'AI 응답 파싱 실패', raw }, { status: 500 })
     }
 
-    const profile: BottleProfile = {
+    const initial: BottleProfile = {
       identified_name: String(parsed.identified_name || brand || '식별 불가'),
       confidence: (parsed.confidence as BottleProfile['confidence']) || 'low',
       distillery: (parsed.distillery as string) || null,
@@ -240,9 +371,77 @@ export async function POST(req: NextRequest) {
       references,
       news_matches: newsMatches,
       ai_note: String(parsed.ai_note || ''),
+      verification: { confirmed: false, distillery_bottler_match: 'unverified', note: '', conflicts: [] },
+      tasting_notes_found: [],
     }
 
-    return NextResponse.json({ data: profile })
+    // ── PHASE 2 & 3: 식별된 이름으로 재검색 + 검증 + 노트 추출 ──
+    let allReferences = [...references]
+    if (initial.identified_name && initial.identified_name !== '식별 불가' && initial.distillery) {
+      const deep = await deepSearchByName(
+        initial.identified_name,
+        initial.distillery,
+        initial.bottler || '',
+      )
+      // 중복 제거하고 합치기
+      const seenLinks = new Set(allReferences.map(r => r.link))
+      for (const r of deep.refs) {
+        if (!seenLinks.has(r.link)) { allReferences.push(r); seenLinks.add(r.link) }
+      }
+      allReferences = allReferences.slice(0, 10)
+
+      try {
+        const verifyRaw = await geminiText(
+          VERIFY_PROMPT(
+            initial.identified_name,
+            initial.distillery || '',
+            initial.bottler || '',
+            initial.age || '',
+            JSON.stringify({
+              identified_name: initial.identified_name,
+              distillery: initial.distillery,
+              bottler: initial.bottler,
+              age: initial.age,
+              abv: initial.abv,
+              cask: initial.cask,
+              vintage: initial.vintage,
+              release_info: initial.release_info,
+              rarity: initial.rarity,
+            }, null, 2),
+            deep.snippets || snippets,
+            newsLines,
+            lang,
+          )
+        )
+        const verifyJson = extractJson(verifyRaw) as {
+          verification?: BottleProfile['verification']
+          tasting_notes_found?: BottleProfile['tasting_notes_found']
+          updated_fields?: Partial<BottleProfile>
+        } | null
+
+        if (verifyJson?.verification) initial.verification = verifyJson.verification
+        if (Array.isArray(verifyJson?.tasting_notes_found)) initial.tasting_notes_found = verifyJson.tasting_notes_found
+        // 검증 단계에서 업데이트된 필드 반영
+        if (verifyJson?.updated_fields) {
+          const u = verifyJson.updated_fields
+          if (u.identified_name) initial.identified_name = u.identified_name
+          if (u.distillery) initial.distillery = u.distillery
+          if (u.bottler) initial.bottler = u.bottler
+          if (u.age) initial.age = u.age
+          if (u.abv) initial.abv = u.abv
+          if (u.cask) initial.cask = u.cask
+          if (u.vintage) initial.vintage = u.vintage
+          if (u.release_info) initial.release_info = u.release_info
+          if (u.rarity) initial.rarity = u.rarity
+        }
+      } catch (e) {
+        console.warn('[bottle-research] verification failed:', e)
+        initial.verification = { confirmed: false, distillery_bottler_match: 'unverified', note: 'Verification step failed.', conflicts: [] }
+      }
+    }
+
+    initial.references = allReferences
+    return NextResponse.json({ data: initial })
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Error'
     console.error('[bottle-research] error:', msg)

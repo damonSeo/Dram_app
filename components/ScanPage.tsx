@@ -689,10 +689,10 @@ export default function ScanPage() {
     setBottleLoading(true)
     setBottleOpen(true)
     setBottleProfile(null)
-    setBottleStatus(lang === 'en' ? 'Analyzing image + OCR...' : '이미지 + OCR 결과 분석 중...')
+    setBottleStatus(lang === 'en' ? 'Phase 1/3: Analyzing image + OCR...' : '1/3 단계: 이미지 + OCR 분석 중...')
     try {
-      const t1 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Collecting Google + news matches...' : 'Google 검색 · 뉴스 매칭 수집 중...'), 2000)
-      const t2 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Synthesizing with Gemini AI...' : 'Gemini AI로 종합 분석 중...'), 4500)
+      const t1 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Phase 2/3: Google + news matching...' : '2/3 단계: Google 검색 · 뉴스 매칭 중...'), 2500)
+      const t2 = setTimeout(() => setBottleStatus(lang === 'en' ? 'Phase 3/3: Verifying & extracting notes...' : '3/3 단계: 검증 + 외부 노트 추출 중...'), 6000)
 
       const form = new FormData()
       if (scanFile) form.append('image', scanFile)
@@ -1072,9 +1072,9 @@ export default function ScanPage() {
             {/* 결과 */}
             {!bottleLoading && bottleProfile && (
               <div style={{padding:'1rem 1.1rem'}}>
-                {/* 식별 이름 + 신뢰도 */}
+                {/* 식별 이름 + 신뢰도 + 검증 */}
                 <div style={{marginBottom:'1.1rem'}}>
-                  <div style={{display:'flex', alignItems:'center', gap:'0.5rem', marginBottom:'0.4rem', flexWrap:'wrap'}}>
+                  <div style={{display:'flex', alignItems:'center', gap:'0.4rem', marginBottom:'0.5rem', flexWrap:'wrap'}}>
                     <span className="mono" style={{
                       fontSize:'0.55rem', padding:'0.18rem 0.5rem',
                       background: bottleProfile.confidence === 'high' ? 'var(--gp)' : bottleProfile.confidence === 'medium' ? 'rgba(255,255,255,0.06)' : 'rgba(207,126,126,0.15)',
@@ -1084,6 +1084,27 @@ export default function ScanPage() {
                     }}>
                       신뢰도 {bottleProfile.confidence}
                     </span>
+
+                    {/* 검증 배지 */}
+                    {bottleProfile.verification && (() => {
+                      const m = bottleProfile.verification.distillery_bottler_match
+                      const cfg = {
+                        confirmed:    { bg: 'var(--gp)', fg: 'var(--gold)', bd: 'var(--gold)', icon: '✓', label: 'VERIFIED' },
+                        likely:       { bg: 'rgba(255,255,255,0.06)', fg: 'var(--tx2)', bd: 'var(--bd2)', icon: '~', label: 'LIKELY' },
+                        conflicting:  { bg: 'rgba(207,126,126,0.15)', fg: '#cf7e7e', bd: '#cf7e7e', icon: '⚠', label: 'CONFLICT' },
+                        unverified:   { bg: 'rgba(255,255,255,0.04)', fg: 'var(--tx3)', bd: 'var(--bd)', icon: '?', label: 'UNVERIFIED' },
+                      }[m]
+                      return (
+                        <span className="mono" style={{
+                          fontSize:'0.55rem', padding:'0.18rem 0.5rem',
+                          background: cfg.bg, color: cfg.fg, border: `1px solid ${cfg.bd}`,
+                          letterSpacing:'0.08em', textTransform:'uppercase',
+                        }}>
+                          {cfg.icon} {cfg.label}
+                        </span>
+                      )
+                    })()}
+
                     {bottleProfile.rarity && (
                       <span className="mono" style={{fontSize:'0.55rem', padding:'0.18rem 0.5rem', border:'1px solid var(--bd)', color:'var(--tx3)', letterSpacing:'0.06em', textTransform:'uppercase'}}>
                         {bottleProfile.rarity}
@@ -1093,6 +1114,20 @@ export default function ScanPage() {
                   <h2 className="display" style={{fontSize:'1.45rem', color:'var(--tx)', lineHeight:1.25}}>{bottleProfile.identified_name}</h2>
                   {bottleProfile.release_info && (
                     <p className="mono" style={{fontSize:'0.62rem', color:'var(--gold)', marginTop:'0.3rem'}}>{bottleProfile.release_info}</p>
+                  )}
+
+                  {/* 검증 노트 */}
+                  {bottleProfile.verification?.note && (
+                    <div style={{marginTop:'0.6rem', padding:'0.55rem 0.75rem', background:'var(--c3)', borderLeft:`2px solid ${bottleProfile.verification.distillery_bottler_match === 'confirmed' ? 'var(--gold)' : bottleProfile.verification.distillery_bottler_match === 'conflicting' ? '#cf7e7e' : 'var(--bd2)'}`}}>
+                      <p style={{fontSize:'0.72rem', color:'var(--tx2)', lineHeight:1.6}}>{bottleProfile.verification.note}</p>
+                      {bottleProfile.verification.conflicts && bottleProfile.verification.conflicts.length > 0 && (
+                        <ul style={{listStyle:'none', marginTop:'0.4rem'}}>
+                          {bottleProfile.verification.conflicts.map((c, i) => (
+                            <li key={i} style={{fontSize:'0.66rem', color:'#cf7e7e', lineHeight:1.6}}>⚠ {c}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -1143,6 +1178,53 @@ export default function ScanPage() {
                         <div key={lbl as string} style={{padding:'0.55rem 0.8rem', background:'var(--c3)', borderLeft:'2px solid var(--gold)'}}>
                           <p className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', marginBottom:'0.2rem', letterSpacing:'0.05em'}}>{lbl}</p>
                           <p style={{fontSize:'0.75rem', color:'var(--tx)', lineHeight:1.65}}>{v}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 외부 리뷰에서 찾은 테이스팅 노트 */}
+                {bottleProfile.tasting_notes_found && bottleProfile.tasting_notes_found.length > 0 && (
+                  <div style={{marginBottom:'1.1rem'}}>
+                    <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.45rem'}}>
+                      📝 발견된 외부 노트 ({bottleProfile.tasting_notes_found.length})
+                    </p>
+                    <div style={{display:'flex', flexDirection:'column', gap:'0.5rem'}}>
+                      {bottleProfile.tasting_notes_found.map((n, i) => (
+                        <div key={i} style={{padding:'0.7rem 0.85rem', background:'var(--c3)', border:'1px solid var(--bd)'}}>
+                          <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.4rem', gap:'0.5rem', flexWrap:'wrap'}}>
+                            <span className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', letterSpacing:'0.06em', textTransform:'uppercase'}}>
+                              {n.link ? (
+                                <a href={n.link} target="_blank" rel="noopener noreferrer" style={{color:'var(--gold)', textDecoration:'none'}}>{n.source} ↗</a>
+                              ) : n.source}
+                            </span>
+                            {n.rating && (
+                              <span className="mono" style={{fontSize:'0.55rem', color:'var(--gold)', border:'1px solid var(--gold)', padding:'0.1rem 0.4rem', letterSpacing:'0.06em'}}>
+                                ★ {n.rating}
+                              </span>
+                            )}
+                          </div>
+                          {n.nose && (
+                            <p style={{fontSize:'0.72rem', color:'var(--tx)', lineHeight:1.6, marginBottom:'0.25rem'}}>
+                              <span style={{color:'var(--gold)', fontFamily:'var(--mono)', fontSize:'0.62rem', marginRight:'0.35rem'}}>🌸 NOSE</span>{n.nose}
+                            </p>
+                          )}
+                          {n.palate && (
+                            <p style={{fontSize:'0.72rem', color:'var(--tx)', lineHeight:1.6, marginBottom:'0.25rem'}}>
+                              <span style={{color:'var(--gold)', fontFamily:'var(--mono)', fontSize:'0.62rem', marginRight:'0.35rem'}}>🥃 PALATE</span>{n.palate}
+                            </p>
+                          )}
+                          {n.finish && (
+                            <p style={{fontSize:'0.72rem', color:'var(--tx)', lineHeight:1.6, marginBottom:'0.25rem'}}>
+                              <span style={{color:'var(--gold)', fontFamily:'var(--mono)', fontSize:'0.62rem', marginRight:'0.35rem'}}>✨ FINISH</span>{n.finish}
+                            </p>
+                          )}
+                          {n.overall && (
+                            <p style={{fontSize:'0.7rem', color:'var(--tx2)', lineHeight:1.6, marginTop:'0.4rem', fontStyle:'italic'}}>
+                              "{n.overall}"
+                            </p>
+                          )}
                         </div>
                       ))}
                     </div>
