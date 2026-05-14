@@ -221,172 +221,200 @@ select option { background: var(--c2); color: var(--tx); }
   box-shadow: 0 1px 0 rgba(31,26,18,0.03);
 }
 
-/* ─────────────────────── Mobile responsive ─────────────────────── */
+/* ═══════════════════════════ Mobile Responsive ═══════════════════════════ */
 
 html { -webkit-text-size-adjust: 100%; }
+body { overflow-x: hidden; }
 
-/* 모바일 하단 네비 — 기본 숨김 (데스크탑) */
-.bottom-nav {
-  display: none;
-}
+/* 모바일 하단 네비 — 데스크탑은 숨김 */
+.bottom-nav { display: none; }
 
-/* ── 900px 이하 ── */
+/* ────────── 900px 이하 (작은 데스크탑/태블릿) ────────── */
 @media (max-width: 900px) {
-  .home-shell { grid-template-columns: 1fr !important; gap: 1rem !important; padding: 1.5rem 1rem !important; }
+  .home-shell {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+    padding: 1.25rem 1rem !important;
+  }
   .home-rail { position: static !important; }
 }
 
-/* ── 뉴스 섹션 모바일 최적화 ── */
+/* ────────── 768px 이하 (태블릿/모바일) ────────── */
 @media (max-width: 768px) {
-  /* 뉴스 제목 더 크게 */
-  .news-title { font-size: 0.7rem !important; letter-spacing: 0.15em !important; }
-
-  /* 탭 — 터치 영역 + 가독성 */
-  .news-tab {
-    padding: 0.7rem 0.85rem !important;
-    font-size: 0.7rem !important;
+  /* 페이지 하단 여백 — 바텀 네비(60px) + 안전영역 */
+  main {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
-  /* 뉴스 항목 — 더 여유롭고 가독성 좋게 */
-  .news-item {
-    padding: 1rem 0.85rem !important;
-    gap: 0.85rem !important;
-  }
-
-  /* 썸네일 더 크게 */
-  .news-thumb {
-    width: 72px !important;
-    height: 72px !important;
-    font-size: 1.5rem !important;
-  }
-
-  /* 소스 배지 가독성 */
-  .news-source {
-    font-size: 0.58rem !important;
-    padding: 0.18rem 0.5rem !important;
-  }
-  .news-date {
-    font-size: 0.6rem !important;
-  }
-
-  /* 제목 — 모바일에서 더 크게, 3줄까지 */
-  .news-title-text {
-    font-size: 0.95rem !important;
-    line-height: 1.4 !important;
-    -webkit-line-clamp: 3 !important;
-    margin-bottom: 0.35rem !important;
-  }
-
-  /* 설명 — 더 크게, 2줄 표시 */
-  .news-desc {
-    font-size: 0.7rem !important;
-    line-height: 1.55 !important;
-    -webkit-line-clamp: 2 !important;
-  }
-
-  /* 북마크 버튼 — 터치 영역 확대 */
-  .news-bookmark {
-    min-width: 40px !important;
-    min-height: 40px !important;
-    font-size: 1rem !important;
-    padding: 0.5rem !important;
-  }
-  .news-arrow { font-size: 0.85rem !important; }
-
-  /* 더보기 버튼 */
-  .news-more {
-    padding: 1.1rem !important;
-    font-size: 0.75rem !important;
-  }
-
-  /* 탭 스크롤바 숨김 (iOS) */
-  .news-tabs::-webkit-scrollbar { display: none; }
-  .news-tabs { scrollbar-width: none; }
-}
-
-/* ── 480px 이하 — 진짜 좁은 폰 ── */
-@media (max-width: 480px) {
-  .news-item { padding: 0.85rem 0.75rem !important; gap: 0.7rem !important; }
-  .news-thumb { width: 60px !important; height: 60px !important; }
-  .news-title-text { font-size: 0.9rem !important; -webkit-line-clamp: 3 !important; }
-  .news-desc { font-size: 0.68rem !important; -webkit-line-clamp: 2 !important; }
-  .news-tab { padding: 0.6rem 0.7rem !important; font-size: 0.65rem !important; }
-  /* 헤더 우측 출처 표시 숨김 (탭에서 보임) */
-  .news-section > div:first-child p:nth-child(2) { display: none; }
-}
-
-/* ── 768px 이하 (태블릿 · 모바일) ── */
-@media (max-width: 768px) {
-  /* 페이지 하단 여백 — 바텀 네비 높이만큼 */
-  main { padding-bottom: 64px !important; }
-
-  /* 상단 탭 숨기고 모바일 우측 버튼 표시 */
+  /* === Top Bar === */
   .topbar-nav { display: none !important; }
   .topbar-mobile-right { display: flex !important; }
+  header { padding: 0 1rem !important; }
 
-  /* 하단 네비 활성화 */
+  /* === 하단 네비 === */
   .bottom-nav {
     display: flex;
     position: fixed;
     bottom: 0; left: 0; right: 0;
     z-index: 100;
     height: 60px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
     background: rgba(39,35,35,0.97);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-top: 1px solid var(--bd2);
   }
 
-  /* 홈 stats 패널 숨김 */
+  /* === Hero (홈) — 패딩 축소 + 텍스트 정렬 === */
+  .hero-wrap {
+    padding: 2.5rem 1rem 2rem !important;
+    flex-direction: column !important;
+    gap: 1.5rem !important;
+    align-items: flex-start !important;
+  }
+  .hero-eyebrow {
+    font-size: 0.55rem !important;
+    letter-spacing: 0.25em !important;
+    margin-bottom: 0.6rem !important;
+  }
+  .hero-h1 { font-size: 3.2rem !important; }
+  .hero-h2 { font-size: 0.95rem !important; letter-spacing: 0.3em !important; margin-bottom: 1rem !important; }
+  .hero-tagline {
+    font-size: 0.82rem !important;
+    line-height: 1.7 !important;
+    margin-bottom: 1.5rem !important;
+  }
+  .hero-cta { display: flex; flex-direction: row; gap: 0.5rem !important; flex-wrap: wrap; }
+  .hero-cta button {
+    flex: 1 1 auto !important;
+    padding: 0.75rem 1rem !important;
+    font-size: 0.65rem !important;
+    justify-content: center;
+  }
   .home-stats-panel { display: none !important; }
 
-  /* 페이지 패딩 */
+  /* === 메인 컨텐츠 패딩 === */
+  .home-shell { padding: 1.25rem 0.85rem !important; }
   .m-page { padding: 1rem 0.85rem !important; max-width: 100% !important; }
 
-  /* 그리드 단일 컬럼 */
+  /* === 그리드 단일 컬럼 === */
   .m-grid-collapse { grid-template-columns: 1fr !important; }
   .m-share-grid    { grid-template-columns: 1fr !important; gap: 1rem !important; }
   .m-grid-3-col   { grid-template-columns: 1fr !important; gap: 0.75rem !important; }
   .m-recent-grid  { grid-template-columns: 1fr !important; }
 
-  /* 컬렉션 카드 */
-  .m-card-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important; }
+  /* === 컬렉션 카드 === */
+  .m-card-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
 
-  /* 모달 */
-  .m-modal-panel { padding: 1rem 0.5rem !important; }
+  /* === 모달 === */
+  .m-modal-panel { padding: 0.5rem !important; }
   .m-modal-body  { padding: 0 0.85rem 1.25rem !important; }
   .m-display-lg  { font-size: 1.4rem !important; }
 
-  /* 홈 hero 패딩 축소 */
-  .home-shell > div { padding: 1.25rem 0.85rem !important; }
+  /* === 뉴스 섹션 === */
+  .news-section { margin-bottom: 1.75rem !important; }
+  .news-title { font-size: 0.7rem !important; letter-spacing: 0.15em !important; }
+  .news-tabs { -ms-overflow-style: none; scrollbar-width: none; }
+  .news-tabs::-webkit-scrollbar { display: none; }
+  .news-tab { padding: 0.7rem 0.85rem !important; font-size: 0.7rem !important; }
+  .news-item { padding: 1rem 0.85rem !important; gap: 0.85rem !important; }
+  .news-thumb { width: 72px !important; height: 72px !important; font-size: 1.5rem !important; }
+  .news-source { font-size: 0.58rem !important; padding: 0.18rem 0.5rem !important; }
+  .news-date { font-size: 0.6rem !important; }
+  .news-title-text {
+    font-size: 0.95rem !important; line-height: 1.4 !important;
+    -webkit-line-clamp: 3 !important; margin-bottom: 0.35rem !important;
+  }
+  .news-desc {
+    font-size: 0.7rem !important; line-height: 1.55 !important;
+    -webkit-line-clamp: 2 !important;
+  }
+  .news-bookmark {
+    min-width: 40px !important; min-height: 40px !important;
+    font-size: 1rem !important; padding: 0.5rem !important;
+  }
+  .news-arrow { font-size: 0.85rem !important; }
+  .news-more { padding: 1.1rem !important; font-size: 0.75rem !important; }
+
+  /* === 사이드바 위젯들 (모바일에서는 메인 아래로) === */
+  .home-rail { gap: 1rem !important; }
+  .home-rail > div { width: 100% !important; }
+
+  /* === 입력 필드/textarea 줌 방지 (iOS) === */
+  input[type='text'], input[type='email'], input[type='password'],
+  input[type='number'], input[type='search'], select, textarea {
+    font-size: 16px !important;
+  }
 }
 
-/* ── 480px 이하 (소형 폰) ── */
+/* ────────── 480px 이하 (모바일) ────────── */
 @media (max-width: 480px) {
   header { padding: 0 0.85rem !important; }
 
-  .brand-logo .display:first-child  { font-size: 0.9rem !important; letter-spacing: 0.22em !important; }
-  .brand-logo .display:last-child   { font-size: 0.54rem !important; letter-spacing: 0.18em !important; }
+  /* 브랜드 로고 */
+  .brand-logo .display:first-child  { font-size: 0.85rem !important; letter-spacing: 0.2em !important; }
+  .brand-logo .display:last-child   { font-size: 0.5rem !important; letter-spacing: 0.16em !important; }
 
-  /* 모달 오버레이 */
+  /* Hero — 가장 압축 */
+  .hero-wrap { padding: 2rem 0.85rem 1.75rem !important; gap: 1.25rem !important; }
+  .hero-h1 { font-size: 2.6rem !important; }
+  .hero-h2 { font-size: 0.85rem !important; letter-spacing: 0.28em !important; }
+  .hero-tagline { font-size: 0.78rem !important; }
+  .hero-cta button { font-size: 0.6rem !important; padding: 0.7rem 0.85rem !important; }
+
+  /* 메인 패딩 */
+  .home-shell { padding: 1rem 0.75rem !important; }
+  .m-page { padding: 0.85rem 0.75rem !important; }
+
+  /* 모달 */
   .m-modal-overlay { padding: 0.5rem !important; align-items: flex-start !important; }
-
-  /* 확인 버튼 세로 배치 */
   .m-confirm-actions { flex-direction: column !important; align-items: stretch !important; }
   .m-confirm-actions > button { width: 100% !important; justify-content: center !important; }
 
-  /* 드롭존 */
+  /* 드롭존 / 스캔 */
   .m-dropzone { padding: 1.75rem 1rem !important; }
 
   /* Share 카드 */
   #shareCard { padding: 1.1rem !important; }
   #shareCard .display { font-size: 1.25rem !important; }
 
-  /* 검색 사이드바 — 모바일에서 숨김 */
+  /* 검색 사이드바 숨김 */
   .search-sidebar { display: none !important; }
 
-  /* 홈 hero 축소 */
-  .home-hero-content h1 { font-size: 2.8rem !important; }
-  .home-hero-cta { flex-direction: column !important; }
-  .home-hero-cta button { width: 100% !important; justify-content: center !important; }
+  /* 컬렉션 카드 더 작게 */
+  .m-card-grid { grid-template-columns: 1fr 1fr !important; gap: 0.4rem !important; }
+
+  /* 뉴스 — 좁은 폰 */
+  .news-section { margin-bottom: 1.5rem !important; }
+  .news-item { padding: 0.85rem 0.75rem !important; gap: 0.7rem !important; }
+  .news-thumb { width: 60px !important; height: 60px !important; }
+  .news-title-text { font-size: 0.88rem !important; -webkit-line-clamp: 3 !important; }
+  .news-desc { font-size: 0.65rem !important; -webkit-line-clamp: 2 !important; }
+  .news-tab { padding: 0.6rem 0.7rem !important; font-size: 0.65rem !important; }
+
+  /* 사이드바 위젯 헤더 */
+  .home-rail > div > div:first-child { padding: 0.55rem 0.85rem !important; }
+
+  /* 컬렉션 헤더/필터 */
+  .m-page > div { gap: 0.5rem !important; }
+
+  /* 코멘트 영역 */
+  textarea { font-size: 16px !important; }
+
+  /* 사이드바 카드 안의 폰트 살짝 조정 */
+  .home-rail .display { font-size: 0.95rem !important; }
+}
+
+/* ────────── 360px 이하 (아주 좁은 폰) ────────── */
+@media (max-width: 360px) {
+  .hero-h1 { font-size: 2.2rem !important; }
+  .hero-h2 { font-size: 0.75rem !important; letter-spacing: 0.22em !important; }
+  .hero-cta { flex-direction: column !important; }
+  .hero-cta button { width: 100% !important; }
+  .news-thumb { width: 52px !important; height: 52px !important; }
+  .news-title-text { font-size: 0.82rem !important; }
+  .m-card-grid { grid-template-columns: 1fr !important; }
 }

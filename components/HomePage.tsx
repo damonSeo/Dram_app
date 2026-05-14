@@ -111,18 +111,18 @@ export default function HomePage() {
         <div style={{ position: 'absolute', top: -100, right: -80, width: 480, height: 480, borderRadius: '50%', background: 'rgba(198,107,61,0.07)', pointerEvents: 'none' }} />
         <div style={{ position: 'absolute', bottom: -60, left: '30%', width: 260, height: 260, borderRadius: '50%', background: 'rgba(198,107,61,0.04)', pointerEvents: 'none' }} />
 
-        <div style={{ maxWidth: 1160, margin: '0 auto', padding: '4rem 1.5rem 3.5rem', position: 'relative', display: 'flex', alignItems: 'center', gap: '3rem' }}>
-          <div style={{ flex: 1 }}>
-            <p className="mono" style={{ fontSize: '0.6rem', color: 'rgba(198,107,61,0.6)', letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: '1rem' }}>
+        <div className="hero-wrap" style={{ maxWidth: 1160, margin: '0 auto', padding: '4rem 1.5rem 3.5rem', position: 'relative', display: 'flex', alignItems: 'center', gap: '3rem' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p className="mono hero-eyebrow" style={{ fontSize: '0.6rem', color: 'rgba(198,107,61,0.6)', letterSpacing: '0.35em', textTransform: 'uppercase', marginBottom: '1rem' }}>
               Private Whisky Archive · Est. 2024
             </p>
-            <h1 className="display" style={{ fontSize: 'clamp(2.8rem, 6vw, 5rem)', color: '#F2EDE7', letterSpacing: '0.06em', lineHeight: 0.95, marginBottom: '0.5rem' }}>OAK</h1>
-            <h2 className="display" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.6rem)', color: 'var(--gold)', letterSpacing: '0.38em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>The Record</h2>
-            <p style={{ fontSize: '0.9rem', color: 'rgba(242,237,231,0.5)', lineHeight: 1.75, maxWidth: 420, marginBottom: '2rem' }}>
+            <h1 className="display hero-h1" style={{ fontSize: 'clamp(2.8rem, 6vw, 5rem)', color: '#F2EDE7', letterSpacing: '0.06em', lineHeight: 0.95, marginBottom: '0.5rem' }}>OAK</h1>
+            <h2 className="display hero-h2" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.6rem)', color: 'var(--gold)', letterSpacing: '0.38em', textTransform: 'uppercase', marginBottom: '1.5rem' }}>The Record</h2>
+            <p className="hero-tagline" style={{ fontSize: '0.9rem', color: 'rgba(242,237,231,0.5)', lineHeight: 1.75, maxWidth: 420, marginBottom: '2rem' }}>
               위스키 한 잔의 기억을 기록합니다.<br />
               테이스팅 노트, 스코어, 그리고 당신만의 아카이브.
             </p>
-            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className="hero-cta" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <button onClick={goScan} className="mono"
                 style={{ background: 'var(--gold)', border: 'none', color: '#fff', padding: '0.8rem 1.6rem', cursor: 'pointer', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase', fontWeight: 600 }}>
                 ⬡ Scan Label
