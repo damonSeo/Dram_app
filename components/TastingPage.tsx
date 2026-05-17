@@ -39,7 +39,7 @@ interface AiModal {
 }
 
 export default function TastingPage() {
-  const { currentLog, collection, updateCurrentLog, upsertToCollection, resetCurrentLog, setActiveTab, setExtractedKeys, setDirty } = useStore()
+  const { currentLog, collection, updateCurrentLog, upsertToCollection, resetCurrentLog, setActiveTab, setExtractedKeys, setDirty, referenceNotes } = useStore()
   const { showToast } = useToast()
 
   const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
@@ -75,7 +75,31 @@ export default function TastingPage() {
   const aiPayload = () => ({
     brand: currentLog.brand, age: currentLog.age, abv: currentLog.abv,
     casks: currentLog.casks, region: currentLog.region,
+    // Bottle Research 참고 노트 — 인스타/블로그 생성 시 작성자 노트와 비교용
+    ...(referenceNotes ? {
+      refNose: referenceNotes.nose,
+      refPalate: referenceNotes.palate,
+      refFinish: referenceNotes.finish,
+      refSource: referenceNotes.source,
+    } : {}),
   })
+
+  // 참고 노트를 내 노트 뒤에 추가
+  const appendReferenceNotes = () => {
+    if (!referenceNotes) return
+    const tag = `[${referenceNotes.source}]`
+    const append = (cur: string | undefined, add: string) => {
+      if (!add.trim()) return cur || ''
+      const base = (cur || '').trim()
+      return base ? `${base}\n${tag} ${add}` : `${tag} ${add}`
+    }
+    updateCurrentLog({
+      nose: append(currentLog.nose, referenceNotes.nose),
+      palate: append(currentLog.palate, referenceNotes.palate),
+      finish: append(currentLog.finish, referenceNotes.finish),
+    })
+    showToast('참고 노트를 향·맛·여운 뒤에 추가했어요', 'ok')
+  }
 
   const openAI = async (title: string, action: string, field: 'nose'|'palate'|'finish', payload: object) => {
     setAiModal({ open: true, title, text: '', loading: true, field, action, payload })
@@ -334,6 +358,34 @@ export default function TastingPage() {
           </div>
         )}
       </div>
+
+      {/* Bottle Research 참고 노트 */}
+      {referenceNotes && (referenceNotes.nose || referenceNotes.palate || referenceNotes.finish) && (
+        <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', padding: '0.7rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
+            <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              🔍 Bottle Research 참고 · {referenceNotes.source}
+            </p>
+            <button onClick={appendReferenceNotes} className="mono"
+              style={{ background: 'var(--gold)', border: 'none', color: '#000', padding: '0.35rem 0.7rem', cursor: 'pointer', fontSize: '0.58rem', fontWeight: 600, letterSpacing: '0.04em' }}>
+              ▼ 내 노트 뒤에 추가
+            </button>
+          </div>
+          <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {([['🌸 향', referenceNotes.nose], ['🥃 맛', referenceNotes.palate], ['✨ 여운', referenceNotes.finish]] as [string, string][])
+              .filter(([, v]) => v && v.trim())
+              .map(([lbl, v]) => (
+                <div key={lbl}>
+                  <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', marginBottom: '0.15rem', letterSpacing: '0.05em' }}>{lbl}</p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--tx2)', lineHeight: 1.6 }}>{v}</p>
+                </div>
+              ))}
+            <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', marginTop: '0.2rem', lineHeight: 1.6 }}>
+              인스타·블로그 생성 시 작성자 노트와 자동 비교됩니다.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 2-col grid */}
       <div className="m-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>

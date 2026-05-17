@@ -22,6 +22,9 @@ interface DramStore {
   // Auth state
   currentUserId: string | null
   currentProfile: Profile | null
+  // Bottle Research 참고 노트 (스캔 → 노트/인스타 비교용, currentLog와 별개로 유지)
+  referenceNotes: { nose: string; palate: string; finish: string; source: string } | null
+  setReferenceNotes: (r: DramStore['referenceNotes']) => void
   // Search
   searchQuery: string
   setSearchQuery: (q: string) => void
@@ -60,9 +63,11 @@ export const useStore = create<DramStore>()((set, get) => ({
   currentUserId: null,
   currentProfile: null,
   searchQuery: '',
+  referenceNotes: null,
   newsBookmarks: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+  setReferenceNotes: (r) => set({ referenceNotes: r }),
   setSearchQuery: (q) => set({ searchQuery: q }),
   setNewsBookmarks: (b) => set({ newsBookmarks: b }),
   addBookmark: (b) => {
@@ -99,6 +104,7 @@ export const useStore = create<DramStore>()((set, get) => ({
       currentLog: { ...DEFAULT_LOG },
       isDirty: false,
       extractedKeys: { nose: [], palate: [], finish: [] },
+      referenceNotes: null,
       activeTab: 'scan',
     }),
 
@@ -151,7 +157,7 @@ export const useStore = create<DramStore>()((set, get) => ({
     const json = (await res.json()) as { data?: WhiskyLog; error?: string }
     if (!res.ok) throw new Error(json.error || '저장 실패')
     if (json.data) upsertToCollection(json.data)
-    set({ currentLog: { ...DEFAULT_LOG }, isDirty: false, extractedKeys: { nose: [], palate: [], finish: [] } })
+    set({ currentLog: { ...DEFAULT_LOG }, isDirty: false, extractedKeys: { nose: [], palate: [], finish: [] }, referenceNotes: null })
     return json.data as WhiskyLog
   },
 }))

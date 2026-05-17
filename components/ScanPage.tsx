@@ -634,7 +634,7 @@ function PhotoSection({ photo, setPhoto, photoRef }: { photo:string|null; setPho
 /* ── Main InputPage ───────────────────────────────────────────────────────── */
 
 export default function ScanPage() {
-  const { updateCurrentLog, resetCurrentLog, setActiveTab, scanMode, setScanMode } = useStore()
+  const { updateCurrentLog, resetCurrentLog, setActiveTab, scanMode, setScanMode, setReferenceNotes } = useStore()
   const { showToast } = useToast()
   const [mode, setMode] = useState<InputMode>(scanMode)
   const [spiritType, setSpiritType] = useState<SpiritType>('whisky')
@@ -1212,7 +1212,28 @@ export default function ScanPage() {
                 {/* 향·맛·여운 */}
                 {bottleProfile.flavor_profile && (
                   <div style={{marginBottom:'1.1rem'}}>
-                    <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase', marginBottom:'0.45rem'}}>Flavor Profile</p>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'0.45rem', gap:'0.5rem', flexWrap:'wrap'}}>
+                      <p className="mono" style={{fontSize:'0.55rem', color:'var(--tx3)', letterSpacing:'0.1em', textTransform:'uppercase'}}>Flavor Profile</p>
+                      <button
+                        onClick={() => {
+                          const fp = bottleProfile.flavor_profile!
+                          // 외부 리뷰 노트가 있으면 첫 번째 것을 함께 합산
+                          const ext = bottleProfile.tasting_notes_found?.[0]
+                          const merge = (a?: string, b?: string) => [a, b].filter(Boolean).join(' / ')
+                          setReferenceNotes({
+                            nose: merge(fp.nose, ext?.nose),
+                            palate: merge(fp.palate, ext?.palate),
+                            finish: merge(fp.finish, ext?.finish),
+                            source: ext?.source ? `AI 분석 + ${ext.source}` : 'AI 분석',
+                          })
+                          showToast('참고 노트로 저장됨 — 노트/인스타에서 비교됩니다', 'ok')
+                        }}
+                        className="mono"
+                        style={{background:'transparent', border:'1px solid var(--gold)', color:'var(--gold)',
+                          padding:'0.3rem 0.65rem', cursor:'pointer', fontSize:'0.58rem', letterSpacing:'0.04em'}}>
+                        📋 노트 참고로 가져오기
+                      </button>
+                    </div>
                     <div style={{display:'flex', flexDirection:'column', gap:'0.5rem'}}>
                       {[
                         ['🌸 Nose', bottleProfile.flavor_profile.nose],

@@ -46,6 +46,26 @@ ${hasComment ? `- 반드시 작성자 코멘트의 어조와 감정을 살려서
 ${hasComment ? `- 작성자 코멘트의 어조와 감정을 살리기: "${trimmedComment}"` : ''}`
 }
 
+// Bottle Research 참고 노트가 있으면 작성자 노트와 비교하도록 안내
+function buildCompareBlock(p: Payload): string {
+  const rn = String(p.refNose ?? '').trim()
+  const rp = String(p.refPalate ?? '').trim()
+  const rf = String(p.refFinish ?? '').trim()
+  const src = String(p.refSource ?? '전문가/AI 분석').trim()
+  if (!rn && !rp && !rf) return ''
+  return `
+
+[참고 노트 — ${src}]
+- 향: ${rn || '—'}
+- 맛: ${rp || '—'}
+- 여운: ${rf || '—'}
+
+비교 지시:
+- 위 참고 노트는 ${src}의 평가입니다. 작성자의 향/맛/여운과 자연스럽게 비교하세요.
+- 작성자 인상이 참고와 일치하면 "공통적으로 ~", 다르면 "전문 평가와 달리 나는 ~" 식으로 한 문장 정도 비교를 본문에 녹이세요.
+- 참고 노트를 그대로 베끼지 말고, 작성자 관점을 중심으로 대조만 하세요.`
+}
+
 function buildPrompt(action: string, payload: Payload): string {
   switch (action) {
 
@@ -134,7 +154,7 @@ function buildPrompt(action: string, payload: Payload): string {
 - 여운: ${selectedFinish || '—'}
 
 작성자 시음 코멘트: "${userComment || '(없음)'}"
-${tone}
+${tone}${buildCompareBlock(payload)}
 
 캡션 구성 (이 순서와 구조를 반드시 지킬 것):
 1. 훅 문장: 이 위스키를 한 문장으로 압축한 한 줄평 (위 톤 가이드에 따라)
@@ -181,7 +201,7 @@ ${tone}
 - 여운: ${finish || '기록 없음'}
 
 작성자 시음 코멘트: "${userComment || '(없음)'}"
-${tone}
+${tone}${buildCompareBlock(payload)}
 
 블로그 포스트 구성 (아래 섹션 이름을 그대로 사용하고 각 섹션 사이에 빈 줄 추가):
 
@@ -240,7 +260,7 @@ ${overallGuide}
 - 여운: ${finish || '—'}
 
 작성자 시음 코멘트: "${userComment || '(없음)'}"
-${tone}
+${tone}${buildCompareBlock(payload)}
 
 캡션 구성 (이 순서와 형식을 반드시 지킬 것):
 
