@@ -16,6 +16,11 @@ export interface NewsItem {
 // 실제로 접근 가능한 위스키/스피릿 뉴스 RSS 피드
 export const FEEDS = [
   {
+    name: 'WhiskyFun',
+    url: 'https://www.whiskyfun.com/whatsnew.xml',
+    home: 'https://www.whiskyfun.com',
+  },
+  {
     name: 'WhiskyNotes',
     url: 'https://www.whiskynotes.be/feed/',
     home: 'https://www.whiskynotes.be',
@@ -125,8 +130,11 @@ async function fetchFeed(feed: FeedConfig): Promise<NewsItem[]> {
     if (!xml.includes('<item')) return []
 
     const items: NewsItem[] = []
-    // RSS 2.0과 RSS 1.0(RDF) 모두 매칭 — <item ...> 또는 <item rdf:about="...">
-    const blocks = [...xml.matchAll(/<item(?:\s[^>]*)?>([\s\S]*?)<\/item>/g)]
+    // <item> 경계로 분할 — 닫힘 태그(</item>)가 없어도 다음 <item> 또는 </channel>까지를 한 항목으로 처리
+    // (WhiskyFun whatsnew.xml처럼 일부 item이 닫히지 않은 RSS 대응)
+    const blocks = [...xml.matchAll(
+      /<item(?:\s[^>]*)?>([\s\S]*?)(?=<item(?:\s[^>]*)?>|<\/item>|<\/channel>|<\/rdf:RDF>|$)/g
+    )]
 
     for (const b of blocks.slice(0, 8)) {
       const block = b[1]
