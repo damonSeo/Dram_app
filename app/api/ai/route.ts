@@ -178,10 +178,11 @@ ${tone}${buildCompareBlock(payload)}
     }
 
     case 'gen_blog_post': {
-      const { brand, age, vintage, abv, casks, region, color, score, nose, palate, finish, comment } = payload
+      const { brand, age, vintage, abv, casks, region, color, score, nose, palate, finish, comment, distilleryInfo } = payload
       const caskStr = Array.isArray(casks) ? casks.join(' + ') : String(casks ?? '')
       const score10 = normalizeScore(score)
       const userComment = String(comment || '')
+      const distInfo = String(distilleryInfo || '').trim()
       const tone = buildToneBlock(score10, userComment)
       const vintageStr = vintage ? `빈티지 ${vintage}` : null
       const info = [brand, age, vintageStr, abv, caskStr, region].filter(Boolean).join(' / ')
@@ -201,12 +202,21 @@ ${tone}${buildCompareBlock(payload)}
 - 여운: ${finish || '기록 없음'}
 
 작성자 시음 코멘트: "${userComment || '(없음)'}"
+${distInfo ? `\n[증류소 참고 자료]\n${distInfo}\n` : ''}
 ${tone}${buildCompareBlock(payload)}
 
 블로그 포스트 구성 (아래 섹션 이름을 그대로 사용하고 각 섹션 사이에 빈 줄 추가):
 
 [도입부]
 이 위스키와의 첫 만남 또는 인상. 3~4문장. 위 톤 가이드에 따라 작성.
+
+[증류소 이야기]
+${distInfo
+  ? '위 증류소 참고 자료를 바탕으로 증류소의 역사·지역·스타일·특징을 3~4문장으로 소개. 자료를 그대로 나열하지 말고 자연스러운 글로 녹일 것. 이 보틀이 그 증류소 라인업에서 어떤 위치인지도 한 줄 언급.'
+  : `${brand} 증류소에 대해 알려진 일반적인 정보(지역·스타일·대표적 특징)를 2~3문장으로 간략히 소개. 확실하지 않으면 일반론으로.`}
+
+[이 보틀은]
+숙성·캐스크·도수·빈티지 등 스펙이 의미하는 바를 위스키 입문자도 이해하도록 2~3문장으로 쉽게 풀어 설명 (예: 캐스크 종류가 풍미에 주는 영향).
 
 [외관]
 잔에 담긴 색상과 점도를 감각적으로 묘사. 2~3문장.
@@ -230,7 +240,7 @@ ${overallGuide}
 관련 해시태그 8~10개
 
 작성 기준:
-- 전체 1,000~1,200자 분량
+- 전체 1,400~1,700자 분량 (증류소·보틀 설명 섹션 포함)
 - 반드시 순수한 한국어로만 작성 (영어 단어·로마자 절대 금지 — Nose → 향, Palate → 맛, Finish → 여운, Cask → 캐스크, Color → 색상, Overall → 총평)
 - 마크다운 헤더(#) 없이 섹션 이름을 대괄호로 표기 ([향] 등)
 - 본문만 출력`

@@ -113,6 +113,44 @@ export default function SharePage() {
     }
   }
 
+  // 블로그 포스트 — 증류소 정보 + 위스키 요약을 함께 가져와 생성
+  const openBlogPost = async (basePayload: object) => {
+    setModal({ open: true, title: '📝 블로그 포스트', text: '', loading: true, action: 'gen_blog_post', payload: basePayload })
+    let enriched: Record<string, unknown> = { ...(basePayload as Record<string, unknown>) }
+    try {
+      if (currentLog.brand) {
+        const res = await fetch(`/api/distillery?name=${encodeURIComponent(currentLog.brand)}&region=${encodeURIComponent(currentLog.region || '')}`)
+        const j = await res.json() as { data?: Record<string, unknown> }
+        if (res.ok && j.data) {
+          const d = j.data
+          enriched = {
+            ...enriched,
+            distilleryInfo: [
+              d.country && `국가: ${d.country}`,
+              d.region && `지역: ${d.region}`,
+              d.founded && `설립: ${d.founded}`,
+              d.owner && `소유: ${d.owner}`,
+              d.style && `스타일: ${d.style}`,
+              d.signature && `시그니처: ${d.signature}`,
+              d.history && `역사: ${d.history}`,
+              d.trivia && `트리비아: ${d.trivia}`,
+              Array.isArray(d.flagships) && d.flagships.length ? `대표 제품: ${(d.flagships as string[]).join(', ')}` : '',
+            ].filter(Boolean).join('\n'),
+          }
+        }
+      }
+    } catch {
+      // 증류소 정보 실패해도 블로그는 생성
+    }
+    try {
+      const text = await callAI('gen_blog_post', enriched)
+      setModal((p) => ({ ...p, text, loading: false, payload: enriched }))
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : 'AI 오류', 'err')
+      setModal((p) => ({ ...p, open: false }))
+    }
+  }
+
   const regenerate = async () => {
     setModal((p) => ({ ...p, loading: true, text: '' }))
     try {
@@ -318,7 +356,7 @@ export default function SharePage() {
             </div>
             <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => openModal('📝 블로그 포스트', 'gen_blog_post', logForAI)}>
+                onClick={() => openBlogPost(logForAI)}>
                 📝 블로그 포스트 생성
               </button>
               <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }}
