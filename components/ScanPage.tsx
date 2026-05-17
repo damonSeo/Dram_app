@@ -755,7 +755,7 @@ export default function ScanPage() {
       const form = new FormData(); form.append('image', scanFile)
       setProgress(15); setProgLabel('Uploading...')
       const res = await fetch('/api/ocr', { method:'POST', body:form })
-      setProgress(50); setProgLabel('AI Vision 분석 중...')
+      setProgress(45); setProgLabel('AI Vision 분석 + Whiskybase 교차 검증 중...')
       const json = await res.json() as { data?:OcrResult; error?:string }
       if (!res.ok) throw new Error(json.error || `OCR 실패 (${res.status})`)
       setProgress(85); setProgLabel('결과 정리 중...')

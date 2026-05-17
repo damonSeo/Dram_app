@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateText as geminiText, generateWithImage } from '@/lib/gemini'
+import { serperSearch as serperRaw, searchWhiskySources, sortByPriority } from '@/lib/whiskySources'
 
 // 본문 fetch + 2번의 Gemini 호출이 필요해 시간 여유 둠
 export const maxDuration = 60
@@ -227,29 +228,30 @@ async function fetchArticles(targets: Array<{ link: string; source: string; titl
     .filter((x): x is FetchedArticle => x !== null)
 }
 
-// 2차 검색: 식별된 보틀명으로 더 정확한 결과 + 테이스팅 노트 수집
-async function deepSearchByName(name: string, distillery: string, bottler: string): Promise<{ snippets: string; refs: BottleProfile['references'] }> {
+// 2차 검색: 일반 리뷰 검색 + Whiskybase/옥션/리테일러/일본 site 타겟 검색 병렬
+async function deepSearchByName(name: string): Promise<{ snippets: string; refs: BottleProfile['references'] }> {
   const key = process.env.SERPER_API_KEY
   if (!key) return { snippets: '', refs: [] }
   try {
-    // "정식명 tasting notes review" 검색 — 노트 추출 최적화
-    const q = `"${name}" tasting notes review`
-    const res = await fetch('https://google.serper.dev/search', {
-      method: 'POST',
-      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ q, gl: 'us', num: 8 }),
-    })
-    if (!res.ok) return { snippets: '', refs: [] }
-    const data = await res.json() as SerperResponse
-    const parts: string[] = []
+    const [general, dbHits, jpHits] = await Promise.all([
+      // 1) 일반 리뷰/테이스팅 노트 검색
+      serperRaw(`"${name}" tasting notes review`, 8),
+      // 2) Whiskybase·옥션·리테일러 타겟 (정식명·캐스크·도수 정확도)
+      searchWhiskySources(name, { groups: ['databases', 'auctions', 'retailers'], num: 7 }),
+      // 3) 일본 소스 (재패니즈/일본 한정판 대응)
+      searchWhiskySources(name, { groups: ['japanese', 'community'], num: 5 }),
+    ])
+
+    const seen = new Set<string>()
     const refs: BottleProfile['references'] = []
-    if (data.organic) {
-      for (const o of data.organic.slice(0, 8)) {
-        parts.push(`• ${o.title} (${o.displayLink || ''})\n  ${o.snippet || ''}`)
-        refs.push({ title: o.title, link: o.link, source: o.displayLink || '' })
-      }
+    const parts: string[] = []
+    for (const o of [...dbHits, ...general, ...jpHits]) {
+      if (!o.link || seen.has(o.link)) continue
+      seen.add(o.link)
+      parts.push(`• ${o.title} (${o.displayLink || ''})\n  ${o.snippet || ''}`)
+      refs.push({ title: o.title, link: o.link, source: o.displayLink || '' })
     }
-    return { snippets: parts.join('\n'), refs: refs.slice(0, 8) }
+    return { snippets: parts.slice(0, 14).join('\n'), refs: sortByPriority(refs).slice(0, 12) }
   } catch {
     return { snippets: '', refs: [] }
   }
@@ -478,31 +480,20 @@ export async function POST(req: NextRequest) {
     let fetchedArticleSources: Array<{ source: string; link: string }> = []
 
     if (initial.identified_name && initial.identified_name !== '식별 불가' && initial.distillery) {
-      const deep = await deepSearchByName(
-        initial.identified_name,
-        initial.distillery,
-        initial.bottler || '',
-      )
+      const deep = await deepSearchByName(initial.identified_name)
       // 중복 제거하고 합치기
       const seenLinks = new Set(allReferences.map(r => r.link))
       for (const r of deep.refs) {
         if (!seenLinks.has(r.link)) { allReferences.push(r); seenLinks.add(r.link) }
       }
-      allReferences = allReferences.slice(0, 10)
+      allReferences = sortByPriority(allReferences).slice(0, 12)
 
       // PHASE 2.5: 뉴스 + 딥서치 결과를 실제로 fetch해서 본문 추출
-      // 우선순위: WhiskyNotes/WhiskyFun/MaltManiacs 등 리뷰 사이트 > 일반 사이트
-      const REVIEW_DOMAINS = ['whiskynotes', 'whiskyfun', 'maltmaniacs', 'whiskyadvocate', 'thewhiskyexchange', 'masterofmalt', 'kannpaikai', 'whiskyhoop', 'scotchwhisky']
-      const fetchTargets = [
-        ...newsMatches.map(n => ({ link: n.link, source: n.source, title: n.title })),
+      // Whiskybase·옥션·리뷰 사이트 우선 (공유 PRIORITY_FETCH_DOMAINS 기준)
+      const fetchTargets = sortByPriority([
         ...deep.refs.map(r => ({ link: r.link, source: r.source, title: r.title })),
-      ]
-      // 리뷰 사이트 우선 정렬
-      fetchTargets.sort((a, b) => {
-        const aPri = REVIEW_DOMAINS.some(d => (a.link + a.source).toLowerCase().includes(d)) ? 0 : 1
-        const bPri = REVIEW_DOMAINS.some(d => (b.link + b.source).toLowerCase().includes(d)) ? 0 : 1
-        return aPri - bPri
-      })
+        ...newsMatches.map(n => ({ link: n.link, source: n.source, title: n.title })),
+      ])
 
       const articles = await fetchArticles(fetchTargets, 6)
       fetchedArticleSources = articles.map(a => ({ source: a.source, link: a.link }))
