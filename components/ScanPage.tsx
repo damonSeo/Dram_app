@@ -702,7 +702,16 @@ export default function ScanPage() {
 
       const res = await fetch('/api/bottle-research', { method: 'POST', body: form })
       clearTimeout(t1); clearTimeout(t2); clearTimeout(t3)
-      const json = await res.json() as { data?: BottleProfile; error?: string }
+      // 타임아웃 시 Vercel이 HTML 에러 페이지를 반환 → JSON 파싱 실패 방지
+      let json: { data?: BottleProfile; error?: string }
+      try {
+        json = await res.json() as { data?: BottleProfile; error?: string }
+      } catch {
+        if (res.status === 504 || res.status === 502) {
+          throw new Error('분석 시간이 초과됐어요. 잠시 후 다시 시도하거나 사진을 더 선명하게 찍어주세요.')
+        }
+        throw new Error(`분석 실패 (서버 응답 오류 ${res.status})`)
+      }
       if (!res.ok) throw new Error(json.error || '분석 실패')
       if (!json.data) throw new Error('응답 데이터 없음')
       setBottleProfile(json.data)

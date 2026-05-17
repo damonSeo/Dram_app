@@ -151,7 +151,7 @@ async function fetchArticleText(url: string, maxChars = 3000): Promise<string> {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9',
         'Accept-Language': 'en-US,en;q=0.9,ja;q=0.7,ko;q=0.5',
       },
-      signal: AbortSignal.timeout(6000),
+      signal: AbortSignal.timeout(4500),
       redirect: 'follow',
     })
     if (!res.ok) return ''
@@ -441,7 +441,8 @@ export async function POST(req: NextRequest) {
       const bytes = await file.arrayBuffer()
       const base64 = Buffer.from(bytes).toString('base64')
       const mimeType = file.type || 'image/jpeg'
-      raw = await generateWithImage(prompt, base64, mimeType)
+      // 1차 추출은 빠른 모델 — 이후 검색·검증 단계에서 보정됨 (타임아웃 방지)
+      raw = await generateWithImage(prompt, base64, mimeType, false)
     } else {
       // 텍스트만으로 분석
       raw = await geminiText(prompt)
@@ -479,7 +480,7 @@ export async function POST(req: NextRequest) {
     let allReferences = [...references]
     let fetchedArticleSources: Array<{ source: string; link: string }> = []
 
-    if (initial.identified_name && initial.identified_name !== '식별 불가' && initial.distillery) {
+    const runDeepPhase = async () => {
       const deep = await deepSearchByName(initial.identified_name)
       // 중복 제거하고 합치기
       const seenLinks = new Set(allReferences.map(r => r.link))
@@ -495,7 +496,7 @@ export async function POST(req: NextRequest) {
         ...newsMatches.map(n => ({ link: n.link, source: n.source, title: n.title })),
       ])
 
-      const articles = await fetchArticles(fetchTargets, 6)
+      const articles = await fetchArticles(fetchTargets, 4)
       fetchedArticleSources = articles.map(a => ({ source: a.source, link: a.link }))
 
       // Gemini에 전달할 본문 텍스트
@@ -558,6 +559,23 @@ ${a.text}
       } catch (e) {
         console.warn('[bottle-research] verification failed:', e)
         initial.verification = { confirmed: false, distillery_bottler_match: 'unverified', note: 'Verification step failed.', conflicts: [] }
+      }
+    }
+
+    // Phase 2/3은 시간 예산(35초) 내에서만 — 초과 시 1차 결과라도 반환
+    if (initial.identified_name && initial.identified_name !== '식별 불가' && initial.distillery) {
+      const budget = new Promise<'timeout'>(resolve => setTimeout(() => resolve('timeout'), 35000))
+      const result = await Promise.race([runDeepPhase().then(() => 'done' as const), budget])
+      if (result === 'timeout') {
+        console.warn('[bottle-research] deep phase budget exceeded — returning phase-1 result')
+        if (!initial.verification.note) {
+          initial.verification = {
+            confirmed: false,
+            distillery_bottler_match: 'unverified',
+            note: '심층 검증이 시간 내 완료되지 않아 1차 분석 결과를 표시합니다.',
+            conflicts: [],
+          }
+        }
       }
     }
 
