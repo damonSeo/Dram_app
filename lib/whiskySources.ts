@@ -4,6 +4,7 @@
 export const WHISKY_SITES = {
   databases: [
     'whiskybase.com',           // 세계 최대 위스키 DB (90만+ 보틀)
+    'distiller.com',            // 전문가 리뷰 + 스피릿 DB
     'whiskyfun.com',            // Serge Valentin — 리뷰 레퍼런스
     'whiskynotes.be',           // 상세 리뷰
   ],
@@ -31,7 +32,7 @@ export const WHISKY_SITES = {
 
 // 우선적으로 본문을 크롤링할 도메인 (리뷰/DB 신뢰도 높은 순)
 export const PRIORITY_FETCH_DOMAINS = [
-  'whiskybase', 'whiskyfun', 'whiskynotes', 'connosr',
+  'whiskybase', 'distiller', 'whiskyfun', 'whiskynotes', 'connosr',
   'whiskyauctioneer', 'scotchwhiskyauctions', 'whisky.auction',
   'thewhiskyexchange', 'masterofmalt', 'dekanta',
   'kannpaikai', 'whiskyhoop', 'scotchwhisky', 'whiskyadvocate',
