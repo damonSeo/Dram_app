@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
@@ -70,11 +70,13 @@ export default function TastingPage() {
   const [extracting, setExtracting] = useState(false)
   const [genInsta, setGenInsta] = useState(false)
   const [summarizing, setSummarizing] = useState(false)
+  const autoSummaryRef = useRef<{ done: boolean; key: string }>({ done: false, key: '' })
 
-  // 노트 전체를 판단해 한두 줄 평으로
-  const handleSummarizeNotes = async () => {
+  // 노트 전체를 판단해 한두 줄 평으로 (silent=자동 트리거 시 토스트/검증 생략)
+  const handleSummarizeNotes = async (silent = false) => {
     if (!currentLog.nose && !currentLog.palate && !currentLog.finish) {
-      showToast('먼저 향·맛·여운 노트를 작성해주세요', 'err'); return
+      if (!silent) showToast('먼저 향·맛·여운 노트를 작성해주세요', 'err')
+      return
     }
     setSummarizing(true)
     try {
@@ -85,13 +87,30 @@ export default function TastingPage() {
       const v = text.trim().replace(/^["']|["']$/g, '')
       setComment(v)
       updateCurrentLog({ comment: v })
-      showToast('한줄평 생성됨', 'ok')
+      if (!silent) showToast('한줄평 생성됨', 'ok')
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : '생성 실패', 'err')
+      if (!silent) showToast(e instanceof Error ? e.message : '생성 실패', 'err')
     } finally {
       setSummarizing(false)
     }
   }
+
+  // 자동 요약: 향·맛·여운이 모두 채워지고 코멘트가 비어 있으면 1.5초 후 한 번 자동 생성
+  useEffect(() => {
+    const { nose, palate, finish } = currentLog
+    const ready = !!(nose?.trim() && palate?.trim() && finish?.trim())
+    const key = `${nose}|${palate}|${finish}`
+    if (!ready) return
+    if (comment.trim()) return                       // 사용자가 이미 쓴 코멘트는 건드리지 않음
+    if (summarizing) return
+    if (autoSummaryRef.current.done && autoSummaryRef.current.key === key) return
+    const t = setTimeout(() => {
+      autoSummaryRef.current = { done: true, key }
+      handleSummarizeNotes(true)
+    }, 1500)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLog.nose, currentLog.palate, currentLog.finish, comment, summarizing])
   const [showBanner, setShowBanner] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -518,13 +537,18 @@ export default function TastingPage() {
           </div>
           <textarea rows={5} value={comment}
             onChange={(e) => { setComment(e.target.value); updateCurrentLog({ comment: e.target.value }) }}
-            placeholder="시음 느낌을 자유롭게 적어주세요..." style={{ lineHeight: 1.7 }} />
-          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
-            <button className="btn-ghost" style={{ fontSize: '0.7rem' }}
+            placeholder={summarizing ? '향·맛·여운 노트를 분석해 한줄평을 작성 중...' : '향·맛·여운을 채우면 자동으로 한줄평이 생성됩니다 · 직접 작성도 가능'}
+            style={{ lineHeight: 1.7 }} />
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              {summarizing
+                ? <><span className="spinner" /> 노트 분석 중...</>
+                : '◈ 노트 기반 자동 한줄평'}
+            </span>
+            <button className="btn-ghost" style={{ fontSize: '0.66rem' }}
               disabled={summarizing}
-              onClick={handleSummarizeNotes}>
-              {summarizing ? <span className="spinner" /> : null}
-              ◈ 노트에서 한줄평 생성
+              onClick={() => handleSummarizeNotes(false)}>
+              ↻ 다시 생성
             </button>
             <button className="btn-outline-gold" style={{ fontSize: '0.7rem' }}
               disabled={extracting || !comment.trim()}
