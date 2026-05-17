@@ -1,5 +1,5 @@
 'use client'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import TopBar from '@/components/TopBar'
 import HomePage from '@/components/HomePage'
@@ -9,10 +9,12 @@ import CollectionPage from '@/components/CollectionPage'
 import SharePage from '@/components/SharePage'
 import SearchPage from '@/components/SearchPage'
 import { ToastProvider } from '@/components/Toast'
-import type { WhiskyLog } from '@/types'
+import type { WhiskyLog, TabName } from '@/types'
 
 export default function Home() {
   const { activeTab, setCollection, loadBookmarks, currentUserId } = useStore()
+  // popstate(뒤로가기)로 인한 탭 변경 시 history push를 건너뛰기 위한 플래그
+  const skipPushRef = useRef(false)
 
   useEffect(() => {
     fetch('/api/whisky-logs')
@@ -27,6 +29,31 @@ export default function Home() {
   useEffect(() => {
     if (currentUserId) loadBookmarks()
   }, [currentUserId, loadBookmarks])
+
+  // ── 브라우저/사파리 뒤로가기 ↔ activeTab 동기화 ──
+  useEffect(() => {
+    const setTab = useStore.getState().setActiveTab
+    // 첫 진입 항목 고정
+    const cur = useStore.getState().activeTab
+    if (!window.history.state || !(window.history.state as { tab?: string }).tab) {
+      window.history.replaceState({ tab: cur }, '', `#${cur}`)
+    }
+    const onPop = (e: PopStateEvent) => {
+      const tab = (e.state as { tab?: TabName } | null)?.tab
+      skipPushRef.current = true
+      setTab(tab || 'home')
+    }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  // 탭이 사용자 조작으로 바뀌면 history에 push (뒤로가기로 복귀 가능하게)
+  useEffect(() => {
+    if (skipPushRef.current) { skipPushRef.current = false; return }
+    const st = window.history.state as { tab?: string } | null
+    if (st?.tab === activeTab) return
+    window.history.pushState({ tab: activeTab }, '', `#${activeTab}`)
+  }, [activeTab])
 
   return (
     <ToastProvider>
