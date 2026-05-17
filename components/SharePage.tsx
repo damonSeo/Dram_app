@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
+import type { BottleProfile } from '@/app/api/bottle-research/route'
 
 async function callAI(action: string, payload: object): Promise<string> {
   const res = await fetch('/api/ai', {
@@ -22,6 +23,45 @@ export default function SharePage() {
   const [modal, setModal] = useState({ open: false, title: '', text: '', loading: false, action: '', payload: {} as object })
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
+
+  // 참고용 오피셜 바틀 노트
+  const [official, setOfficial] = useState<BottleProfile | null>(null)
+  const [officialLoading, setOfficialLoading] = useState(false)
+  const [officialTried, setOfficialTried] = useState(false)
+
+  const loadOfficialNotes = async () => {
+    setOfficialLoading(true)
+    setOfficialTried(true)
+    setOfficial(null)
+    try {
+      const form = new FormData()
+      form.append('ocr', JSON.stringify({
+        brand: currentLog.brand || '',
+        region: currentLog.region || '',
+        age: currentLog.age || '',
+        vintage: currentLog.vintage || '',
+        abv: currentLog.abv || '',
+        bottler: currentLog.bottler || '',
+        cask: (currentLog.casks || []).join(', '),
+      }))
+      form.append('lang', 'ko')
+      const res = await fetch('/api/bottle-research', { method: 'POST', body: form })
+      let json: { data?: BottleProfile; error?: string }
+      try {
+        json = await res.json() as { data?: BottleProfile; error?: string }
+      } catch {
+        throw new Error(res.status === 504 ? '조회 시간이 초과됐어요. 다시 시도해주세요.' : `조회 실패 (${res.status})`)
+      }
+      if (!res.ok || !json.data) throw new Error(json.error || '오피셜 노트 조회 실패')
+      setOfficial(json.data)
+      const hasNotes = !!json.data.flavor_profile || (json.data.tasting_notes_found?.length ?? 0) > 0
+      showToast(hasNotes ? '오피셜 노트를 가져왔어요' : '오피셜 노트를 찾지 못했어요', hasNotes ? 'ok' : 'err')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '조회 실패', 'err')
+    } finally {
+      setOfficialLoading(false)
+    }
+  }
 
   // 편집/삭제 권한: 본인 기록이거나 레거시 anonymous 기록
   const canEdit =
@@ -288,6 +328,112 @@ export default function SharePage() {
               <button className="btn-ghost" style={{ width: '100%', justifyContent: 'center' }} onClick={saveCard}>
                 🖼 카드 이미지 저장 · 사진첩
               </button>
+            </div>
+          </div>
+
+          {/* 참고용 오피셜 바틀 노트 */}
+          <div style={{ border: '1px solid var(--bd)', background: 'var(--c2)', marginTop: '1px' }}>
+            <div style={{ padding: '0.6rem 1rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--tx2)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>🏛 Official Notes · 참고용</p>
+              {(official || officialTried) && !officialLoading && (
+                <button onClick={loadOfficialNotes} className="mono"
+                  style={{ background: 'transparent', border: '1px solid var(--bd2)', color: 'var(--gold)', padding: '0.25rem 0.55rem', cursor: 'pointer', fontSize: '0.55rem', letterSpacing: '0.04em' }}>
+                  ↻ 다시
+                </button>
+              )}
+            </div>
+            <div style={{ padding: '1rem' }}>
+              {!officialTried && !officialLoading && (
+                <>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--tx3)', lineHeight: 1.6, marginBottom: '0.75rem' }}>
+                    이 보틀의 오피셜·전문가 테이스팅 노트가 있는지 Whiskybase·Distiller·WhiskyFun 등에서 찾아 참고용으로 보여드려요.
+                  </p>
+                  <button className="btn-outline-gold" style={{ width: '100%', justifyContent: 'center' }} onClick={loadOfficialNotes}>
+                    🔍 오피셜 노트 확인
+                  </button>
+                </>
+              )}
+
+              {officialLoading && (
+                <div style={{ textAlign: 'center', padding: '1.25rem 0' }}>
+                  <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                  <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', marginTop: '0.7rem' }}>오피셜·전문가 노트 검색 중...</p>
+                </div>
+              )}
+
+              {!officialLoading && officialTried && official && (() => {
+                const fp = official.flavor_profile
+                const ext = official.tasting_notes_found || []
+                const wb = official.whiskybase
+                const hasAny = !!fp || ext.length > 0
+                if (!hasAny) {
+                  return <p style={{ fontSize: '0.75rem', color: 'var(--tx3)', lineHeight: 1.6 }}>이 보틀의 오피셜/전문가 노트를 찾지 못했어요.</p>
+                }
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                    {official.identified_name && (
+                      <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)', lineHeight: 1.5 }}>
+                        {official.identified_name}
+                      </p>
+                    )}
+
+                    {/* 종합(오피셜/AI) 노트 */}
+                    {fp && (
+                      <div>
+                        <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>참고 노트</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          {([['🌸 향', fp.nose], ['🥃 맛', fp.palate], ['✨ 여운', fp.finish]] as [string, string][])
+                            .filter(([, v]) => v && v.trim())
+                            .map(([lbl, v]) => (
+                              <div key={lbl} style={{ padding: '0.5rem 0.7rem', background: 'var(--c3)', borderLeft: '2px solid var(--gold)' }}>
+                                <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--gold)', marginBottom: '0.15rem' }}>{lbl}</p>
+                                <p style={{ fontSize: '0.74rem', color: 'var(--tx2)', lineHeight: 1.6 }}>{v}</p>
+                              </div>
+                            ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 출처별 전문가 노트 */}
+                    {ext.length > 0 && (
+                      <div>
+                        <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>출처별 노트 ({ext.length})</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {ext.map((n, i) => (
+                            <div key={i} style={{ padding: '0.55rem 0.7rem', background: 'var(--c3)', border: '1px solid var(--bd)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.4rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                                <span className="mono" style={{ fontSize: '0.52rem', color: 'var(--gold)' }}>
+                                  {n.link ? <a href={n.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gold)', textDecoration: 'none' }}>{n.source} ↗</a> : n.source}
+                                </span>
+                                {n.rating && <span className="mono" style={{ fontSize: '0.52rem', color: 'var(--gold)', border: '1px solid var(--gold)', padding: '0.05rem 0.35rem' }}>★ {n.rating}</span>}
+                              </div>
+                              {n.nose && <p style={{ fontSize: '0.7rem', color: 'var(--tx2)', lineHeight: 1.55 }}><b style={{ color: 'var(--gold)', fontWeight: 400 }}>향</b> {n.nose}</p>}
+                              {n.palate && <p style={{ fontSize: '0.7rem', color: 'var(--tx2)', lineHeight: 1.55 }}><b style={{ color: 'var(--gold)', fontWeight: 400 }}>맛</b> {n.palate}</p>}
+                              {n.finish && <p style={{ fontSize: '0.7rem', color: 'var(--tx2)', lineHeight: 1.55 }}><b style={{ color: 'var(--gold)', fontWeight: 400 }}>여운</b> {n.finish}</p>}
+                              {n.overall && <p style={{ fontSize: '0.68rem', color: 'var(--tx3)', lineHeight: 1.55, marginTop: '0.2rem', fontStyle: 'italic' }}>"{n.overall}"</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Whiskybase 매칭 */}
+                    {wb && wb.status !== 'none' && (
+                      <div style={{ padding: '0.5rem 0.7rem', background: wb.status === 'exact' ? 'var(--gp)' : 'var(--c3)', border: `1px solid ${wb.status === 'exact' ? 'var(--gold)' : 'var(--bd2)'}` }}>
+                        <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--gold)', marginBottom: '0.2rem' }}>
+                          🗄 Whiskybase · {wb.status === 'exact' ? '정확히 일치' : '유사 항목'}
+                        </p>
+                        {wb.note && <p style={{ fontSize: '0.68rem', color: 'var(--tx2)', lineHeight: 1.55 }}>{wb.note}</p>}
+                        {wb.link && <a href={wb.link} target="_blank" rel="noopener noreferrer" className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', textDecoration: 'none', wordBreak: 'break-all' }}>{wb.matched_name || 'Whiskybase에서 보기'} ↗</a>}
+                      </div>
+                    )}
+
+                    <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', lineHeight: 1.6 }}>
+                      ※ 참고용입니다. 작성자 본인의 노트가 우선입니다.
+                    </p>
+                  </div>
+                )
+              })()}
             </div>
           </div>
 
