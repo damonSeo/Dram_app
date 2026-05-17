@@ -43,6 +43,7 @@ export default function TastingPage() {
   const { showToast } = useToast()
 
   const [aiModal, setAiModal] = useState<AiModal>({ open: false, title: '', text: '', loading: false })
+  const [editMeta, setEditMeta] = useState(false)
 
   // 직접 키워드 선택 (이모지 칩) — 선택 순서대로 보존
   const [manualKeys, setManualKeys] = useState<{ nose: string[]; palate: string[]; finish: string[] }>({ nose: [], palate: [], finish: [] })
@@ -267,12 +268,71 @@ export default function TastingPage() {
 
   return (
     <div className="m-page" style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem' }}>
-      {/* Header */}
+      {/* Header — 보틀 정보 (편집 가능) */}
       <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid var(--bd)', paddingBottom: '1rem' }}>
-        <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)', lineHeight: 1.2 }}>
-          {currentLog.brand || 'Unnamed Dram'}
-        </h1>
-        {meta && <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx2)', marginTop: '0.4rem', letterSpacing: '0.05em' }}>{meta}</p>}
+        {!editMeta ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)', lineHeight: 1.2 }}>
+                {currentLog.brand || 'Unnamed Dram'}
+              </h1>
+              {meta && <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx2)', marginTop: '0.4rem', letterSpacing: '0.05em' }}>{meta}</p>}
+            </div>
+            <button onClick={() => setEditMeta(true)} className="mono"
+              style={{ flexShrink: 0, background: 'transparent', border: '1px solid var(--bd2)', color: 'var(--gold)',
+                padding: '0.4rem 0.7rem', cursor: 'pointer', fontSize: '0.62rem', letterSpacing: '0.06em',
+                display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              ✎ 보틀 정보 수정
+            </button>
+          </div>
+        ) : (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+              <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+                보틀 정보 수정
+              </p>
+              <button onClick={() => setEditMeta(false)} className="mono"
+                style={{ background: 'var(--gold)', border: 'none', color: '#000', padding: '0.35rem 0.8rem',
+                  cursor: 'pointer', fontSize: '0.62rem', fontWeight: 600, letterSpacing: '0.05em' }}>
+                완료
+              </button>
+            </div>
+            <div className="m-grid-collapse" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+              {([
+                ['브랜드 / 증류소', 'brand', 'e.g. Glenfarclas'],
+                ['지역', 'region', 'e.g. Speyside'],
+                ['숙성', 'age', 'e.g. 12yr'],
+                ['빈티지', 'vintage', 'e.g. 2008'],
+                ['도수', 'abv', 'e.g. 46%'],
+                ['보틀러', 'bottler', 'OB / IB명'],
+                ['캐스크', 'casksText', 'e.g. Oloroso Sherry'],
+                ['캐스크 번호', 'cask_no', 'e.g. #1234'],
+              ] as [string, string, string][]).map(([lbl, key, ph]) => {
+                const isCask = key === 'casksText'
+                const val = isCask
+                  ? (currentLog.casks || []).join(', ')
+                  : ((currentLog as Record<string, unknown>)[key] as string) || ''
+                return (
+                  <div key={key}>
+                    <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>{lbl}</p>
+                    <input type="text" value={val} placeholder={ph}
+                      onChange={(e) => {
+                        const v = e.target.value
+                        if (isCask) {
+                          updateCurrentLog({ casks: v.split(',').map(s => s.trim()).filter(Boolean) })
+                        } else {
+                          updateCurrentLog({ [key]: v } as Partial<WhiskyLog>)
+                        }
+                      }}
+                      style={{ width: '100%', padding: '0.5rem 0.65rem', background: 'var(--c3)',
+                        border: '1px solid var(--bd2)', color: 'var(--tx)', fontSize: '0.8rem',
+                        outline: 'none', fontFamily: 'var(--mono)' }} />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 2-col grid */}
