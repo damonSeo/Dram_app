@@ -5,11 +5,23 @@ import { searchWhiskySources } from '@/lib/whiskySources'
 
 export const maxDuration = 45
 
-const OCR_PROMPT_BASE = `You are an expert whisky label analyst with 20+ years of experience. Your task is to extract every piece of information from this whisky bottle label with maximum accuracy.
+const OCR_PROMPT_BASE = `You are an elite whisky label analyst with 25+ years cataloguing rare bottles. Extract every detail from this bottle photo with forensic accuracy.
 
-STEP 1 — READ ALL TEXT: Carefully examine the entire label including the main panel, neck label, back label, and any tax stamps. Note all text, numbers, and symbols you can see.
+STEP 1 — SCAN EVERY REGION SYSTEMATICALLY:
+- Main front label: brand, expression name, age, ABV
+- Neck/shoulder label: often has vintage, cask number, bottle number
+- Back label: distillation/bottling dates, cask details, bottler info, region
+- Embossed glass, wax seal, tax strip, hang tags
+- Read partially-obscured, angled, reflective, or low-contrast text by reasoning about letter shapes and known whisky naming conventions
+- Read non-English text too (Japanese 山崎/白州, kanji ages 年, Gaelic, etc.)
 
-STEP 2 — EXTRACT FIELDS: Based on what you read, fill this JSON. Return ONLY the raw JSON object, no markdown fences, no explanation text.
+STEP 2 — REASON BEFORE EXTRACTING:
+- Distinguish distillery name from independent bottler name (IB labels show BOTH — e.g. "Signatory Vintage / Caol Ila" → brand=Caol Ila, bottler=Signatory Vintage)
+- "Single Cask" / cask number present → likely an independent or special release
+- Cross-check age vs distilled/bottled years for consistency
+- If text is ambiguous, pick the reading most consistent with a real, known whisky
+
+STEP 3 — EXTRACT FIELDS into this JSON. Return ONLY the raw JSON object, no markdown fences, no explanation text.
 
 JSON schema:
 {

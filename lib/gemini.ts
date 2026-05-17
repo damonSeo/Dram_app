@@ -29,7 +29,7 @@ async function callGemini(
   const model = client.getGenerativeModel({
     model: modelId,
     generationConfig: withImage
-      ? { temperature: 0.2, maxOutputTokens: 1024, responseMimeType: 'application/json' }
+      ? { temperature: 0.1, maxOutputTokens: 1536, responseMimeType: 'application/json' }
       : { temperature: 0.7, maxOutputTokens: 2048 },
   })
 
@@ -56,16 +56,24 @@ export async function generateText(prompt: string): Promise<string> {
 export async function generateWithImage(
   prompt: string,
   imageBase64: string,
-  mimeType: string
+  mimeType: string,
+  // 라벨 스캔처럼 정확도가 중요한 작업은 강한 모델을 먼저 사용
+  preferStrong = true,
 ): Promise<string> {
   let lastErr: unknown = null
 
+  // 비전 정확도 우선: gemini-2.5-flash(강) → flash-lite → 2.0-flash
+  // (기존엔 flash-lite가 먼저라 라벨 인식률이 낮았음)
+  const modelChain = preferStrong
+    ? ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
+    : GEMINI_MODELS
+
   // 1단계: Gemini 모델 체인 (각 모델 2회 재시도)
-  for (const modelId of GEMINI_MODELS) {
+  for (const modelId of modelChain) {
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const text = await callGemini(modelId, prompt, imageBase64, mimeType, true)
-        if (modelId !== GEMINI_MODELS[0]) {
+        if (modelId !== modelChain[0]) {
           console.log(`[OCR] ${modelId} 성공 (폴백)`)
         }
         return text
