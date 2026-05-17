@@ -611,11 +611,28 @@ export default function CollectionPage() {
                 </div>
               </div>
 
-              {/* 액션 버튼 — 📝 개인 노트 단 하나로 정리 (수정/삭제는 노트 패널 안으로 이동) */}
+              {/* 액션 버튼 — ✎ 보틀 정보 수정 · 📝 개인 노트 */}
               <div style={{
                 position: 'absolute', top: '0.5rem', right: '0.5rem',
                 display: 'flex', gap: '0.3rem',
               }}>
+                {canEdit(log) && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditLog(log) }}
+                    title="보틀 정보 · 노트 수정"
+                    style={{
+                      background: 'var(--icon-bg)', border: '1px solid var(--bd)',
+                      color: 'var(--gold)', fontSize: '0.8rem',
+                      width: 28, height: 28, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      backdropFilter: 'blur(4px)',
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--gold)'; (e.currentTarget as HTMLButtonElement).style.color = '#fff' }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--icon-bg)'; (e.currentTarget as HTMLButtonElement).style.color = 'var(--gold)' }}
+                  >
+                    ✎
+                  </button>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); setNoteLog(log) }}
                   title="개인 노트 · 수정 · 삭제"
