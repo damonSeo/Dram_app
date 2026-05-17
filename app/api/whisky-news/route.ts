@@ -172,6 +172,45 @@ async function fetchFeed(feed: FeedConfig): Promise<NewsItem[]> {
   }
 }
 
+// Whiskybase는 Cloudflare 봇 차단으로 직접 fetch 불가 →
+// Serper(Google 색인)로 최근 색인된 신규 위스키 페이지를 뉴스로 가져옴
+async function fetchWhiskybaseNew(): Promise<NewsItem[]> {
+  const key = process.env.SERPER_API_KEY
+  if (!key) return []
+  try {
+    const res = await fetch('https://google.serper.dev/search', {
+      method: 'POST',
+      headers: { 'X-API-KEY': key, 'Content-Type': 'application/json' },
+      // 최근 1주일 내 색인된 Whiskybase 위스키 페이지
+      body: JSON.stringify({
+        q: 'site:whiskybase.com/whiskies new release',
+        gl: 'us',
+        num: 12,
+        tbs: 'qdr:w',
+      }),
+      signal: AbortSignal.timeout(7000),
+    })
+    if (!res.ok) return []
+    const data = await res.json() as {
+      organic?: Array<{ title: string; link: string; snippet?: string; date?: string }>
+    }
+    if (!data.organic) return []
+    return data.organic
+      .filter(o => o.link.includes('/whiskies/'))
+      .slice(0, 10)
+      .map(o => ({
+        title: o.title.replace(/\s*[-|]\s*Whiskybase\s*$/i, '').trim(),
+        link: o.link,
+        description: o.snippet || '',
+        pubDate: o.date ? new Date(o.date).toUTCString() : '',
+        source: 'Whiskybase',
+        sourceUrl: 'https://www.whiskybase.com/whiskies/new-releases',
+      }))
+  } catch {
+    return []
+  }
+}
+
 function parseDate(s: string): number {
   if (!s) return 0
   const d = new Date(s)
@@ -191,13 +230,19 @@ function dedupe(items: NewsItem[]): NewsItem[] {
 
 export async function GET() {
   try {
-    const results = await Promise.allSettled(FEEDS.map(f => fetchFeed(f)))
-    const all = dedupe(
-      results
-        .filter((r): r is PromiseFulfilledResult<NewsItem[]> => r.status === 'fulfilled')
-        .flatMap(r => r.value)
-        .sort((a, b) => parseDate(b.pubDate) - parseDate(a.pubDate))
-    ).slice(0, 20)
+    const [feedResults, whiskybase] = await Promise.all([
+      Promise.allSettled(FEEDS.map(f => fetchFeed(f))),
+      fetchWhiskybaseNew(),
+    ])
+    const rssItems = feedResults
+      .filter((r): r is PromiseFulfilledResult<NewsItem[]> => r.status === 'fulfilled')
+      .flatMap(r => r.value)
+
+    // Whiskybase 신규 등록은 상단 우선 노출 (날짜 메타 불확실해도 최신성 보장)
+    const all = dedupe([
+      ...whiskybase,
+      ...rssItems.sort((a, b) => parseDate(b.pubDate) - parseDate(a.pubDate)),
+    ]).slice(0, 28)
 
     return NextResponse.json({ data: all, count: all.length })
   } catch (e: unknown) {

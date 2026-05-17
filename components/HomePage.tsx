@@ -7,7 +7,7 @@ import { toHundred } from '@/lib/scoreFormat'
 import type { NewsItem } from '@/app/api/whisky-news/route'
 
 const INSTAGRAM_HANDLE = 'the_oakarchive'
-const NEWS_SOURCES = ['All', 'WhiskyNotes', 'Whisky Hoop', '乾杯会 (Kanpaikai)', 'The Spirits Business', 'Just Drinks'] as const
+const NEWS_SOURCES = ['All', 'Whiskybase', 'WhiskyNotes', 'Whisky Hoop', '乾杯会 (Kanpaikai)', 'The Spirits Business', 'Just Drinks'] as const
 const NEWS_INIT = 5
 
 export default function HomePage() {
