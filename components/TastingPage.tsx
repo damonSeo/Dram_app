@@ -69,6 +69,29 @@ export default function TastingPage() {
   const [instaText, setInstaText] = useState('')
   const [extracting, setExtracting] = useState(false)
   const [genInsta, setGenInsta] = useState(false)
+  const [summarizing, setSummarizing] = useState(false)
+
+  // 노트 전체를 판단해 한두 줄 평으로
+  const handleSummarizeNotes = async () => {
+    if (!currentLog.nose && !currentLog.palate && !currentLog.finish) {
+      showToast('먼저 향·맛·여운 노트를 작성해주세요', 'err'); return
+    }
+    setSummarizing(true)
+    try {
+      const text = await callAI('gen_oneliner', {
+        brand: currentLog.brand, age: currentLog.age, score: currentLog.score,
+        nose: currentLog.nose, palate: currentLog.palate, finish: currentLog.finish,
+      })
+      const v = text.trim().replace(/^["']|["']$/g, '')
+      setComment(v)
+      updateCurrentLog({ comment: v })
+      showToast('한줄평 생성됨', 'ok')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '생성 실패', 'err')
+    } finally {
+      setSummarizing(false)
+    }
+  }
   const [showBanner, setShowBanner] = useState(false)
   const [saving, setSaving] = useState(false)
 
@@ -498,15 +521,10 @@ export default function TastingPage() {
             placeholder="시음 느낌을 자유롭게 적어주세요..." style={{ lineHeight: 1.7 }} />
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem', flexWrap: 'wrap' }}>
             <button className="btn-ghost" style={{ fontSize: '0.7rem' }}
-              onClick={() => {
-                const auto = [
-                  currentLog.nose ? `Nose: ${currentLog.nose}` : '',
-                  currentLog.palate ? `Palate: ${currentLog.palate}` : '',
-                  currentLog.finish ? `Finish: ${currentLog.finish}` : '',
-                ].filter(Boolean).join('\n')
-                setComment(auto)
-              }}>
-              ◈ 노트에서 불러오기
+              disabled={summarizing}
+              onClick={handleSummarizeNotes}>
+              {summarizing ? <span className="spinner" /> : null}
+              ◈ 노트에서 한줄평 생성
             </button>
             <button className="btn-outline-gold" style={{ fontSize: '0.7rem' }}
               disabled={extracting || !comment.trim()}

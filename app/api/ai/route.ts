@@ -113,6 +113,24 @@ function buildPrompt(action: string, payload: Payload): string {
 - 키워드만 출력 (설명 없이)`
     }
 
+    case 'gen_oneliner': {
+      const { brand, age, nose, palate, finish, score } = payload
+      const score10 = normalizeScore(score)
+      const tone = buildToneBlock(score10, '')
+      return `당신은 위스키 테이스팅 전문가입니다. 아래 ${brand || ''} ${age || ''}의 향·맛·여운 노트 전체를 종합적으로 판단하여, 이 위스키를 압축한 한두 줄 평을 작성하세요.
+
+향(Nose): ${nose || '기록 없음'}
+맛(Palate): ${palate || '기록 없음'}
+여운(Finish): ${finish || '기록 없음'}
+${tone}
+
+작성 기준:
+- 향·맛·여운을 따로 나열하지 말고, 전체를 하나로 판단한 총평 느낌의 1~2문장
+- 위 톤 지시를 반드시 따를 것 (낮은 점수면 솔직·담백, 과장 금지)
+- 60~110자, 순수한 한국어 (영어·로마자 금지 — Nose→향, Palate→맛, Finish→여운)
+- 따옴표·제목·설명 없이 평문 1~2문장만 출력`
+    }
+
     case 'extract_keys': {
       const { longText, brand, age, abv, casks } = payload
       const caskStr = Array.isArray(casks) ? casks.join(', ') : String(casks ?? '')
