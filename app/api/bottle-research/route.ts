@@ -56,6 +56,14 @@ export interface BottleProfile {
   }>
   // 실제 본문을 읽은 사이트들
   articles_fetched: Array<{ source: string; link: string }>
+  // Whiskybase 매칭 결과
+  whiskybase: {
+    status: 'exact' | 'similar' | 'none'
+    matched_name: string | null
+    link: string | null
+    note: string
+    candidates: Array<{ name: string; link: string }>
+  }
 }
 
 interface SerperOrganic {
@@ -228,6 +236,24 @@ async function fetchArticles(targets: Array<{ link: string; source: string; titl
     .filter((x): x is FetchedArticle => x !== null)
 }
 
+// Whiskybase 전용 검색 — 라벨이 Whiskybase DB에 등재돼 있는지 확인
+async function searchWhiskybase(name: string): Promise<Array<{ name: string; link: string; snippet: string }>> {
+  if (!process.env.SERPER_API_KEY) return []
+  try {
+    const hits = await serperRaw(`site:whiskybase.com/whiskies ${name}`, 8)
+    return hits
+      .filter(h => h.link.includes('whiskybase.com/whiskies/'))
+      .slice(0, 6)
+      .map(h => ({
+        name: h.title.replace(/\s*[-|]\s*Whiskybase.*$/i, '').trim(),
+        link: h.link,
+        snippet: h.snippet || '',
+      }))
+  } catch {
+    return []
+  }
+}
+
 // 2차 검색: 일반 리뷰 검색 + Whiskybase/옥션/리테일러/일본 site 타겟 검색 병렬
 async function deepSearchByName(name: string): Promise<{ snippets: string; refs: BottleProfile['references'] }> {
   const key = process.env.SERPER_API_KEY
@@ -267,6 +293,7 @@ const VERIFY_PROMPT = (
   deepSnippets: string,
   newsLines: string,
   articleTexts: string,
+  whiskybaseList: string,
   lang: 'en' | 'ko' | 'auto',
 ) => {
   const langText = lang === 'ko'
@@ -292,6 +319,9 @@ ${newsLines || '(none)'}
 [FULL ARTICLE TEXTS — fetched directly from review/news sites]
 ${articleTexts || '(no article bodies fetched)'}
 
+[WHISKYBASE DATABASE CANDIDATES — entries indexed on whiskybase.com/whiskies]
+${whiskybaseList || '(no Whiskybase entries found)'}
+
 TASKS:
 1. VERIFY the distillery + bottler + age combination is real and consistent.
    Use the FULL ARTICLE TEXTS as the primary truth source — quotes from these articles are concrete evidence.
@@ -307,6 +337,12 @@ TASKS:
    Look for ratings like 87/100, 4/5, ★★★★, 92, etc.
 
 3. UPDATE the draft with corrected info from the article bodies (better cask info, abv, vintage, release details).
+
+4. WHISKYBASE MATCH — using ONLY the WHISKYBASE DATABASE CANDIDATES list, decide:
+   - "exact": a candidate clearly is THIS exact bottle (same distillery, age, bottler, vintage/release) → return its name + link
+   - "similar": no exact entry, but candidate(s) for the same distillery/expression exist (different age, year, or batch) → note what differs, return the closest candidate link
+   - "none": no relevant Whiskybase candidate at all
+   Be conservative: only say "exact" when distillery AND (age or vintage) AND bottler align.
 
 ${langText}
 
@@ -339,6 +375,12 @@ Respond ONLY with this JSON (no markdown):
     "vintage": "corrected vintage",
     "release_info": "corrected release info",
     "rarity": "standard | limited | rare"
+  },
+  "whiskybase": {
+    "status": "exact | similar | none",
+    "matched_name": "the Whiskybase entry name if exact/similar, else null",
+    "link": "the Whiskybase URL if exact/similar, else null",
+    "note": "1 sentence: confirm it's on Whiskybase, or what is similar/different (in target language)"
   }
 }
 
@@ -474,6 +516,7 @@ export async function POST(req: NextRequest) {
       verification: { confirmed: false, distillery_bottler_match: 'unverified', note: '', conflicts: [] },
       tasting_notes_found: [],
       articles_fetched: [],
+      whiskybase: { status: 'none', matched_name: null, link: null, note: '', candidates: [] },
     }
 
     // ── PHASE 2 & 3: 식별된 이름으로 재검색 + 실제 본문 fetch + 검증 + 노트 추출 ──
@@ -481,7 +524,11 @@ export async function POST(req: NextRequest) {
     let fetchedArticleSources: Array<{ source: string; link: string }> = []
 
     const runDeepPhase = async () => {
-      const deep = await deepSearchByName(initial.identified_name)
+      const [deep, wbCandidates] = await Promise.all([
+        deepSearchByName(initial.identified_name),
+        searchWhiskybase(initial.identified_name),
+      ])
+      initial.whiskybase.candidates = wbCandidates.map(c => ({ name: c.name, link: c.link }))
       // 중복 제거하고 합치기
       const seenLinks = new Set(allReferences.map(r => r.link))
       for (const r of deep.refs) {
@@ -532,6 +579,9 @@ ${a.text}
             deep.snippets || snippets,
             newsLines,
             articleTextBlock,
+            wbCandidates.length > 0
+              ? wbCandidates.map((c, i) => `${i + 1}. ${c.name}\n   ${c.link}\n   ${c.snippet}`).join('\n')
+              : '',
             lang,
           )
         )
@@ -539,10 +589,22 @@ ${a.text}
           verification?: BottleProfile['verification']
           tasting_notes_found?: BottleProfile['tasting_notes_found']
           updated_fields?: Partial<BottleProfile>
+          whiskybase?: { status?: string; matched_name?: string; link?: string; note?: string }
         } | null
 
         if (verifyJson?.verification) initial.verification = verifyJson.verification
         if (Array.isArray(verifyJson?.tasting_notes_found)) initial.tasting_notes_found = verifyJson.tasting_notes_found
+        if (verifyJson?.whiskybase) {
+          const wb = verifyJson.whiskybase
+          const st = wb.status === 'exact' || wb.status === 'similar' ? wb.status : 'none'
+          initial.whiskybase = {
+            status: st,
+            matched_name: wb.matched_name || null,
+            link: wb.link || null,
+            note: wb.note || '',
+            candidates: initial.whiskybase.candidates,
+          }
+        }
         // 검증 단계에서 업데이트된 필드 반영
         if (verifyJson?.updated_fields) {
           const u = verifyJson.updated_fields

@@ -1139,6 +1139,40 @@ export default function ScanPage() {
                       )}
                     </div>
                   )}
+
+                  {/* Whiskybase 매칭 */}
+                  {bottleProfile.whiskybase && bottleProfile.whiskybase.status !== 'none' && (
+                    <div style={{
+                      marginTop:'0.6rem', padding:'0.6rem 0.8rem',
+                      background: bottleProfile.whiskybase.status === 'exact' ? 'var(--gp)' : 'var(--c3)',
+                      border:`1px solid ${bottleProfile.whiskybase.status === 'exact' ? 'var(--gold)' : 'var(--bd2)'}`,
+                    }}>
+                      <div style={{display:'flex', alignItems:'center', gap:'0.4rem', marginBottom:'0.3rem', flexWrap:'wrap'}}>
+                        <span className="mono" style={{fontSize:'0.52rem', color:'var(--gold)', letterSpacing:'0.1em', textTransform:'uppercase'}}>
+                          🗄 Whiskybase
+                        </span>
+                        <span className="mono" style={{
+                          fontSize:'0.5rem', padding:'0.1rem 0.4rem',
+                          border:`1px solid ${bottleProfile.whiskybase.status === 'exact' ? 'var(--gold)' : 'var(--bd2)'}`,
+                          color: bottleProfile.whiskybase.status === 'exact' ? 'var(--gold)' : 'var(--tx2)',
+                          letterSpacing:'0.06em', textTransform:'uppercase',
+                        }}>
+                          {bottleProfile.whiskybase.status === 'exact' ? '✓ 정확히 일치' : '≈ 유사 항목 있음'}
+                        </span>
+                      </div>
+                      {bottleProfile.whiskybase.note && (
+                        <p style={{fontSize:'0.7rem', color:'var(--tx)', lineHeight:1.6, marginBottom: bottleProfile.whiskybase.link ? '0.35rem' : 0}}>
+                          {bottleProfile.whiskybase.note}
+                        </p>
+                      )}
+                      {bottleProfile.whiskybase.link && (
+                        <a href={bottleProfile.whiskybase.link} target="_blank" rel="noopener noreferrer" className="mono"
+                          style={{fontSize:'0.62rem', color:'var(--gold)', textDecoration:'none', wordBreak:'break-all'}}>
+                          {bottleProfile.whiskybase.matched_name || 'Whiskybase에서 보기'} ↗
+                        </a>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 핵심 스펙 */}
