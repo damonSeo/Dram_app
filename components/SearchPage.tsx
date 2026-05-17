@@ -14,6 +14,10 @@ interface DistilleryInfo {
   history?: string
   trivia?: string
   flagships?: string[]
+  core_range?: { name: string; note?: string; abv?: string; approx_price?: string }[]
+  special_releases?: { name: string; note?: string; year?: string }[]
+  rare_bottles?: { name: string; note?: string; rarity?: string }[]
+  acclaimed?: { name: string; note?: string; rating?: string }[]
   sources?: string[]
 }
 
@@ -199,8 +203,42 @@ export default function SearchPage() {
                   </div>
                 )}
 
+                {/* 보틀 라인업 섹션들 */}
+                {([
+                  { key: 'core_range', label: '🥃 Core Range', accent: 'var(--gold)', metaKeys: ['abv', 'approx_price'] },
+                  { key: 'special_releases', label: '✦ Special / Limited', accent: '#C9A84C', metaKeys: ['year'] },
+                  { key: 'rare_bottles', label: '💎 Rare & Collectible', accent: '#cf7e7e', metaKeys: ['rarity'] },
+                  { key: 'acclaimed', label: '🏆 Highly Acclaimed', accent: '#7ec59a', metaKeys: ['rating'] },
+                ] as const).map(sec => {
+                  const list = (distilleryInfo as unknown as Record<string, { name: string; note?: string; [k: string]: string | undefined }[]>)[sec.key]
+                  if (!Array.isArray(list) || list.length === 0) return null
+                  return (
+                    <div key={sec.key} style={{ marginTop: '1.4rem' }}>
+                      <p className="mono" style={{ fontSize: '0.58rem', color: sec.accent, letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.6rem' }}>
+                        {sec.label}
+                      </p>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
+                        {list.map((b, i) => {
+                          const meta = sec.metaKeys.map(k => b[k]).filter(Boolean) as string[]
+                          return (
+                            <div key={i} style={{ background: 'var(--c2)', padding: '0.7rem 0.9rem', borderLeft: `2px solid ${sec.accent}` }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                <p style={{ fontSize: '0.85rem', color: 'var(--tx)', fontWeight: 500 }}>{b.name}</p>
+                                {meta.length > 0 && (
+                                  <span className="mono" style={{ fontSize: '0.56rem', color: sec.accent, flexShrink: 0 }}>{meta.join(' · ')}</span>
+                                )}
+                              </div>
+                              {b.note && <p style={{ fontSize: '0.72rem', color: 'var(--tx3)', lineHeight: 1.55, marginTop: '0.2rem' }}>{b.note}</p>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+
                 {distilleryInfo.sources && distilleryInfo.sources.length > 0 && (
-                  <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)', marginTop: '1rem' }}>
+                  <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)', marginTop: '1.25rem' }}>
                     Sources: {distilleryInfo.sources.join(' · ')}
                   </p>
                 )}

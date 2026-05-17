@@ -35,14 +35,27 @@ ${region ? `지역 힌트: ${region}` : ''}
   "style": "위스키 스타일 한 줄 요약 (영문 위스키 용어 + 한글 자유롭게 혼용)",
   "signature": "시그니처 풍미 노트 (영문/한글 혼용 허용, 예: Sherry-driven, dried fruits / 셰리 중심, 건과일)",
   "flagships": ["대표 제품명 (영문 권장, 예: Glenfarclas 25, Macallan Sherry Oak 18)", "..."],
+  "core_range": [
+    { "name": "코어 라인업 제품명 (예: Aberlour 12)", "note": "한 줄 특징/풍미", "abv": "도수 (알면)", "approx_price": "대략 가격대 (예: 7~9만원, 알면)" }
+  ],
+  "special_releases": [
+    { "name": "스페셜/한정/연례 릴리즈명", "note": "어떤 점이 특별한지 한 줄", "year": "출시 연도/빈티지 (알면)" }
+  ],
+  "rare_bottles": [
+    { "name": "희소·수집가용 보틀명", "note": "왜 희소한지 (생산 중단/소량/올드 등) 한 줄", "rarity": "한정수량·단종 등 정보 (알면)" }
+  ],
+  "acclaimed": [
+    { "name": "평이 매우 좋은 보틀명", "note": "왜 호평받는지 한 줄", "rating": "대표적 평점/수상 (예: WB 90+, Jim Murray 95, 알면)" }
+  ],
   "history": "200자 내외의 역사 요약 (영문/한글 혼용 자유)",
   "trivia": "흥미로운 한 가지 사실 (영문/한글 자유)"
 }
 
 규칙:
 - 영문과 한글을 자유롭게 혼용 가능 (위스키 고유명사·공식 명칭은 영문 그대로 두는 것이 더 정확함)
-- 모르는 항목은 null
-- 추측하지 말고 확실한 사실만 작성
+- core_range는 3~6개, special_releases·rare_bottles·acclaimed는 각 2~5개. 정보가 없으면 빈 배열 []
+- 모르는 항목은 null, 가격·평점·연도는 확실치 않으면 생략(null)
+- 추측·환각 금지, 실재하는 보틀만
 - JSON 외 다른 텍스트 절대 출력 금지`
 
 const VERIFY_PROMPT = (brand: string, draft: string, snippets: string) => `당신은 위스키 증류소 정보를 검증하는 팩트체커입니다.
@@ -71,6 +84,10 @@ ${snippets}
   "style": "...",
   "signature": "...",
   "flagships": ["..."],
+  "core_range": [{ "name": "...", "note": "...", "abv": "...", "approx_price": "..." }],
+  "special_releases": [{ "name": "...", "note": "...", "year": "..." }],
+  "rare_bottles": [{ "name": "...", "note": "...", "rarity": "..." }],
+  "acclaimed": [{ "name": "...", "note": "...", "rating": "..." }],
   "history": "...",
   "trivia": "...",
   "sources": ["참고한 검색 결과 도메인 1~3개"]
@@ -79,6 +96,7 @@ ${snippets}
 규칙:
 - 영문과 한글 자유롭게 혼용 (고유명사는 영문 권장)
 - 검색 결과와 모순되는 내용은 반드시 수정 또는 null 처리
+- core_range/special_releases/rare_bottles/acclaimed는 검색 결과로 확인되는 실재 보틀만, 불확실하면 제외. 없으면 []
 - JSON 외 어떤 텍스트도 출력 금지`
 
 function extractJson(raw: string): Record<string, unknown> | null {
