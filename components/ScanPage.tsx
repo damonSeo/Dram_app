@@ -5,6 +5,7 @@ import { useToast } from '@/components/Toast'
 import { compressImageToDataUrl, shrinkDataUrl } from '@/lib/imageUtils'
 import type { OcrResult, SpiritType } from '@/types'
 import type { BottleProfile } from '@/app/api/bottle-research/route'
+import type { VisualMatch } from '@/app/api/visual-search/route'
 
 /* ── constants ─────────────────────────────────────────────────────────────── */
 
@@ -646,6 +647,7 @@ export default function ScanPage() {
   const [preview, setPreview] = useState<string|null>(null)
   const [scanFile, setScanFile] = useState<File|null>(null)
   const [scanFields, setScanFields] = useState<ScanFields>({brand:'',region:'',age:'',vintage:'',abv:'',bottler:'',cask:''})
+  const [visualMatches, setVisualMatches] = useState<VisualMatch[]>([])
   const [progress, setProgress] = useState(0)
   const [progLabel, setProgLabel] = useState('')
   const [scanning, setScanning] = useState(false)
@@ -760,11 +762,23 @@ export default function ScanPage() {
   const runOcr = async () => {
     if (!scanFile) return
     setScanning(true); setScanDone(false); setSearchData(null); setSearchOpen(false)
+    setVisualMatches([])
     try {
+      // 0) 비주얼 검색 시도 (YOLOv8·PaddleOCR·OpenCLIP·FAISS) — 실패 시 무시
+      setProgress(10); setProgLabel('비주얼 매칭(FAISS) 시도 중...')
+      try {
+        const vForm = new FormData(); vForm.append('image', scanFile)
+        const vRes = await fetch('/api/visual-search', { method: 'POST', body: vForm })
+        const v = await vRes.json() as { engine?: string; matches?: VisualMatch[] }
+        if (v.engine === 'ml' && Array.isArray(v.matches) && v.matches.length) {
+          setVisualMatches(v.matches)
+        }
+      } catch { /* ML 서비스 없거나 실패 → 무시하고 Gemini 진행 */ }
+
       const form = new FormData(); form.append('image', scanFile)
-      setProgress(15); setProgLabel('Uploading...')
+      setProgress(25); setProgLabel('Uploading...')
       const res = await fetch('/api/ocr', { method:'POST', body:form })
-      setProgress(45); setProgLabel('AI Vision 분석 + Whiskybase 교차 검증 중...')
+      setProgress(55); setProgLabel('AI Vision 분석 + Whiskybase 교차 검증 중...')
       const json = await res.json() as { data?:OcrResult; error?:string }
       if (!res.ok) throw new Error(json.error || `OCR 실패 (${res.status})`)
       setProgress(85); setProgLabel('결과 정리 중...')
@@ -912,6 +926,33 @@ export default function ScanPage() {
 
           {scanDone && (
             <div className="fade-up">
+              {/* FAISS 비주얼 매칭 — 내 아카이브/뉴스 레퍼런스 유사 보틀 */}
+              {visualMatches.length > 0 && (
+                <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)', marginBottom: '1px' }}>
+                  <div style={{ padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)' }}>
+                    <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                      🧬 비주얼 매칭 (FAISS) — 유사 보틀
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
+                    {visualMatches.map((m, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', padding: '0.6rem 0.9rem', background: 'var(--c2)' }}>
+                        {m.image_url
+                          ? <img src={m.image_url} alt="" style={{ width: 38, height: 38, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--bd)' }} />
+                          : <div style={{ width: 38, height: 38, background: 'var(--c3)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', border: '1px solid var(--bd)' }}>🥃</div>}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: '0.78rem', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</p>
+                          <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--tx3)', marginTop: '0.1rem' }}>{m.source}</p>
+                        </div>
+                        <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)', flexShrink: 0 }}>
+                          {Math.round(m.similarity * 100)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="m-grid-collapse" style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'1px', background:'var(--bd)', marginBottom:'1px'}}>
                 {([['Distillery','brand'],['Region','region'],['Age','age'],['Vintage','vintage'],['ABV','abv'],['Bottler','bottler'],['Cask','cask']] as [string, keyof ScanFields][]).map(([label, key]) => (
                   <div key={key} style={S.cell}>
