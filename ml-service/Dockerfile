@@ -19,7 +19,11 @@ RUN useradd -m -u 1000 user
 WORKDIR /srv
 
 COPY --chown=user requirements.txt .
-RUN pip install --upgrade pip && pip install -r requirements.txt
+# torch/torchvision을 CPU 전용 휠로 먼저 설치 (CUDA 빌드 ~2GB 회피 → HF 무료 빌드 통과)
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir torch==2.3.1 torchvision==0.18.1 \
+      --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=user . .
 RUN mkdir -p /srv/.cache /srv/data && chown -R user:user /srv

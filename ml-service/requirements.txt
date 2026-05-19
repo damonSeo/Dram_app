@@ -1,21 +1,20 @@
 # Whisky visual-search ML service
+# torch/torchvision은 Dockerfile에서 CPU 전용 휠로 별도 설치 (CUDA 빌드 회피)
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 python-multipart==0.0.9
 pillow==10.4.0
 numpy==1.26.4
 
-# Detection — YOLOv8
+# Detection — YOLOv8 (torch는 이미 CPU로 설치됨)
 ultralytics==8.2.103
 
-# OCR — PaddleOCR (위스키 라벨에 강함)
-paddleocr==2.8.1
-paddlepaddle==2.6.1
+# OCR — PaddleOCR (위스키 라벨에 강함). PyPI paddlepaddle = CPU 빌드
+paddleocr>=2.7,<2.9
+paddlepaddle>=2.5,<2.7
 
-# Embedding — OpenCLIP
+# Embedding — OpenCLIP (torch 의존, 위에서 충족)
 open_clip_torch==2.26.1
-torch==2.3.1
-torchvision==0.18.1
 
 # Vector search — FAISS
 faiss-cpu==1.8.0
