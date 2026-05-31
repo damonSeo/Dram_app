@@ -131,6 +131,33 @@ export default function UserMenu() {
     }
   }
 
+  // 게스트(익명) 로그인 — Supabase signInAnonymously
+  const [guestLoading, setGuestLoading] = useState(false)
+  const loginAsGuest = async () => {
+    setGuestLoading(true)
+    try {
+      const supabase = getBrowserClient()
+      const { error } = await supabase.auth.signInAnonymously({
+        options: { data: { nickname: '게스트' } },
+      })
+      if (error) {
+        const msg = error.message || ''
+        if (/anonymous.*disabled|not enabled|disabled/i.test(msg)) {
+          showToast('게스트 로그인이 Supabase에서 꺼져 있어요. 관리자가 활성화 필요', 'err')
+        } else {
+          showToast(`게스트 로그인 실패: ${msg}`, 'err')
+        }
+      } else {
+        setLoginOpen(false)
+        showToast('게스트로 입장했어요 👋', 'ok')
+      }
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '게스트 로그인 실패', 'err')
+    } finally {
+      setGuestLoading(false)
+    }
+  }
+
   const loginWith = async (provider: 'kakao' | 'google') => {
     setLoadingProvider(provider)
     try {
@@ -269,6 +296,36 @@ export default function UserMenu() {
                   <p className="display" style={{ fontSize: '2rem', color: '#F2EDE7', letterSpacing: '0.12em', lineHeight: 1 }}>OAK</p>
                   <p className="display" style={{ fontSize: '0.68rem', color: 'var(--gold)', letterSpacing: '0.35em', textTransform: 'uppercase', marginTop: '0.1rem' }}>The Record</p>
                   <div style={{ width: 32, height: 1, background: 'rgba(198,107,61,0.3)', margin: '0.85rem auto 0' }} />
+                </div>
+
+                {/* ── 게스트로 둘러보기 (가입 없이 즉시 시작) ── */}
+                <button
+                  onClick={loginAsGuest}
+                  disabled={guestLoading}
+                  className="mono"
+                  style={{
+                    width: '100%', maxWidth: 360,
+                    background: 'rgba(198,107,61,0.12)', border: '1px solid var(--gold)',
+                    color: 'var(--gold)', padding: '0.85rem', cursor: guestLoading ? 'wait' : 'pointer',
+                    fontSize: '0.8rem', letterSpacing: '0.08em', fontWeight: 600,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    marginBottom: '1rem',
+                  }}>
+                  {guestLoading
+                    ? <span className="spinner" />
+                    : <span style={{ fontSize: '0.95rem' }}>🥃</span>}
+                  게스트로 둘러보기
+                </button>
+                <p className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginBottom: '1.25rem', lineHeight: 1.7, maxWidth: 360 }}>
+                  가입 없이 바로 시작 — 작성한 노트는 게스트 계정에 저장됩니다<br />
+                  나중에 이메일로 가입하면 데이터 연결을 도와드릴게요
+                </p>
+
+                {/* 또는 구분선 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', maxWidth: 360, marginBottom: '1.25rem' }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
+                  <span className="mono" style={{ fontSize: '0.5rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.15em' }}>OR · ACCOUNT</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
                 </div>
 
                 {/* ── 탭 ── */}
