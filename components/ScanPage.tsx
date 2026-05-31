@@ -44,11 +44,90 @@ const S = {
   chips: { display: 'flex', flexWrap: 'wrap' as const, gap: '0.3rem', marginTop: '0.45rem' },
 }
 
-type InputMode = 'scan' | 'manual'
+type InputMode = 'scan' | 'manual' | 'profile'
+
+// 빠른 향 프로필 픽커 — 5 카테고리 × 3 서브칩
+const FLAVOR_TABS: { key: string; icon: string; label: string; chips: string[] }[] = [
+  { key: 'fruit',  icon: '🍇', label: '과일류',     chips: ['시트러스', '적색과일', '드라이'] },
+  { key: 'herb',   icon: '🌿', label: '식물/향신료', chips: ['소나무/우드', '풀/채소', '꽃향'] },
+  { key: 'spice',  icon: '🔥', label: '스파이스',    chips: ['페퍼', '생강', '계피'] },
+  { key: 'sweet',  icon: '🍫', label: '달콤함',     chips: ['초콜릿', '캐러멜', '바닐라'] },
+  { key: 'earth',  icon: '🌍', label: '지구향',     chips: ['흙', '미네랄', '스모크'] },
+]
 
 interface ScanFields {
   brand: string; region: string; age: string; vintage: string
   abv: string; bottler: string; cask: string
+}
+
+/* ── ProfilePicker ─ 빠른 향 프로필 입력 (5 카테고리 × 3 칩) ─────────────── */
+function ProfilePicker({ onApply }: { onApply: (picks: string[]) => void }) {
+  const [tab, setTab] = useState<string>(FLAVOR_TABS[0].key)
+  const [picks, setPicks] = useState<string[]>([])
+  const toggle = (c: string) => setPicks((p) => p.includes(c) ? p.filter(x => x !== c) : [...p, c])
+  const active = FLAVOR_TABS.find(t => t.key === tab)!
+
+  return (
+    <div className="fade-up">
+      {/* 카테고리 탭 */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
+        {FLAVOR_TABS.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} className="mono"
+            style={{
+              flex: '1 1 90px', padding: '0.7rem 0.4rem', border: 'none', cursor: 'pointer',
+              background: tab === t.key ? 'var(--gp)' : 'var(--c2)',
+              color: tab === t.key ? 'var(--gold)' : 'var(--tx2)',
+              fontSize: '0.7rem', letterSpacing: '0.04em',
+              borderBottom: tab === t.key ? '1px solid var(--gold)' : '1px solid transparent',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
+            }}>
+            <span style={{ fontSize: '1.1rem' }}>{t.icon}</span>
+            <span>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* 서브 칩 */}
+      <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+        {active.chips.map(c => {
+          const tagged = `${active.icon} ${c}`
+          const sel = picks.includes(tagged)
+          return (
+            <button key={c} onClick={() => toggle(tagged)} className={`chip${sel ? ' active' : ''}`}
+              style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}>
+              {c}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 선택 미리보기 + 적용 */}
+      {picks.length > 0 && (
+        <div style={{ padding: '0.7rem 0.9rem', background: 'var(--c3)', border: '1px solid var(--bd)', marginBottom: '1rem' }}>
+          <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
+            선택 ({picks.length})
+          </p>
+          <p style={{ fontSize: '0.8rem', color: 'var(--tx)', lineHeight: 1.6 }}>{picks.join(', ')}</p>
+        </div>
+      )}
+
+      <div className="m-grid-collapse" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button className="btn-gold" style={{ flex: '1 1 200px', justifyContent: 'center' }}
+          onClick={() => onApply(picks)} disabled={picks.length === 0}>
+          ✓ 노트에 적용 · Next →
+        </button>
+        {picks.length > 0 && (
+          <button className="btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => setPicks([])}>
+            ✕ 비우기
+          </button>
+        )}
+      </div>
+
+      <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginTop: '1rem', lineHeight: 1.7 }}>
+        ◈ 빠른 향 프로필 — 카테고리 탭 → 칩 선택 → Next 누르면 향(Nose)에 채워져 노트 페이지로 이동합니다.
+      </p>
+    </div>
+  )
 }
 
 /* ── shared chip helper ──────────────────────────────────────────────────────  */
@@ -844,7 +923,7 @@ export default function ScanPage() {
   /* ── mode / spirit tab selectors ── */
 
   const modeBtn = (m: InputMode, icon: string, label: string) => (
-    <button onClick={() => { setMode(m); setScanMode(m) }} className="mono" style={{
+    <button onClick={() => { setMode(m); if (m !== 'profile') setScanMode(m) }} className="mono" style={{
       flex:1, padding:'0.65rem', border:'none', cursor:'pointer',
       background: mode===m ? 'var(--gp)' : 'var(--c2)',
       color: mode===m ? 'var(--gold)' : 'var(--tx2)',
@@ -872,10 +951,25 @@ export default function ScanPage() {
   return (
     <div className="m-page" style={S.wrapper}>
       {/* Mode toggle */}
-      <div style={{display:'flex', gap:'1px', marginBottom:'1.5rem', background:'var(--bd)'}}>
+      <div style={{display:'flex', gap:'1px', marginBottom:'1.5rem', background:'var(--bd)', flexWrap:'wrap'}}>
         {modeBtn('scan','⬡','Scan Label')}
         {modeBtn('manual','✎','Manual Input')}
+        {modeBtn('profile','🎯','Profile')}
       </div>
+
+      {/* ── PROFILE MODE — 빠른 향 프로필 픽커 ── */}
+      {mode === 'profile' && <ProfilePicker
+        onApply={(picks) => {
+          if (picks.length === 0) { showToast('칩을 1개 이상 선택해주세요', 'err'); return }
+          resetCurrentLog()
+          updateCurrentLog({
+            spirit_type: 'whisky',
+            nose: picks.join(', '),
+            date: new Date().toISOString().split('T')[0],
+          })
+          setActiveTab('tasting')
+        }}
+      />}
 
       {/* ── SCAN MODE ── */}
       {mode === 'scan' && (
