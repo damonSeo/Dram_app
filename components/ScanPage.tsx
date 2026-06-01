@@ -46,39 +46,104 @@ const S = {
 
 type InputMode = 'scan' | 'manual' | 'quick'
 
-// 빠른 노트 픽커 — 5 카테고리, 카테고리별 다양한 향
-const FLAVOR_TABS: { key: string; icon: string; label: string; chips: string[] }[] = [
-  { key: 'fruit',  icon: '🍇', label: '과일류',     chips: [
-    '시트러스', '레몬', '오렌지', '자몽', '라임', '말린 살구',
-    '적색과일', '체리', '딸기', '라즈베리', '블랙커런트', '건포도',
-    '사과', '서양배', '복숭아', '망고', '파인애플', '바나나',
-    '드라이 과일', '무화과', '대추야자',
+// 빠른 노트 픽커 — 5 카테고리, 칩마다 이모지로 직관적 표현
+interface FlavorChip { emoji: string; label: string }
+const FLAVOR_TABS: { key: string; icon: string; label: string; chips: FlavorChip[] }[] = [
+  { key: 'fruit', icon: '🍇', label: '과일류', chips: [
+    { emoji: '🍋', label: '시트러스' },
+    { emoji: '🍋', label: '레몬' },
+    { emoji: '🍊', label: '오렌지' },
+    { emoji: '🍊', label: '자몽' },
+    { emoji: '🟢', label: '라임' },
+    { emoji: '🍓', label: '적색과일' },
+    { emoji: '🍒', label: '체리' },
+    { emoji: '🍓', label: '딸기' },
+    { emoji: '🫐', label: '라즈베리' },
+    { emoji: '🫐', label: '블랙커런트' },
+    { emoji: '🍇', label: '건포도' },
+    { emoji: '🍎', label: '사과' },
+    { emoji: '🍐', label: '서양배' },
+    { emoji: '🍑', label: '복숭아' },
+    { emoji: '🥭', label: '망고' },
+    { emoji: '🍍', label: '파인애플' },
+    { emoji: '🍌', label: '바나나' },
+    { emoji: '🍑', label: '말린 살구' },
+    { emoji: '🫒', label: '무화과' },
+    { emoji: '🌴', label: '대추야자' },
   ] },
-  { key: 'herb',   icon: '🌿', label: '식물/향신료', chips: [
-    '소나무', '오크', '삼나무', '연필심',
-    '풀잎', '건초', '녹차', '허브',
-    '민트', '유칼립투스', '바질', '타임',
-    '꽃향', '장미', '엘더플라워', '라벤더', '히더',
+  { key: 'herb', icon: '🌿', label: '식물/향신료', chips: [
+    { emoji: '🌲', label: '소나무' },
+    { emoji: '🪵', label: '오크' },
+    { emoji: '🌳', label: '삼나무' },
+    { emoji: '✏️', label: '연필심' },
+    { emoji: '🌱', label: '풀잎' },
+    { emoji: '🌾', label: '건초' },
+    { emoji: '🍵', label: '녹차' },
+    { emoji: '🌿', label: '허브' },
+    { emoji: '🍃', label: '민트' },
+    { emoji: '🌿', label: '유칼립투스' },
+    { emoji: '🌿', label: '바질' },
+    { emoji: '🌿', label: '타임' },
+    { emoji: '🌸', label: '꽃향' },
+    { emoji: '🌹', label: '장미' },
+    { emoji: '🌼', label: '엘더플라워' },
+    { emoji: '💜', label: '라벤더' },
+    { emoji: '💐', label: '히더' },
   ] },
-  { key: 'spice',  icon: '🔥', label: '스파이스',    chips: [
-    '검은 후추', '흰 후추', '핑크 페퍼',
-    '생강', '카다멈', '정향', '육두구', '아니스',
-    '계피', '올스파이스', '메이스',
-    '칠리', '머스타드',
+  { key: 'spice', icon: '🔥', label: '스파이스', chips: [
+    { emoji: '⚫', label: '검은 후추' },
+    { emoji: '⚪', label: '흰 후추' },
+    { emoji: '🌶️', label: '핑크 페퍼' },
+    { emoji: '🫚', label: '생강' },
+    { emoji: '🌰', label: '카다멈' },
+    { emoji: '⭐', label: '정향' },
+    { emoji: '🌰', label: '육두구' },
+    { emoji: '⭐', label: '아니스' },
+    { emoji: '🍂', label: '계피' },
+    { emoji: '🌶️', label: '올스파이스' },
+    { emoji: '🌶️', label: '메이스' },
+    { emoji: '🌶️', label: '칠리' },
+    { emoji: '🟡', label: '머스타드' },
   ] },
-  { key: 'sweet',  icon: '🍫', label: '달콤함',     chips: [
-    '다크 초콜릿', '밀크 초콜릿', '코코아', '모카',
-    '캐러멜', '토피', '버터스카치', '메이플 시럽',
-    '바닐라', '꿀', '아가베', '당밀',
-    '커스터드', '크렘 브륄레', '바닐라 케이크',
-    '코코넛', '아몬드 프랄린', '누가',
+  { key: 'sweet', icon: '🍫', label: '달콤함', chips: [
+    { emoji: '🍫', label: '다크 초콜릿' },
+    { emoji: '🍫', label: '밀크 초콜릿' },
+    { emoji: '🟫', label: '코코아' },
+    { emoji: '☕', label: '모카' },
+    { emoji: '🍮', label: '캐러멜' },
+    { emoji: '🌰', label: '토피' },
+    { emoji: '🟡', label: '버터스카치' },
+    { emoji: '🍁', label: '메이플 시럽' },
+    { emoji: '🟤', label: '바닐라' },
+    { emoji: '🍯', label: '꿀' },
+    { emoji: '🌵', label: '아가베' },
+    { emoji: '🟫', label: '당밀' },
+    { emoji: '🍮', label: '커스터드' },
+    { emoji: '🔥', label: '크렘 브륄레' },
+    { emoji: '🍰', label: '바닐라 케이크' },
+    { emoji: '🥥', label: '코코넛' },
+    { emoji: '🌰', label: '아몬드 프랄린' },
+    { emoji: '🍬', label: '누가' },
   ] },
-  { key: 'earth',  icon: '🍂', label: '자연향',     chips: [
-    '젖은 흙', '버섯', '이끼', '낙엽',
-    '미네랄', '플린트', '소금기', '조약돌',
-    '스모크', '피트', '재', '훈제',
-    '바닷내음', '요오드', '가죽', '담뱃잎',
-    '왁스', '오일',
+  { key: 'earth', icon: '🍂', label: '자연향', chips: [
+    { emoji: '🌧️', label: '젖은 흙' },
+    { emoji: '🍄', label: '버섯' },
+    { emoji: '🌿', label: '이끼' },
+    { emoji: '🍂', label: '낙엽' },
+    { emoji: '🪨', label: '미네랄' },
+    { emoji: '🪨', label: '플린트' },
+    { emoji: '🧂', label: '소금기' },
+    { emoji: '🪨', label: '조약돌' },
+    { emoji: '💨', label: '스모크' },
+    { emoji: '🔥', label: '피트' },
+    { emoji: '🌫️', label: '재' },
+    { emoji: '🍖', label: '훈제' },
+    { emoji: '🌊', label: '바닷내음' },
+    { emoji: '🧴', label: '요오드' },
+    { emoji: '🟫', label: '가죽' },
+    { emoji: '🚬', label: '담뱃잎' },
+    { emoji: '🕯️', label: '왁스' },
+    { emoji: '⛽', label: '오일' },
   ] },
 ]
 
@@ -150,14 +215,16 @@ function QuickNotePicker({ onApply }: {
         ))}
       </div>
 
-      {/* 서브 칩 — 활성 필드에 추가 */}
+      {/* 서브 칩 — 활성 필드에 추가 (이모지 + 라벨로 직관적 표시) */}
       <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '0.9rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', maxHeight: 320, overflowY: 'auto' }}>
         {active.chips.map(c => {
-          const sel = fieldPicks.includes(c)
+          const tagged = `${c.emoji} ${c.label}`
+          const sel = fieldPicks.includes(tagged)
           return (
-            <button key={c} onClick={() => toggle(c)} className={`chip${sel ? ' active' : ''}`}
-              style={{ fontSize: '0.74rem', padding: '0.4rem 0.75rem' }}>
-              {c}
+            <button key={c.label} onClick={() => toggle(tagged)} className={`chip${sel ? ' active' : ''}`}
+              style={{ fontSize: '0.74rem', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+              <span style={{ fontSize: '0.85rem' }}>{c.emoji}</span>
+              {c.label}
             </button>
           )
         })}
