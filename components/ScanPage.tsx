@@ -163,8 +163,9 @@ interface ScanFields {
 }
 
 /* ── QuickNotePicker ─ 빠른 노트 입력 (향·맛·여운 × 5 카테고리 × 다양한 칩) ── */
-function QuickNotePicker({ onApply }: {
+function QuickNotePicker({ onApply, currentBottleHint }: {
   onApply: (picks: { nose: string[]; palate: string[]; finish: string[] }) => void
+  currentBottleHint?: { brand?: string; age?: string; region?: string; isEvent?: boolean }
 }) {
   const [field, setField] = useState<'nose'|'palate'|'finish'>('nose')
   const [tab, setTab] = useState<string>(FLAVOR_TABS[0].key)
@@ -181,49 +182,91 @@ function QuickNotePicker({ onApply }: {
   }))
   const totalCount = picks.nose.length + picks.palate.length + picks.finish.length
 
+  const fieldHelp = field === 'nose'
+    ? '잔에서 풍기는 첫 향. 코를 가까이 대고 떠오르는 단어를 골라보세요.'
+    : field === 'palate'
+    ? '입에 머금었을 때 느껴지는 맛·질감. 어떤 음식·기억이 떠오르나요?'
+    : '삼킨 뒤 입과 목에 남는 잔향과 인상. 길이·온도·감촉도 OK.'
+
   return (
     <div className="fade-up">
-      {/* 필드 탭 — 향 / 맛 / 여운 */}
-      <div style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
+      {/* 보틀 힌트 — 이벤트에서 진입 시 */}
+      {currentBottleHint?.brand && (
+        <div style={{ padding: '0.6rem 0.85rem', background: currentBottleHint.isEvent ? 'var(--gp)' : 'var(--c3)', border: `1px solid ${currentBottleHint.isEvent ? 'var(--gold)' : 'var(--bd)'}`, marginBottom: '0.85rem', borderLeft: '3px solid var(--gold)' }}>
+          <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
+            {currentBottleHint.isEvent ? '🍶 시음회 보틀' : '🥃 현재 보틀'}
+          </p>
+          <p style={{ fontSize: '0.85rem', color: 'var(--tx)' }}>
+            {currentBottleHint.brand}
+            {currentBottleHint.age && <span style={{ color: 'var(--gold)' }}> · {currentBottleHint.age}</span>}
+            {currentBottleHint.region && <span style={{ color: 'var(--tx3)' }}> · {currentBottleHint.region}</span>}
+          </p>
+        </div>
+      )}
+
+      {/* 1단계 안내 */}
+      <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+        STEP 1 · 어느 단계인지 고르기
+      </p>
+
+      {/* 필드 탭 — 향 / 맛 / 여운 (시인성 강화) */}
+      <div style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '0.6rem' }}>
         {NPF_FIELDS.map(f => {
           const cnt = picks[f.key].length
+          const sel = field === f.key
           return (
             <button key={f.key} onClick={() => setField(f.key)} className="mono"
               style={{
-                flex: 1, padding: '0.65rem 0.4rem', border: 'none', cursor: 'pointer',
-                background: field === f.key ? 'var(--gp)' : 'var(--c2)',
-                color: field === f.key ? 'var(--gold)' : 'var(--tx2)',
-                fontSize: '0.72rem', letterSpacing: '0.04em', fontWeight: 600,
-                borderBottom: field === f.key ? '2px solid var(--gold)' : '2px solid transparent',
+                flex: 1, padding: '0.75rem 0.4rem', border: 'none', cursor: 'pointer',
+                background: sel ? 'var(--gp)' : 'var(--c2)',
+                color: sel ? 'var(--gold)' : 'var(--tx2)',
+                fontSize: '0.8rem', letterSpacing: '0.04em', fontWeight: 600,
+                borderBottom: sel ? '3px solid var(--gold)' : '3px solid transparent',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
               }}>
-              {f.icon} {f.label}{cnt ? ` (${cnt})` : ''}
+              <span style={{ fontSize: '1.15rem' }}>{f.icon}</span>
+              <span>{f.label}{cnt ? ` · ${cnt}` : ''}</span>
             </button>
           )
         })}
       </div>
 
-      {/* 카테고리 탭 */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
-        {FLAVOR_TABS.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} className="mono"
-            style={{
-              flex: '1 1 90px', padding: '0.55rem 0.4rem', border: 'none', cursor: 'pointer',
-              background: tab === t.key ? 'rgba(198,107,61,0.18)' : 'var(--c3)',
-              color: tab === t.key ? 'var(--gold)' : 'var(--tx2)',
-              fontSize: '0.66rem', letterSpacing: '0.03em',
-              borderBottom: tab === t.key ? '1px solid var(--gold)' : '1px solid transparent',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
-            }}>
-            <span style={{ fontSize: '1rem' }}>{t.icon}</span>
-            <span>{t.label}</span>
-          </button>
-        ))}
+      {/* 필드 도움말 */}
+      <p style={{ fontSize: '0.7rem', color: 'var(--tx2)', lineHeight: 1.6, marginBottom: '1rem', padding: '0.5rem 0.7rem', background: 'rgba(198,107,61,0.06)', borderLeft: '2px solid var(--gold)' }}>
+        💡 {fieldHelp}
+      </p>
+
+      {/* 2단계 안내 */}
+      <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>
+        STEP 2 · 카테고리 → 칩 선택
+      </p>
+
+      {/* 카테고리 탭 — 한 줄 가로 스크롤 */}
+      <div className="quick-cat-tabs" style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1px', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
+        {FLAVOR_TABS.map(t => {
+          const sel = tab === t.key
+          return (
+            <button key={t.key} onClick={() => setTab(t.key)} className="mono quick-cat-tab"
+              style={{
+                flex: '1 0 auto', padding: '0.6rem 0.7rem', border: 'none', cursor: 'pointer',
+                background: sel ? 'rgba(198,107,61,0.18)' : 'var(--c3)',
+                color: sel ? 'var(--gold)' : 'var(--tx2)',
+                fontSize: '0.7rem', letterSpacing: '0.03em',
+                borderBottom: sel ? '2px solid var(--gold)' : '2px solid transparent',
+                display: 'flex', alignItems: 'center', gap: '0.3rem',
+                whiteSpace: 'nowrap', fontWeight: sel ? 600 : 400,
+              }}>
+              <span style={{ fontSize: '1.05rem' }}>{t.icon}</span>
+              <span>{t.label}</span>
+            </button>
+          )
+        })}
       </div>
 
       {/* 서브 칩 — 활성 필드에 추가 (이모지 + 라벨로 직관적 표시) */}
-      <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '0.9rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', maxHeight: 320, overflowY: 'auto' }}>
+      <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginBottom: '1rem', maxHeight: 340, overflowY: 'auto' }}>
         {active.key === 'catalog' && (
-          <p className="mono" style={{ width: '100%', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+          <p className="mono" style={{ width: '100%', fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
             {field === 'nose' ? '🌸 향 전용 노트' : field === 'palate' ? '🥃 맛 전용 노트' : '✨ 여운 전용 노트'} · {activeChips.length}개
           </p>
         )}
@@ -232,8 +275,8 @@ function QuickNotePicker({ onApply }: {
           const sel = fieldPicks.includes(tagged)
           return (
             <button key={`${c.label}-${i}`} onClick={() => toggle(tagged)} className={`chip${sel ? ' active' : ''}`}
-              style={{ fontSize: '0.74rem', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-              <span style={{ fontSize: '0.85rem' }}>{c.emoji}</span>
+              style={{ fontSize: '0.82rem', padding: '0.5rem 0.85rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span style={{ fontSize: '1rem' }}>{c.emoji}</span>
               {c.label}
             </button>
           )
@@ -242,22 +285,25 @@ function QuickNotePicker({ onApply }: {
 
       {/* 선택 미리보기 (필드별) */}
       {totalCount > 0 && (
-        <div style={{ padding: '0.75rem 0.9rem', background: 'var(--c3)', border: '1px solid var(--bd)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+        <div style={{ padding: '0.85rem 1rem', background: 'var(--c3)', border: '1px solid var(--gold)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+          <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+            ✓ 내가 고른 노트 (총 {totalCount}개)
+          </p>
           {NPF_FIELDS.map(f => picks[f.key].length > 0 && (
             <div key={f.key}>
-              <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
-                {f.icon} {f.label.toUpperCase()} ({picks[f.key].length})
+              <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx2)', marginBottom: '0.2rem' }}>
+                {f.icon} {f.label} ({picks[f.key].length})
               </p>
-              <p style={{ fontSize: '0.78rem', color: 'var(--tx)', lineHeight: 1.55 }}>{picks[f.key].join(', ')}</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--tx)', lineHeight: 1.6 }}>{picks[f.key].join(', ')}</p>
             </div>
           ))}
         </div>
       )}
 
-      <div className="m-grid-collapse" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button className="btn-gold" style={{ flex: '1 1 200px', justifyContent: 'center' }}
+      <div className="m-grid-collapse" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+        <button className="btn-gold" style={{ flex: '1 1 200px', justifyContent: 'center', padding: '0.85rem' }}
           onClick={() => onApply(picks)} disabled={totalCount === 0}>
-          ✓ 노트에 적용 · Next →
+          ✓ 노트에 적용 · 다음 단계 →
         </button>
         {totalCount > 0 && (
           <button className="btn-ghost" style={{ whiteSpace: 'nowrap' }}
@@ -267,9 +313,20 @@ function QuickNotePicker({ onApply }: {
         )}
       </div>
 
-      <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginTop: '1rem', lineHeight: 1.7 }}>
-        ◈ 빠른 노트 — 향·맛·여운 탭 선택 → 카테고리 → 칩을 누르면 해당 필드에 쌓입니다. Next로 노트 페이지에 자동 적용.
-      </p>
+      <details style={{ background: 'var(--c3)', border: '1px solid var(--bd)', padding: '0.6rem 0.85rem' }}>
+        <summary className="mono" style={{ fontSize: '0.64rem', color: 'var(--gold)', cursor: 'pointer', letterSpacing: '0.04em' }}>
+          ❓ 처음이라면 — 빠른 노트 사용법
+        </summary>
+        <ol style={{ fontSize: '0.72rem', color: 'var(--tx2)', lineHeight: 1.85, paddingLeft: '1.2rem', marginTop: '0.45rem' }}>
+          <li>위쪽 <b style={{ color: 'var(--gold)' }}>향 · 맛 · 여운</b> 중 어느 단계인지 고릅니다.</li>
+          <li>카테고리(과일 · 식물 · 스파이스 · 달콤 · 자연향 · 📚 기존 노트) 중 가까운 것을 선택합니다.</li>
+          <li>해당 단계에 어울리는 <b>칩(태그)</b>을 눌러 쌓습니다. 여러 개 OK.</li>
+          <li>단계를 바꿔가며 향·맛·여운을 채우고, 마지막에 <b>다음 단계 →</b>를 누르세요.</li>
+        </ol>
+        <p style={{ fontSize: '0.66rem', color: 'var(--tx3)', marginTop: '0.4rem', lineHeight: 1.6 }}>
+          정답은 없습니다. 떠오르는 단어를 직관적으로 고르면 그게 본인의 노트예요.
+        </p>
+      </details>
     </div>
   )
 }
@@ -858,7 +915,7 @@ function PhotoSection({ photo, setPhoto, photoRef }: { photo:string|null; setPho
 /* ── Main InputPage ───────────────────────────────────────────────────────── */
 
 export default function ScanPage() {
-  const { updateCurrentLog, resetCurrentLog, setActiveTab, scanMode, setScanMode, setReferenceNotes } = useStore()
+  const { updateCurrentLog, resetCurrentLog, setActiveTab, scanMode, setScanMode, setReferenceNotes, currentLog } = useStore()
   const { showToast } = useToast()
   const [mode, setMode] = useState<InputMode>(scanMode)
   const [spiritType, setSpiritType] = useState<SpiritType>('whisky')
@@ -1103,16 +1160,22 @@ export default function ScanPage() {
 
       {/* ── QUICK NOTE MODE — 빠른 향·맛·여운 픽커 ── */}
       {mode === 'quick' && <QuickNotePicker
+        currentBottleHint={currentLog.brand ? {
+          brand: currentLog.brand,
+          age: currentLog.age,
+          region: currentLog.region,
+          isEvent: !!currentLog.event_id,
+        } : undefined}
         onApply={(picks) => {
           const total = picks.nose.length + picks.palate.length + picks.finish.length
           if (total === 0) { showToast('칩을 1개 이상 선택해주세요', 'err'); return }
-          resetCurrentLog()
+          // currentLog는 리셋하지 않음 — 이벤트 시드(brand/age/region/event_id 등) 보존
           updateCurrentLog({
-            spirit_type: 'whisky',
+            spirit_type: currentLog.spirit_type || 'whisky',
             nose: picks.nose.join(', '),
             palate: picks.palate.join(', '),
             finish: picks.finish.join(', '),
-            date: new Date().toISOString().split('T')[0],
+            date: currentLog.date || new Date().toISOString().split('T')[0],
           })
           setActiveTab('tasting')
         }}

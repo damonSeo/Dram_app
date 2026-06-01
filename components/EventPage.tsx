@@ -23,7 +23,7 @@ const daysUntil = (s: string) => {
 }
 
 export default function EventPage() {
-  const { activeEventId, openEvent, setActiveTab, resetCurrentLog, updateCurrentLog } = useStore()
+  const { activeEventId, openEvent, setActiveTab, resetCurrentLog, updateCurrentLog, setScanMode } = useStore()
   const { showToast } = useToast()
   const [list, setList] = useState<TastingEvent[]>([])
   const [detail, setDetail] = useState<EventDetail | null>(null)
@@ -96,7 +96,7 @@ export default function EventPage() {
       .finally(() => setLoading(false))
   }, [activeEventId, showToast])
 
-  // 보틀별 노트 추가 → currentLog 시드 + Notes로
+  // 보틀별 노트 추가 → 빠른 노트 모드로 진입 (보틀 정보 시드 + 빠른 칩 선택)
   const addNoteForBottle = (b: EventBottle, index: number) => {
     if (!detail) return
     resetCurrentLog()
@@ -112,7 +112,8 @@ export default function EventPage() {
       event_id: detail.event.id,
       event_bottle_index: index,
     })
-    setActiveTab('tasting')
+    setScanMode('quick')
+    setActiveTab('scan')
   }
 
   // ── 리스트 모드 ──
