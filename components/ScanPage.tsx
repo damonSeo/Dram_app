@@ -73,7 +73,7 @@ const FLAVOR_TABS: { key: string; icon: string; label: string; chips: string[] }
     '커스터드', '크렘 브륄레', '바닐라 케이크',
     '코코넛', '아몬드 프랄린', '누가',
   ] },
-  { key: 'earth',  icon: '🌍', label: '지구향',     chips: [
+  { key: 'earth',  icon: '🍂', label: '자연향',     chips: [
     '젖은 흙', '버섯', '이끼', '낙엽',
     '미네랄', '플린트', '소금기', '조약돌',
     '스모크', '피트', '재', '훈제',
