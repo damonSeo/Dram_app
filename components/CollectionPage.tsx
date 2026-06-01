@@ -448,8 +448,12 @@ export default function CollectionPage() {
   return (
     <div className="m-page" style={{ maxWidth: 1100, margin: '0 auto', padding: '2rem 1.5rem' }}>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
         <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>Archive</h1>
+        <button onClick={() => setActiveTab('events')} className="mono"
+          style={{ background: 'transparent', border: 'none', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.7rem', letterSpacing: '0.06em', padding: 0 }}>
+          🍶 시음회 보기 →
+        </button>
         <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', marginLeft: 'auto' }}>
           카드 → 상세 · 📝 → 개인 노트
         </span>

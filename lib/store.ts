@@ -25,6 +25,9 @@ interface DramStore {
   // Bottle Research 참고 노트 (스캔 → 노트/인스타 비교용, currentLog와 별개로 유지)
   referenceNotes: { nose: string; palate: string; finish: string; source: string } | null
   setReferenceNotes: (r: DramStore['referenceNotes']) => void
+  // 현재 보고 있는 시음회 이벤트 id (활성 탭이 'event'일 때)
+  activeEventId: string | null
+  openEvent: (id: string) => void
   // Search
   searchQuery: string
   setSearchQuery: (q: string) => void
@@ -64,10 +67,12 @@ export const useStore = create<DramStore>()((set, get) => ({
   currentProfile: null,
   searchQuery: '',
   referenceNotes: null,
+  activeEventId: null,
   newsBookmarks: [],
 
   setActiveTab: (tab) => set({ activeTab: tab }),
   setReferenceNotes: (r) => set({ referenceNotes: r }),
+  openEvent: (id) => set({ activeEventId: id, activeTab: 'event' }),
   setSearchQuery: (q) => set({ searchQuery: q }),
   setNewsBookmarks: (b) => set({ newsBookmarks: b }),
   addBookmark: (b) => {

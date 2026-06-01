@@ -29,6 +29,30 @@ export interface WhiskyLog {
   date: string
   created_at: string
   updated_at: string
+  /** 시음회 이벤트 연결 (선택) */
+  event_id?: string | null
+  event_bottle_index?: number | null
+}
+
+export interface EventBottle {
+  name: string
+  distillery?: string
+  age?: string
+  region?: string
+  abv?: string
+  bottler?: string
+}
+
+export interface TastingEvent {
+  id: string
+  title: string
+  event_date: string          // YYYY-MM-DD
+  description: string
+  featured_bottles: EventBottle[]
+  host_user_id: string | null
+  host_nickname?: string
+  created_at: string
+  updated_at: string
 }
 
 export interface OcrResult {
@@ -51,7 +75,7 @@ export interface ExtractedKeys {
 }
 
 export type SpiritType = 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
-export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail' | 'search'
+export type TabName = 'home' | 'scan' | 'tasting' | 'collection' | 'share' | 'cocktail' | 'search' | 'event' | 'events'
 
 export interface Profile {
   id: string

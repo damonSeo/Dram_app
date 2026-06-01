@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
-import type { WhiskyLog } from '@/types'
+import type { WhiskyLog, TastingEvent } from '@/types'
 import { toHundred } from '@/lib/scoreFormat'
 import type { NewsItem } from '@/app/api/whisky-news/route'
 
@@ -12,7 +12,19 @@ const NEWS_INIT = 5
 
 export default function HomePage() {
   const { setActiveTab, setScanMode, loadLog, collection, setSearchQuery,
-          newsBookmarks, addBookmark, removeBookmark, currentUserId } = useStore()
+          newsBookmarks, addBookmark, removeBookmark, currentUserId, openEvent } = useStore()
+  const [upcomingEvents, setUpcomingEvents] = useState<TastingEvent[]>([])
+
+  useEffect(() => {
+    fetch('/api/events')
+      .then(r => r.json())
+      .then((j: { data?: TastingEvent[] }) => {
+        const today = new Date().toISOString().slice(0, 10)
+        const up = (j.data || []).filter(e => e.event_date >= today).slice(0, 2)
+        setUpcomingEvents(up)
+      })
+      .catch(() => {})
+  }, [])
   const { showToast } = useToast()
   const [homeSearchInput, setHomeSearchInput] = useState('')
   const [news, setNews] = useState<NewsItem[]>([])
@@ -324,6 +336,32 @@ export default function HomePage() {
 
         {/* ── RIGHT RAIL ── */}
         <aside className="home-rail" style={{ alignSelf: 'start', position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+          {/* 0. 다가올 시음회 — 가장 가까운 1~2개 */}
+          {upcomingEvents.length > 0 && (
+            <div style={{ border: '1px solid var(--gold)', background: 'linear-gradient(135deg, rgba(198,107,61,0.12), rgba(198,107,61,0.04))' }}>
+              <div style={{ padding: '0.65rem 1rem', borderBottom: '1px solid var(--bd2)' }}>
+                <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>🍶 다가올 시음회</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {upcomingEvents.map(ev => {
+                  const d = Math.ceil((new Date(ev.event_date + 'T00:00:00').getTime() - Date.now()) / (1000*60*60*24))
+                  return (
+                    <button key={ev.id} onClick={() => openEvent(ev.id)}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.7rem 1rem', textAlign: 'left', borderTop: '1px solid var(--bd)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <p style={{ fontSize: '0.8rem', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
+                        <span className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', flexShrink: 0 }}>{d > 0 ? `D-${d}` : 'TODAY'}</span>
+                      </div>
+                      <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--tx3)', marginTop: '0.15rem' }}>
+                        {ev.featured_bottles.length}개 보틀 · 호스트 @{ev.host_nickname || '익명'}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
 
           {/* 1. Latest Rating — 3개 compact */}
           {recent.length > 0 && (

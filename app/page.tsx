@@ -8,6 +8,7 @@ import TastingPage from '@/components/TastingPage'
 import CollectionPage from '@/components/CollectionPage'
 import SharePage from '@/components/SharePage'
 import SearchPage from '@/components/SearchPage'
+import EventPage from '@/components/EventPage'
 import { ToastProvider } from '@/components/Toast'
 import type { WhiskyLog, TabName } from '@/types'
 
@@ -33,7 +34,7 @@ export default function Home() {
   // ── 브라우저/사파리 뒤로가기 ↔ activeTab 동기화 ──
   // location.hash를 단일 진실 소스로 사용 (Safari macOS는 popstate state를 누락하는 경우가 있음)
   useEffect(() => {
-    const VALID: TabName[] = ['home', 'scan', 'tasting', 'collection', 'search', 'share', 'cocktail']
+    const VALID: TabName[] = ['home', 'scan', 'tasting', 'collection', 'search', 'share', 'cocktail', 'event', 'events']
     const tabFromHash = (): TabName | null => {
       const h = window.location.hash.replace(/^#/, '') as TabName
       return VALID.includes(h) ? h : null
@@ -83,6 +84,7 @@ export default function Home() {
         {activeTab === 'collection' && <CollectionPage />}
         {activeTab === 'search' && <SearchPage />}
         {activeTab === 'share' && <SharePage />}
+        {(activeTab === 'event' || activeTab === 'events') && <EventPage />}
       </main>
     </ToastProvider>
   )
