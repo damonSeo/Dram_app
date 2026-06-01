@@ -6,6 +6,7 @@ import { compressImageToDataUrl, shrinkDataUrl } from '@/lib/imageUtils'
 import type { OcrResult, SpiritType } from '@/types'
 import type { BottleProfile } from '@/app/api/bottle-research/route'
 import type { VisualMatch } from '@/app/api/visual-search/route'
+import { KEY_MAP as FIELD_KEY_MAP } from '@/lib/tastingEmojis'
 
 /* ── constants ─────────────────────────────────────────────────────────────── */
 
@@ -48,7 +49,9 @@ type InputMode = 'scan' | 'manual' | 'quick'
 
 // 빠른 노트 픽커 — 5 카테고리, 칩마다 이모지로 직관적 표현
 interface FlavorChip { emoji: string; label: string }
-const FLAVOR_TABS: { key: string; icon: string; label: string; chips: FlavorChip[] }[] = [
+// chips: null = 활성 필드(향/맛/여운)에 따라 동적으로 가져옴
+const FLAVOR_TABS: { key: string; icon: string; label: string; chips: FlavorChip[] | null }[] = [
+  { key: 'catalog', icon: '📚', label: '기존 노트', chips: null },
   { key: 'fruit', icon: '🍇', label: '과일류', chips: [
     { emoji: '🍋', label: '시트러스' },
     { emoji: '🍋', label: '레몬' },
@@ -169,6 +172,8 @@ function QuickNotePicker({ onApply }: {
     nose: [], palate: [], finish: [],
   })
   const active = FLAVOR_TABS.find(t => t.key === tab)!
+  // 'catalog' 탭은 활성 필드(향/맛/여운)에 따라 lib/tastingEmojis의 카탈로그를 가져옴
+  const activeChips: FlavorChip[] = active.chips ?? FIELD_KEY_MAP[field].map(k => ({ emoji: k.emoji, label: k.label }))
   const fieldPicks = picks[field]
   const toggle = (chip: string) => setPicks(p => ({
     ...p,
@@ -217,11 +222,16 @@ function QuickNotePicker({ onApply }: {
 
       {/* 서브 칩 — 활성 필드에 추가 (이모지 + 라벨로 직관적 표시) */}
       <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '0.9rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', maxHeight: 320, overflowY: 'auto' }}>
-        {active.chips.map(c => {
+        {active.key === 'catalog' && (
+          <p className="mono" style={{ width: '100%', fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+            {field === 'nose' ? '🌸 향 전용 노트' : field === 'palate' ? '🥃 맛 전용 노트' : '✨ 여운 전용 노트'} · {activeChips.length}개
+          </p>
+        )}
+        {activeChips.map((c, i) => {
           const tagged = `${c.emoji} ${c.label}`
           const sel = fieldPicks.includes(tagged)
           return (
-            <button key={c.label} onClick={() => toggle(tagged)} className={`chip${sel ? ' active' : ''}`}
+            <button key={`${c.label}-${i}`} onClick={() => toggle(tagged)} className={`chip${sel ? ' active' : ''}`}
               style={{ fontSize: '0.74rem', padding: '0.4rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
               <span style={{ fontSize: '0.85rem' }}>{c.emoji}</span>
               {c.label}
