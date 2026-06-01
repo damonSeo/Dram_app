@@ -44,15 +44,49 @@ const S = {
   chips: { display: 'flex', flexWrap: 'wrap' as const, gap: '0.3rem', marginTop: '0.45rem' },
 }
 
-type InputMode = 'scan' | 'manual' | 'profile'
+type InputMode = 'scan' | 'manual' | 'quick'
 
-// 빠른 향 프로필 픽커 — 5 카테고리 × 3 서브칩
+// 빠른 노트 픽커 — 5 카테고리, 카테고리별 다양한 향
 const FLAVOR_TABS: { key: string; icon: string; label: string; chips: string[] }[] = [
-  { key: 'fruit',  icon: '🍇', label: '과일류',     chips: ['시트러스', '적색과일', '드라이'] },
-  { key: 'herb',   icon: '🌿', label: '식물/향신료', chips: ['소나무/우드', '풀/채소', '꽃향'] },
-  { key: 'spice',  icon: '🔥', label: '스파이스',    chips: ['페퍼', '생강', '계피'] },
-  { key: 'sweet',  icon: '🍫', label: '달콤함',     chips: ['초콜릿', '캐러멜', '바닐라'] },
-  { key: 'earth',  icon: '🌍', label: '지구향',     chips: ['흙', '미네랄', '스모크'] },
+  { key: 'fruit',  icon: '🍇', label: '과일류',     chips: [
+    '시트러스', '레몬', '오렌지', '자몽', '라임', '말린 살구',
+    '적색과일', '체리', '딸기', '라즈베리', '블랙커런트', '건포도',
+    '사과', '서양배', '복숭아', '망고', '파인애플', '바나나',
+    '드라이 과일', '무화과', '대추야자',
+  ] },
+  { key: 'herb',   icon: '🌿', label: '식물/향신료', chips: [
+    '소나무', '오크', '삼나무', '연필심',
+    '풀잎', '건초', '녹차', '허브',
+    '민트', '유칼립투스', '바질', '타임',
+    '꽃향', '장미', '엘더플라워', '라벤더', '히더',
+  ] },
+  { key: 'spice',  icon: '🔥', label: '스파이스',    chips: [
+    '검은 후추', '흰 후추', '핑크 페퍼',
+    '생강', '카다멈', '정향', '육두구', '아니스',
+    '계피', '올스파이스', '메이스',
+    '칠리', '머스타드',
+  ] },
+  { key: 'sweet',  icon: '🍫', label: '달콤함',     chips: [
+    '다크 초콜릿', '밀크 초콜릿', '코코아', '모카',
+    '캐러멜', '토피', '버터스카치', '메이플 시럽',
+    '바닐라', '꿀', '아가베', '당밀',
+    '커스터드', '크렘 브륄레', '바닐라 케이크',
+    '코코넛', '아몬드 프랄린', '누가',
+  ] },
+  { key: 'earth',  icon: '🌍', label: '지구향',     chips: [
+    '젖은 흙', '버섯', '이끼', '낙엽',
+    '미네랄', '플린트', '소금기', '조약돌',
+    '스모크', '피트', '재', '훈제',
+    '바닷내음', '요오드', '가죽', '담뱃잎',
+    '왁스', '오일',
+  ] },
+]
+
+// 향 / 맛 / 여운 — 같은 카테고리 칩을 어느 필드에 넣을지
+const NPF_FIELDS: { key: 'nose'|'palate'|'finish'; label: string; icon: string }[] = [
+  { key: 'nose',   label: '향',   icon: '🌸' },
+  { key: 'palate', label: '맛',   icon: '🥃' },
+  { key: 'finish', label: '여운', icon: '✨' },
 ]
 
 interface ScanFields {
@@ -60,71 +94,104 @@ interface ScanFields {
   abv: string; bottler: string; cask: string
 }
 
-/* ── ProfilePicker ─ 빠른 향 프로필 입력 (5 카테고리 × 3 칩) ─────────────── */
-function ProfilePicker({ onApply }: { onApply: (picks: string[]) => void }) {
+/* ── QuickNotePicker ─ 빠른 노트 입력 (향·맛·여운 × 5 카테고리 × 다양한 칩) ── */
+function QuickNotePicker({ onApply }: {
+  onApply: (picks: { nose: string[]; palate: string[]; finish: string[] }) => void
+}) {
+  const [field, setField] = useState<'nose'|'palate'|'finish'>('nose')
   const [tab, setTab] = useState<string>(FLAVOR_TABS[0].key)
-  const [picks, setPicks] = useState<string[]>([])
-  const toggle = (c: string) => setPicks((p) => p.includes(c) ? p.filter(x => x !== c) : [...p, c])
+  const [picks, setPicks] = useState<{ nose: string[]; palate: string[]; finish: string[] }>({
+    nose: [], palate: [], finish: [],
+  })
   const active = FLAVOR_TABS.find(t => t.key === tab)!
+  const fieldPicks = picks[field]
+  const toggle = (chip: string) => setPicks(p => ({
+    ...p,
+    [field]: p[field].includes(chip) ? p[field].filter(x => x !== chip) : [...p[field], chip],
+  }))
+  const totalCount = picks.nose.length + picks.palate.length + picks.finish.length
 
   return (
     <div className="fade-up">
+      {/* 필드 탭 — 향 / 맛 / 여운 */}
+      <div style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
+        {NPF_FIELDS.map(f => {
+          const cnt = picks[f.key].length
+          return (
+            <button key={f.key} onClick={() => setField(f.key)} className="mono"
+              style={{
+                flex: 1, padding: '0.65rem 0.4rem', border: 'none', cursor: 'pointer',
+                background: field === f.key ? 'var(--gp)' : 'var(--c2)',
+                color: field === f.key ? 'var(--gold)' : 'var(--tx2)',
+                fontSize: '0.72rem', letterSpacing: '0.04em', fontWeight: 600,
+                borderBottom: field === f.key ? '2px solid var(--gold)' : '2px solid transparent',
+              }}>
+              {f.icon} {f.label}{cnt ? ` (${cnt})` : ''}
+            </button>
+          )
+        })}
+      </div>
+
       {/* 카테고리 탭 */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
         {FLAVOR_TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} className="mono"
             style={{
-              flex: '1 1 90px', padding: '0.7rem 0.4rem', border: 'none', cursor: 'pointer',
-              background: tab === t.key ? 'var(--gp)' : 'var(--c2)',
+              flex: '1 1 90px', padding: '0.55rem 0.4rem', border: 'none', cursor: 'pointer',
+              background: tab === t.key ? 'rgba(198,107,61,0.18)' : 'var(--c3)',
               color: tab === t.key ? 'var(--gold)' : 'var(--tx2)',
-              fontSize: '0.7rem', letterSpacing: '0.04em',
+              fontSize: '0.66rem', letterSpacing: '0.03em',
               borderBottom: tab === t.key ? '1px solid var(--gold)' : '1px solid transparent',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
             }}>
-            <span style={{ fontSize: '1.1rem' }}>{t.icon}</span>
+            <span style={{ fontSize: '1rem' }}>{t.icon}</span>
             <span>{t.label}</span>
           </button>
         ))}
       </div>
 
-      {/* 서브 칩 */}
-      <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '1rem' }}>
+      {/* 서브 칩 — 활성 필드에 추가 */}
+      <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '0.9rem', display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem', maxHeight: 320, overflowY: 'auto' }}>
         {active.chips.map(c => {
-          const tagged = `${active.icon} ${c}`
-          const sel = picks.includes(tagged)
+          const sel = fieldPicks.includes(c)
           return (
-            <button key={c} onClick={() => toggle(tagged)} className={`chip${sel ? ' active' : ''}`}
-              style={{ fontSize: '0.78rem', padding: '0.45rem 0.85rem' }}>
+            <button key={c} onClick={() => toggle(c)} className={`chip${sel ? ' active' : ''}`}
+              style={{ fontSize: '0.74rem', padding: '0.4rem 0.75rem' }}>
               {c}
             </button>
           )
         })}
       </div>
 
-      {/* 선택 미리보기 + 적용 */}
-      {picks.length > 0 && (
-        <div style={{ padding: '0.7rem 0.9rem', background: 'var(--c3)', border: '1px solid var(--bd)', marginBottom: '1rem' }}>
-          <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.35rem', textTransform: 'uppercase' }}>
-            선택 ({picks.length})
-          </p>
-          <p style={{ fontSize: '0.8rem', color: 'var(--tx)', lineHeight: 1.6 }}>{picks.join(', ')}</p>
+      {/* 선택 미리보기 (필드별) */}
+      {totalCount > 0 && (
+        <div style={{ padding: '0.75rem 0.9rem', background: 'var(--c3)', border: '1px solid var(--bd)', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+          {NPF_FIELDS.map(f => picks[f.key].length > 0 && (
+            <div key={f.key}>
+              <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>
+                {f.icon} {f.label.toUpperCase()} ({picks[f.key].length})
+              </p>
+              <p style={{ fontSize: '0.78rem', color: 'var(--tx)', lineHeight: 1.55 }}>{picks[f.key].join(', ')}</p>
+            </div>
+          ))}
         </div>
       )}
 
       <div className="m-grid-collapse" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button className="btn-gold" style={{ flex: '1 1 200px', justifyContent: 'center' }}
-          onClick={() => onApply(picks)} disabled={picks.length === 0}>
+          onClick={() => onApply(picks)} disabled={totalCount === 0}>
           ✓ 노트에 적용 · Next →
         </button>
-        {picks.length > 0 && (
-          <button className="btn-ghost" style={{ whiteSpace: 'nowrap' }} onClick={() => setPicks([])}>
+        {totalCount > 0 && (
+          <button className="btn-ghost" style={{ whiteSpace: 'nowrap' }}
+            onClick={() => setPicks({ nose: [], palate: [], finish: [] })}>
             ✕ 비우기
           </button>
         )}
       </div>
 
       <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginTop: '1rem', lineHeight: 1.7 }}>
-        ◈ 빠른 향 프로필 — 카테고리 탭 → 칩 선택 → Next 누르면 향(Nose)에 채워져 노트 페이지로 이동합니다.
+        ◈ 빠른 노트 — 향·맛·여운 탭 선택 → 카테고리 → 칩을 누르면 해당 필드에 쌓입니다. Next로 노트 페이지에 자동 적용.
       </p>
     </div>
   )
@@ -923,7 +990,7 @@ export default function ScanPage() {
   /* ── mode / spirit tab selectors ── */
 
   const modeBtn = (m: InputMode, icon: string, label: string) => (
-    <button onClick={() => { setMode(m); if (m !== 'profile') setScanMode(m) }} className="mono" style={{
+    <button onClick={() => { setMode(m); setScanMode(m) }} className="mono" style={{
       flex:1, padding:'0.65rem', border:'none', cursor:'pointer',
       background: mode===m ? 'var(--gp)' : 'var(--c2)',
       color: mode===m ? 'var(--gold)' : 'var(--tx2)',
@@ -954,17 +1021,20 @@ export default function ScanPage() {
       <div style={{display:'flex', gap:'1px', marginBottom:'1.5rem', background:'var(--bd)', flexWrap:'wrap'}}>
         {modeBtn('scan','⬡','Scan Label')}
         {modeBtn('manual','✎','Manual Input')}
-        {modeBtn('profile','🎯','Profile')}
+        {modeBtn('quick','✦','빠른 노트')}
       </div>
 
-      {/* ── PROFILE MODE — 빠른 향 프로필 픽커 ── */}
-      {mode === 'profile' && <ProfilePicker
+      {/* ── QUICK NOTE MODE — 빠른 향·맛·여운 픽커 ── */}
+      {mode === 'quick' && <QuickNotePicker
         onApply={(picks) => {
-          if (picks.length === 0) { showToast('칩을 1개 이상 선택해주세요', 'err'); return }
+          const total = picks.nose.length + picks.palate.length + picks.finish.length
+          if (total === 0) { showToast('칩을 1개 이상 선택해주세요', 'err'); return }
           resetCurrentLog()
           updateCurrentLog({
             spirit_type: 'whisky',
-            nose: picks.join(', '),
+            nose: picks.nose.join(', '),
+            palate: picks.palate.join(', '),
+            finish: picks.finish.join(', '),
             date: new Date().toISOString().split('T')[0],
           })
           setActiveTab('tasting')

@@ -82,6 +82,7 @@ export default function HomePage() {
 
   const goScan   = () => { setScanMode('scan');   setActiveTab('scan') }
   const goManual = () => { setScanMode('manual'); setActiveTab('scan') }
+  const goQuick  = () => { setScanMode('quick');  setActiveTab('scan') }
 
   const exceptional = [...collection]
     .filter(l => toHundred(l.score) >= 90)
@@ -130,6 +131,10 @@ export default function HomePage() {
               <button onClick={goManual} className="mono"
                 style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(242,237,231,0.8)', padding: '0.8rem 1.6rem', cursor: 'pointer', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                 ✎ Manual Entry
+              </button>
+              <button onClick={goQuick} className="mono"
+                style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.8rem 1.6rem', cursor: 'pointer', fontSize: '0.72rem', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                ✦ 빠른 노트
               </button>
             </div>
           </div>
@@ -296,10 +301,11 @@ export default function HomePage() {
                 첫 번째 테이스팅 노트를 시작해보세요
               </p>
             )}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1px', background: 'var(--bd)' }} className="m-grid-collapse">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1px', background: 'var(--bd)' }} className="m-grid-collapse">
               {[
                 { icon: '⬡', label: 'AI Scan', title: 'Scan Label', desc: 'Gemini AI로 라벨을 읽고 바틀 정보를 자동 입력', onClick: goScan },
                 { icon: '✎', label: 'Manual', title: 'Manual Entry', desc: '직접 입력 — 증류소, 캐스크, 도수까지 세밀하게', onClick: goManual },
+                { icon: '✦', label: 'Quick', title: '빠른 노트', desc: '향·맛·여운 칩만 골라 1분 안에 시음 노트 완성', onClick: goQuick },
               ].map(c => (
                 <div key={c.title} onClick={c.onClick}
                   style={{ background: 'var(--c2)', padding: '1.4rem', cursor: 'pointer', transition: 'background 0.15s', display: 'flex', flexDirection: 'column', gap: '0.5rem', minHeight: 120 }}

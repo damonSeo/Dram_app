@@ -11,7 +11,7 @@ const DEFAULT_LOG: Partial<WhiskyLog> = {
 
 interface DramStore {
   activeTab: TabName
-  scanMode: 'scan' | 'manual'
+  scanMode: 'scan' | 'manual' | 'quick'
   archiveSubTab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail'
   // archive view: 'mine' = current user only · 'all' = everyone · uuid = specific user
   archiveView: 'mine' | 'all' | string
@@ -35,7 +35,7 @@ interface DramStore {
   removeBookmark: (link: string) => void
   loadBookmarks: () => Promise<void>
   setActiveTab: (tab: TabName) => void
-  setScanMode: (mode: 'scan' | 'manual') => void
+  setScanMode: (mode: 'scan' | 'manual' | 'quick') => void
   setArchiveSubTab: (tab: 'whisky' | 'bourbon' | 'cognac' | 'cocktail') => void
   setArchiveView: (view: 'mine' | 'all' | string) => void
   setCurrentUser: (userId: string | null, profile: Profile | null) => void
