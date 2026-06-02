@@ -241,6 +241,10 @@ body { overflow-x: hidden; }
 
 /* ────────── 768px 이하 (태블릿/모바일) ────────── */
 @media (max-width: 768px) {
+  /* 시음회 배너 — 모바일은 메인(뉴스 위)에 표시, 사이드바 버전은 숨김 */
+  .events-banner-mobile { display: block !important; }
+  .events-banner-rail { display: none !important; }
+
   /* 페이지 하단 여백 — 바텀 네비(60px) + 안전영역 */
   main {
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;

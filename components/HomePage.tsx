@@ -170,6 +170,32 @@ export default function HomePage() {
         {/* ── LEFT ── */}
         <div>
 
+          {/* 0. 다가올 시음회 — 모바일에서 뉴스 위에 (데스크탑은 사이드바에) */}
+          {upcomingEvents.length > 0 && (
+            <div className="events-banner-mobile" style={{ display: 'none', marginBottom: '1.25rem', border: '1px solid var(--gold)', background: 'linear-gradient(135deg, rgba(198,107,61,0.16), rgba(198,107,61,0.05))' }}>
+              <div style={{ padding: '0.65rem 1rem', borderBottom: '1px solid var(--bd2)' }}>
+                <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>🍶 다가올 시음회</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {upcomingEvents.map(ev => {
+                  const d = Math.ceil((new Date(ev.event_date + 'T00:00:00').getTime() - Date.now()) / (1000*60*60*24))
+                  return (
+                    <button key={ev.id} onClick={() => openEvent(ev.id)}
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.75rem 1rem', textAlign: 'left', borderTop: '1px solid var(--bd)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--tx)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.title}</p>
+                        <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)', flexShrink: 0, fontWeight: 600 }}>{d > 0 ? `D-${d}` : 'TODAY'}</span>
+                      </div>
+                      <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)', marginTop: '0.2rem' }}>
+                        {ev.featured_bottles.length}개 보틀 · 호스트 @{ev.host_nickname || '익명'}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* 1. 위스키 뉴스 — 최상단 */}
           <section className="news-section" style={{ marginBottom: '2.5rem' }}>
             {/* 헤더 */}
@@ -337,9 +363,9 @@ export default function HomePage() {
         {/* ── RIGHT RAIL ── */}
         <aside className="home-rail" style={{ alignSelf: 'start', position: 'sticky', top: 76, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-          {/* 0. 다가올 시음회 — 가장 가까운 1~2개 */}
+          {/* 0. 다가올 시음회 — 가장 가까운 1~2개 (데스크탑 사이드바 전용) */}
           {upcomingEvents.length > 0 && (
-            <div style={{ border: '1px solid var(--gold)', background: 'linear-gradient(135deg, rgba(198,107,61,0.12), rgba(198,107,61,0.04))' }}>
+            <div className="events-banner-rail" style={{ border: '1px solid var(--gold)', background: 'linear-gradient(135deg, rgba(198,107,61,0.12), rgba(198,107,61,0.04))' }}>
               <div style={{ padding: '0.65rem 1rem', borderBottom: '1px solid var(--bd2)' }}>
                 <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>🍶 다가올 시음회</p>
               </div>
