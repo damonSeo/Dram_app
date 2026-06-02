@@ -96,6 +96,43 @@ export default function EventPage() {
       .finally(() => setLoading(false))
   }, [activeEventId, showToast])
 
+  // 보틀 이미지 자동 검색 — 빠진 것만 한 번씩 가져와 PATCH로 캐싱
+  useEffect(() => {
+    if (!detail) return
+    const ev = detail.event
+    const missing = ev.featured_bottles
+      .map((b, i) => ({ b, i }))
+      .filter(x => !x.b.image_url)
+    if (missing.length === 0) return
+    let cancelled = false
+    ;(async () => {
+      const updated = [...ev.featured_bottles]
+      let changed = false
+      for (const { b, i } of missing) {
+        const q = encodeURIComponent([b.distillery || b.name, b.age, b.region].filter(Boolean).join(' '))
+        try {
+          const r = await fetch(`/api/bottle-image?q=${q}`)
+          const j = await r.json() as { data?: { image_url: string; source: string } | null }
+          if (cancelled) return
+          if (j.data?.image_url) {
+            updated[i] = { ...updated[i], image_url: j.data.image_url, image_source: j.data.source }
+            changed = true
+          }
+        } catch { /* skip */ }
+      }
+      if (cancelled || !changed) return
+      // 화면 즉시 반영
+      setDetail(d => d ? { ...d, event: { ...d.event, featured_bottles: updated } } : d)
+      // DB에 저장 (호스트 권한 있으면 통과, 없으면 조용히 실패)
+      fetch(`/api/events/${ev.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ featured_bottles: updated }),
+      }).catch(() => {})
+    })()
+    return () => { cancelled = true }
+  }, [detail])
+
   // 보틀별 노트 추가 → 빠른 노트 모드로 진입 (보틀 정보 시드 + 빠른 칩 선택)
   const addNoteForBottle = (b: EventBottle, index: number) => {
     if (!detail) return
@@ -194,8 +231,16 @@ export default function EventPage() {
           return (
             <div key={i} style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
               <button onClick={() => openOfficialInfo(b)}
-                style={{ width: '100%', padding: '0.85rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', textAlign: 'left' }}
+                style={{ width: '100%', padding: '0.85rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', textAlign: 'left' }}
                 title="오피셜 정보 보기">
+                {/* 보틀 썸네일 */}
+                {b.image_url ? (
+                  <img src={b.image_url} alt={b.name}
+                    style={{ width: 56, height: 72, objectFit: 'contain', objectPosition: 'center', background: '#0e0c0b', border: '1px solid var(--bd)', flexShrink: 0 }}
+                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                ) : (
+                  <div style={{ width: 56, height: 72, background: 'var(--c2)', border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>🥃</div>
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
                     Bottle {i + 1} · 🔍 클릭하여 오피셜 정보

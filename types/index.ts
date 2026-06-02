@@ -41,6 +41,8 @@ export interface EventBottle {
   region?: string
   abv?: string
   bottler?: string
+  image_url?: string         // 자동 검색된 보틀 사진
+  image_source?: string      // 출처 도메인
 }
 
 export interface TastingEvent {
