@@ -43,6 +43,9 @@ export interface EventBottle {
   bottler?: string
   image_url?: string         // 자동 검색된 보틀 사진
   image_source?: string      // 출처 도메인
+  image_verified?: boolean   // Gemini Vision이 라벨로 확인했는지
+  image_confidence?: 'high' | 'medium' | 'low'
+  image_found_text?: string  // Gemini가 라벨에서 읽은 텍스트
 }
 
 export interface TastingEvent {

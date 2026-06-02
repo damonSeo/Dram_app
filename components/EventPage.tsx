@@ -109,13 +109,25 @@ export default function EventPage() {
       const updated = [...ev.featured_bottles]
       let changed = false
       for (const { b, i } of missing) {
+        const expected = [b.distillery || b.name, b.age].filter(Boolean).join(' ')
         const q = encodeURIComponent([b.distillery || b.name, b.age, b.region].filter(Boolean).join(' '))
+        const nm = encodeURIComponent(expected)
         try {
-          const r = await fetch(`/api/bottle-image?q=${q}`)
-          const j = await r.json() as { data?: { image_url: string; source: string } | null }
+          const r = await fetch(`/api/bottle-image?q=${q}&name=${nm}`)
+          const j = await r.json() as { data?: {
+            image_url: string; source: string; verified?: boolean
+            confidence?: 'high'|'medium'|'low'; found_text?: string
+          } | null }
           if (cancelled) return
           if (j.data?.image_url) {
-            updated[i] = { ...updated[i], image_url: j.data.image_url, image_source: j.data.source }
+            updated[i] = {
+              ...updated[i],
+              image_url: j.data.image_url,
+              image_source: j.data.source,
+              image_verified: !!j.data.verified,
+              image_confidence: j.data.confidence,
+              image_found_text: j.data.found_text,
+            }
             changed = true
           }
         } catch { /* skip */ }
@@ -233,14 +245,28 @@ export default function EventPage() {
               <button onClick={() => openOfficialInfo(b)}
                 style={{ width: '100%', padding: '0.85rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap', textAlign: 'left' }}
                 title="오피셜 정보 보기">
-                {/* 보틀 썸네일 */}
-                {b.image_url ? (
-                  <img src={b.image_url} alt={b.name}
-                    style={{ width: 56, height: 72, objectFit: 'contain', objectPosition: 'center', background: '#0e0c0b', border: '1px solid var(--bd)', flexShrink: 0 }}
-                    onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                ) : (
-                  <div style={{ width: 56, height: 72, background: 'var(--c2)', border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', flexShrink: 0 }}>🥃</div>
-                )}
+                {/* 보틀 썸네일 + 검증 배지 */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  {b.image_url ? (
+                    <img src={b.image_url} alt={b.name}
+                      style={{ width: 56, height: 72, objectFit: 'contain', objectPosition: 'center', background: '#0e0c0b', border: `1px solid ${b.image_verified ? 'var(--gold)' : 'var(--bd)'}`, display: 'block' }}
+                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                  ) : (
+                    <div style={{ width: 56, height: 72, background: 'var(--c2)', border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>🥃</div>
+                  )}
+                  {b.image_url && b.image_verified && (
+                    <span title={`Gemini가 라벨에서 읽음: ${b.image_found_text || ''}`}
+                      style={{ position: 'absolute', bottom: -4, right: -4, background: 'var(--gold)', color: '#000', fontSize: '0.6rem', fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
+                      ✓
+                    </span>
+                  )}
+                  {b.image_url && b.image_confidence === 'low' && !b.image_verified && (
+                    <span title="라벨 검증이 확실치 않습니다"
+                      style={{ position: 'absolute', bottom: -4, right: -4, background: 'rgba(255,255,255,0.08)', color: 'var(--tx3)', fontSize: '0.55rem', padding: '0.05rem 0.3rem', border: '1px solid var(--bd)' }}>
+                      ?
+                    </span>
+                  )}
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
                     Bottle {i + 1} · 🔍 클릭하여 오피셜 정보

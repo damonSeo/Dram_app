@@ -53,6 +53,35 @@ export async function generateText(prompt: string): Promise<string> {
   throw new Error('Gemini 모든 모델 호출 실패')
 }
 
+// 여러 이미지를 한 프롬프트에 같이 보내는 헬퍼 (이미지 검증·비교용)
+export async function generateWithImages(
+  prompt: string,
+  images: { base64: string; mimeType: string }[],
+): Promise<string> {
+  if (images.length === 0) throw new Error('이미지가 없습니다')
+  const modelChain = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash']
+  let lastErr: unknown = null
+  for (const modelId of modelChain) {
+    try {
+      const client = getClient()
+      const model = client.getGenerativeModel({
+        model: modelId,
+        generationConfig: { temperature: 0.1, maxOutputTokens: 768, responseMimeType: 'application/json' },
+      })
+      const parts: ({ text: string } | { inlineData: { data: string; mimeType: string } })[] = [
+        { text: prompt },
+        ...images.map(img => ({ inlineData: { data: img.base64, mimeType: img.mimeType } })),
+      ]
+      const res = await model.generateContent(parts)
+      return res.response.text().trim()
+    } catch (err) {
+      lastErr = err
+      if (!isRetryable(err)) throw err
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('멀티 이미지 호출 실패')
+}
+
 export async function generateWithImage(
   prompt: string,
   imageBase64: string,
