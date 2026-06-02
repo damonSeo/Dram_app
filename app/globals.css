@@ -239,10 +239,6 @@ body { overflow-x: hidden; }
   .home-rail { position: static !important; }
 }
 
-/* ── 빠른 노트 카테고리 탭 — 한 줄 가로 스크롤 (전 해상도) ── */
-.quick-cat-tabs { -ms-overflow-style: none; scrollbar-width: none; }
-.quick-cat-tabs::-webkit-scrollbar { display: none; }
-
 /* ────────── 768px 이하 (태블릿/모바일) ────────── */
 @media (max-width: 768px) {
   /* 페이지 하단 여백 — 바텀 네비(60px) + 안전영역 */

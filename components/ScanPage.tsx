@@ -49,9 +49,8 @@ type InputMode = 'scan' | 'manual' | 'quick'
 
 // 빠른 노트 픽커 — 5 카테고리, 칩마다 이모지로 직관적 표현
 interface FlavorChip { emoji: string; label: string }
-// chips: null = 활성 필드(향/맛/여운)에 따라 동적으로 가져옴
-const FLAVOR_TABS: { key: string; icon: string; label: string; chips: FlavorChip[] | null }[] = [
-  { key: 'catalog', icon: '📚', label: '기존 노트', chips: null },
+type CategoryKey = 'fruit' | 'herb' | 'spice' | 'sweet' | 'earth'
+const FLAVOR_TABS: { key: CategoryKey; icon: string; label: string; chips: FlavorChip[] }[] = [
   { key: 'fruit', icon: '🍇', label: '과일류', chips: [
     { emoji: '🍋', label: '시트러스' },
     { emoji: '🍋', label: '레몬' },
@@ -157,6 +156,20 @@ const NPF_FIELDS: { key: 'nose'|'palate'|'finish'; label: string; icon: string }
   { key: 'finish', label: '여운', icon: '✨' },
 ]
 
+// 라벨 → 카테고리 분류 (기존 NOSE/PALATE/FINISH 카탈로그를 5개 카테고리에 자동 분배)
+function classifyChip(label: string): CategoryKey {
+  const FRUIT  = ['사과','풋사과','서양배','복숭아','오렌지','레몬','자몽','라임','체리','청포도','블루베리','블랙커런트','딸기','베리','라즈베리','바나나','파인애플','망고','수박','키위','참외','멜론','건포도','건자두','말린 살구','살구','마멀레이드','베리 잼','무화과','대추야자','셰리','올로로소','PX','레드와인','포트','럼','마데이라','과일','자두']
+  const SPICE  = ['후추','페퍼','생강','계피','정향','육두구','카다멈','아니스','칠리','머스타드','메이스','올스파이스','스파이시','얼얼한','톡 쏘는','쌉싸름','거친','알코올 화함','뜨겁게 타는']
+  const HERB   = ['꽃','장미','라벤더','엘더','히더','허브','풀','민트','유칼립투스','녹차','건초','바질','타임','오크','삼나무','연필심','가구','소나무','곡물','보리','맥아','이끼']
+  const SWEET  = ['꿀','캐러멜','토피','바닐라','초콜릿','코코아','모카','버터스카치','메이플','아가베','당밀','커스터드','크렘','크림','케이크','코코넛','누가','프랄린','비스킷','빵','페이스트리','아이스크림','스펀지','진저브레드','과일 파이','단','달콤','버터','치즈','커피','에스프레소','견과','땅콩','아몬드','헤이즐넛','구운 밤','오트밀','부드러운','매끄러운','두툼','오일','크리미']
+  for (const k of FRUIT) if (label.includes(k)) return 'fruit'
+  for (const k of SPICE) if (label.includes(k)) return 'spice'
+  for (const k of HERB)  if (label.includes(k)) return 'herb'
+  for (const k of SWEET) if (label.includes(k)) return 'sweet'
+  // 나머지(흙·미네랄·피트·스모크·해양·가죽·왁스·여운 길이·질감 등) → 자연향
+  return 'earth'
+}
+
 interface ScanFields {
   brand: string; region: string; age: string; vintage: string
   abv: string; bottler: string; cask: string
@@ -173,8 +186,18 @@ function QuickNotePicker({ onApply, currentBottleHint }: {
     nose: [], palate: [], finish: [],
   })
   const active = FLAVOR_TABS.find(t => t.key === tab)!
-  // 'catalog' 탭은 활성 필드(향/맛/여운)에 따라 lib/tastingEmojis의 카탈로그를 가져옴
-  const activeChips: FlavorChip[] = active.chips ?? FIELD_KEY_MAP[field].map(k => ({ emoji: k.emoji, label: k.label }))
+  // 활성 카테고리의 기본 칩 + 활성 필드(향/맛/여운) 카탈로그에서 이 카테고리에 속하는 칩들을 머지
+  const activeChips: FlavorChip[] = (() => {
+    const fieldCatalog = FIELD_KEY_MAP[field]
+      .map(k => ({ emoji: k.emoji, label: k.label }))
+      .filter(c => classifyChip(c.label) === active.key)
+    const seen = new Set<string>()
+    const out: FlavorChip[] = []
+    for (const c of [...active.chips, ...fieldCatalog]) {
+      if (!seen.has(c.label)) { seen.add(c.label); out.push(c) }
+    }
+    return out
+  })()
   const fieldPicks = picks[field]
   const toggle = (chip: string) => setPicks(p => ({
     ...p,
@@ -241,23 +264,24 @@ function QuickNotePicker({ onApply, currentBottleHint }: {
         STEP 2 · 카테고리 → 칩 선택
       </p>
 
-      {/* 카테고리 탭 — 한 줄 가로 스크롤 */}
-      <div className="quick-cat-tabs" style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1px', overflowX: 'auto', flexWrap: 'nowrap', WebkitOverflowScrolling: 'touch' }}>
+      {/* 카테고리 탭 — 5개가 한 줄에 균등 배치 (스크롤 없이 한눈에) */}
+      <div style={{ display: 'flex', gap: '1px', background: 'var(--bd)', marginBottom: '1px' }}>
         {FLAVOR_TABS.map(t => {
           const sel = tab === t.key
           return (
             <button key={t.key} onClick={() => setTab(t.key)} className="mono quick-cat-tab"
               style={{
-                flex: '1 0 auto', padding: '0.6rem 0.7rem', border: 'none', cursor: 'pointer',
+                flex: '1 1 0', minWidth: 0, padding: '0.55rem 0.25rem', border: 'none', cursor: 'pointer',
                 background: sel ? 'rgba(198,107,61,0.18)' : 'var(--c3)',
                 color: sel ? 'var(--gold)' : 'var(--tx2)',
-                fontSize: '0.7rem', letterSpacing: '0.03em',
+                fontSize: '0.62rem', letterSpacing: '0.02em',
                 borderBottom: sel ? '2px solid var(--gold)' : '2px solid transparent',
-                display: 'flex', alignItems: 'center', gap: '0.3rem',
-                whiteSpace: 'nowrap', fontWeight: sel ? 600 : 400,
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem',
+                fontWeight: sel ? 600 : 400,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
               <span style={{ fontSize: '1.05rem' }}>{t.icon}</span>
-              <span>{t.label}</span>
+              <span style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}>{t.label}</span>
             </button>
           )
         })}
@@ -265,11 +289,9 @@ function QuickNotePicker({ onApply, currentBottleHint }: {
 
       {/* 서브 칩 — 활성 필드에 추가 (이모지 + 라벨로 직관적 표시) */}
       <div style={{ background: 'var(--c2)', border: '1px solid var(--bd)', padding: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.45rem', marginBottom: '1rem', maxHeight: 340, overflowY: 'auto' }}>
-        {active.key === 'catalog' && (
-          <p className="mono" style={{ width: '100%', fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.4rem' }}>
-            {field === 'nose' ? '🌸 향 전용 노트' : field === 'palate' ? '🥃 맛 전용 노트' : '✨ 여운 전용 노트'} · {activeChips.length}개
-          </p>
-        )}
+        <p className="mono" style={{ width: '100%', fontSize: '0.58rem', color: 'var(--tx3)', letterSpacing: '0.06em', marginBottom: '0.35rem' }}>
+          {active.icon} {active.label} · {field === 'nose' ? '향' : field === 'palate' ? '맛' : '여운'} 단계에서 어울리는 칩 {activeChips.length}개
+        </p>
         {activeChips.map((c, i) => {
           const tagged = `${c.emoji} ${c.label}`
           const sel = fieldPicks.includes(tagged)
@@ -319,7 +341,7 @@ function QuickNotePicker({ onApply, currentBottleHint }: {
         </summary>
         <ol style={{ fontSize: '0.72rem', color: 'var(--tx2)', lineHeight: 1.85, paddingLeft: '1.2rem', marginTop: '0.45rem' }}>
           <li>위쪽 <b style={{ color: 'var(--gold)' }}>향 · 맛 · 여운</b> 중 어느 단계인지 고릅니다.</li>
-          <li>카테고리(과일 · 식물 · 스파이스 · 달콤 · 자연향 · 📚 기존 노트) 중 가까운 것을 선택합니다.</li>
+          <li>카테고리(🍇 과일 · 🌿 식물 · 🔥 스파이스 · 🍫 달콤 · 🍂 자연향) 중 가까운 것을 선택합니다. 각 카테고리에 향·맛·여운에 어울리는 칩이 자동으로 모입니다.</li>
           <li>해당 단계에 어울리는 <b>칩(태그)</b>을 눌러 쌓습니다. 여러 개 OK.</li>
           <li>단계를 바꿔가며 향·맛·여운을 채우고, 마지막에 <b>다음 단계 →</b>를 누르세요.</li>
         </ol>
