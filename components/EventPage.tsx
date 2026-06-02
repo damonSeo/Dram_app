@@ -54,20 +54,23 @@ export default function EventPage() {
       .finally(() => setLoading(false))
   }, [activeEventId, showToast])
 
-  // 보틀 이미지 자동 검색 — 빠진 것만 한 번씩 가져와 PATCH로 캐싱
+  // 보틀 이미지 자동 검색 — 검증되지 않은 보틀만 재탐색
+  // stale(이전에 검증 없이 저장된) image_url은 통과 못 하면 비움
+  const [searchingIdx, setSearchingIdx] = useState<Set<number>>(new Set())
+  const [retryNonce, setRetryNonce] = useState(0)
   useEffect(() => {
     if (!detail) return
     const ev = detail.event
-    const missing = ev.featured_bottles
+    const targets = ev.featured_bottles
       .map((b, i) => ({ b, i }))
-      .filter(x => !x.b.image_url)
-    if (missing.length === 0) return
+      .filter(x => !x.b.image_verified)              // 검증된 것만 스킵
+    if (targets.length === 0) return
     let cancelled = false
+    setSearchingIdx(new Set(targets.map(t => t.i)))
     ;(async () => {
       const updated = [...ev.featured_bottles]
       let changed = false
-      for (const { b, i } of missing) {
-        const q = encodeURIComponent([b.distillery || b.name, b.age, b.region].filter(Boolean).join(' '))
+      for (const { b, i } of targets) {
         const params = new URLSearchParams()
         params.set('q', [b.distillery || b.name, b.age, b.region].filter(Boolean).join(' '))
         params.set('name', b.name || '')
@@ -76,29 +79,42 @@ export default function EventPage() {
         if (b.abv) params.set('abv', b.abv)
         try {
           const r = await fetch(`/api/bottle-image?${params.toString()}`)
-          void q
           const j = await r.json() as { data?: {
             image_url: string; source: string; verified?: boolean
             confidence?: 'high'|'medium'|'low'; found_text?: string
           } | null }
           if (cancelled) return
-          if (j.data?.image_url) {
+          if (j.data?.image_url && j.data.verified) {
+            // ✅ 검증 통과 — 새 사진으로 저장
             updated[i] = {
               ...updated[i],
               image_url: j.data.image_url,
               image_source: j.data.source,
-              image_verified: !!j.data.verified,
+              image_verified: true,
               image_confidence: j.data.confidence,
               image_found_text: j.data.found_text,
             }
             changed = true
+          } else if (b.image_url) {
+            // ❌ 검증 실패한 stale 이미지는 비움
+            updated[i] = {
+              ...updated[i],
+              image_url: undefined,
+              image_source: undefined,
+              image_verified: false,
+              image_confidence: undefined,
+              image_found_text: undefined,
+            }
+            changed = true
           }
         } catch { /* skip */ }
+        // 진행 표시 업데이트
+        if (!cancelled) setSearchingIdx(prev => {
+          const next = new Set(prev); next.delete(i); return next
+        })
       }
       if (cancelled || !changed) return
-      // 화면 즉시 반영
       setDetail(d => d ? { ...d, event: { ...d.event, featured_bottles: updated } } : d)
-      // DB에 저장 (호스트 권한 있으면 통과, 없으면 조용히 실패)
       fetch(`/api/events/${ev.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -106,7 +122,16 @@ export default function EventPage() {
       }).catch(() => {})
     })()
     return () => { cancelled = true }
-  }, [detail])
+  }, [detail?.event.id, retryNonce])
+
+  const retryBottleImage = (idx: number) => {
+    if (!detail) return
+    // 해당 보틀의 검증 상태를 풀고 재탐색 트리거
+    const updated = [...detail.event.featured_bottles]
+    updated[idx] = { ...updated[idx], image_verified: false }
+    setDetail(d => d ? { ...d, event: { ...d.event, featured_bottles: updated } } : d)
+    setRetryNonce(n => n + 1)
+  }
 
   // 보틀별 노트 추가 → 빠른 노트 모드로 진입 (보틀 정보 시드 + 빠른 칩 선택)
   const addNoteForBottle = (b: EventBottle, index: number) => {
@@ -206,7 +231,7 @@ export default function EventPage() {
           return (
             <div key={i} style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
               <div style={{ width: '100%', padding: '0.85rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
-                {/* 보틀 썸네일 — 라벨 검증 통과한 경우에만 표시 */}
+                {/* 보틀 썸네일 — 라벨 검증 통과한 경우에만 사진 표시 */}
                 <div style={{ position: 'relative', flexShrink: 0 }}>
                   {b.image_url && b.image_verified ? (
                     <>
@@ -219,8 +244,13 @@ export default function EventPage() {
                       </span>
                     </>
                   ) : (
-                    <div title={b.image_url ? '검증되지 않은 후보는 표시하지 않아요' : '이미지를 찾는 중'}
-                      style={{ width: 56, height: 72, background: 'var(--c2)', border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>🥃</div>
+                    <div title={searchingIdx.has(i) ? '증류소·숙성·도수 검증 중...' : '검증된 사진을 찾지 못했어요'}
+                      style={{ width: 56, height: 72, background: 'var(--c2)', border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', position: 'relative' }}>
+                      🥃
+                      {searchingIdx.has(i) && (
+                        <span className="spinner" style={{ position: 'absolute', bottom: -4, right: -4, width: 14, height: 14, borderWidth: 2 }} />
+                      )}
+                    </div>
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -266,11 +296,19 @@ export default function EventPage() {
                 </div>
               )}
 
-              <div style={{ padding: '0.7rem 1rem', borderTop: '1px solid var(--bd)' }}>
+              <div style={{ padding: '0.7rem 1rem', borderTop: '1px solid var(--bd)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button onClick={() => addNoteForBottle(b, i)} className="btn-outline-gold"
-                  style={{ width: '100%', justifyContent: 'center', fontSize: '0.72rem' }}>
+                  style={{ flex: '1 1 200px', justifyContent: 'center', fontSize: '0.72rem' }}>
                   + 내 시음 노트 추가
                 </button>
+                {!b.image_verified && (
+                  <button onClick={() => retryBottleImage(i)} className="btn-ghost"
+                    disabled={searchingIdx.has(i)}
+                    title="증류소·숙성연수·도수가 모두 일치하는 사진을 다시 찾아봅니다"
+                    style={{ fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
+                    {searchingIdx.has(i) ? <><span className="spinner" /> 찾는 중</> : '🔄 사진 다시 찾기'}
+                  </button>
+                )}
               </div>
             </div>
           )
