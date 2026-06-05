@@ -20,10 +20,17 @@ interface SerperResponse {
   knowledgeGraph?: SerperKG
 }
 
-const FIRST_PASS_PROMPT = (brand: string, region: string) => `당신은 위스키 증류소 전문가입니다. 아래 증류소에 대한 핵심 정보를 정리해주세요.
+const FIRST_PASS_PROMPT = (brand: string, region: string) => `당신은 위스키 전문가입니다. 아래 이름에 대한 핵심 정보를 정리해주세요.
 
-증류소: ${brand}
+검색어: ${brand}
 ${region ? `지역 힌트: ${region}` : ''}
+
+검색어는 다음 중 하나일 수 있습니다 — 모두 동일한 스키마로 답하세요:
+1) 단일 증류소 (예: Glenfarclas, Macallan, Yamazaki)
+2) 블렌디드/브랜드 (예: Hibiki, Johnnie Walker, Chivas Regal, Compass Box) — owner에는 모기업, region에는 주요 원액 출신, style·signature는 브랜드 캐릭터로 채움
+3) 독립 보틀러 (예: Signatory, Gordon & MacPhail) — 그 보틀러 정보로 채움
+
+검색어가 실재하는 위스키 관련 명칭이면 절대 빈 응답을 내지 말고, 알고 있는 범위에서 모든 필드를 채우세요.
 
 반드시 아래 JSON 형식으로만 응답하세요 (마크다운/코드블록 없이 순수 JSON):
 {
@@ -101,9 +108,65 @@ ${snippets}
 
 function extractJson(raw: string): Record<string, unknown> | null {
   const cleaned = raw.replace(/```(?:json)?/g, '').trim()
-  const match = cleaned.match(/\{[\s\S]*\}/)
-  if (!match) return null
-  try { return JSON.parse(match[0]) as Record<string, unknown> } catch { return null }
+  // 가장 바깥의 { 부터 시작
+  const start = cleaned.indexOf('{')
+  if (start === -1) return null
+  const body = cleaned.slice(start)
+  // 1) 그대로 파싱
+  try { return JSON.parse(body) as Record<string, unknown> } catch { /* 잘림 가능성 */ }
+  // 2) 잘린 JSON 복구 — 마지막 쉼표·미완성 키·미완성 문자열을 자르고 닫는 괄호 추가
+  const repaired = repairTruncatedJson(body)
+  if (repaired) {
+    try { return JSON.parse(repaired) as Record<string, unknown> } catch { /* still bad */ }
+  }
+  return null
+}
+
+// 따옴표·괄호 균형이 맞도록 끝부분을 다듬어 닫음
+function repairTruncatedJson(s: string): string | null {
+  let depth = 0
+  let arrDepth = 0
+  let inStr = false
+  let escape = false
+  let lastSafe = -1
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (inStr) {
+      if (escape) escape = false
+      else if (ch === '\\') escape = true
+      else if (ch === '"') { inStr = false; lastSafe = i }
+      continue
+    }
+    if (ch === '"') { inStr = true; continue }
+    if (ch === '{') depth++
+    else if (ch === '}') { depth--; lastSafe = i }
+    else if (ch === '[') arrDepth++
+    else if (ch === ']') { arrDepth--; lastSafe = i }
+    else if (ch === ',' && depth >= 1) lastSafe = i
+  }
+  // 잘린 마지막 (불완전) 값 직전까지 잘라낸 뒤 닫음
+  let trimmed = s.slice(0, lastSafe + 1).replace(/,\s*$/, '')
+  // 남은 괄호 닫기
+  // 다시 균형 측정
+  let d = 0, a = 0, inS = false, esc = false
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]
+    if (inS) {
+      if (esc) esc = false
+      else if (ch === '\\') esc = true
+      else if (ch === '"') inS = false
+      continue
+    }
+    if (ch === '"') inS = true
+    else if (ch === '{') d++
+    else if (ch === '}') d--
+    else if (ch === '[') a++
+    else if (ch === ']') a--
+  }
+  if (inS) trimmed += '"'
+  while (a-- > 0) trimmed += ']'
+  while (d-- > 0) trimmed += '}'
+  return trimmed
 }
 
 // 위스키 뉴스 피드에서 해당 증류소 관련 정보 추출 (라벨/증류소 검색 보조)

@@ -30,7 +30,7 @@ async function callGemini(
     model: modelId,
     generationConfig: withImage
       ? { temperature: 0.1, maxOutputTokens: 1536, responseMimeType: 'application/json' }
-      : { temperature: 0.7, maxOutputTokens: 2048 },
+      : { temperature: 0.7, maxOutputTokens: 6144 },
   })
 
   const parts = withImage
