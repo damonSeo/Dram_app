@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { compressImageToDataUrl } from '@/lib/imageUtils'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import { toHundred } from '@/lib/scoreFormat'
@@ -19,6 +20,60 @@ const fmtDate = (s: string) => {
 const daysUntil = (s: string) => {
   const t = new Date(s + 'T00:00:00').getTime() - Date.now()
   return Math.ceil(t / (1000 * 60 * 60 * 24))
+}
+
+function BottleThumb({ bottle, uploading, onUpload, onRemove }: {
+  bottle: EventBottle
+  uploading: boolean
+  onUpload: (file: File) => void
+  onRemove: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        title={bottle.image_url ? '사진 변경' : '사진 업로드'}
+        style={{
+          width: 64, height: 80, padding: 0, cursor: uploading ? 'wait' : 'pointer',
+          background: '#0e0c0b', border: `1px solid ${bottle.image_url ? 'var(--gold)' : 'var(--bd2)'}`,
+          display: 'block', overflow: 'hidden', position: 'relative',
+        }}>
+        {bottle.image_url ? (
+          <img src={bottle.image_url} alt={bottle.name}
+            style={{ width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center', display: 'block' }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+            <span style={{ fontSize: '1.3rem' }}>🥃</span>
+            <span className="mono" style={{ fontSize: '0.45rem', color: 'var(--tx3)', letterSpacing: '0.05em' }}>📷 추가</span>
+          </div>
+        )}
+        {uploading && (
+          <span style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span className="spinner" />
+          </span>
+        )}
+      </button>
+      {bottle.image_url && !uploading && (
+        <button
+          type="button"
+          onClick={onRemove}
+          title="사진 제거"
+          style={{ position: 'absolute', top: -8, right: -8, width: 20, height: 20, borderRadius: '50%', background: 'var(--c2)', border: '1px solid var(--bd2)', color: 'var(--tx2)', cursor: 'pointer', fontSize: '0.7rem', lineHeight: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          ✕
+        </button>
+      )}
+      <input ref={inputRef} type="file" accept="image/*" style={{ display: 'none' }}
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f) onUpload(f)
+          // 같은 파일 다시 선택 가능하게
+          e.target.value = ''
+        }} />
+    </div>
+  )
 }
 
 export default function EventPage() {
@@ -54,83 +109,55 @@ export default function EventPage() {
       .finally(() => setLoading(false))
   }, [activeEventId, showToast])
 
-  // 보틀 이미지 자동 검색 — 검증되지 않은 보틀만 재탐색
-  // stale(이전에 검증 없이 저장된) image_url은 통과 못 하면 비움
-  const [searchingIdx, setSearchingIdx] = useState<Set<number>>(new Set())
-  const [retryNonce, setRetryNonce] = useState(0)
-  useEffect(() => {
-    if (!detail) return
-    const ev = detail.event
-    const targets = ev.featured_bottles
-      .map((b, i) => ({ b, i }))
-      .filter(x => !x.b.image_verified)              // 검증된 것만 스킵
-    if (targets.length === 0) return
-    let cancelled = false
-    setSearchingIdx(new Set(targets.map(t => t.i)))
-    ;(async () => {
-      const updated = [...ev.featured_bottles]
-      let changed = false
-      for (const { b, i } of targets) {
-        const params = new URLSearchParams()
-        params.set('q', [b.distillery || b.name, b.age, b.region].filter(Boolean).join(' '))
-        params.set('name', b.name || '')
-        if (b.distillery) params.set('distillery', b.distillery)
-        if (b.age) params.set('age', b.age)
-        if (b.abv) params.set('abv', b.abv)
-        try {
-          const r = await fetch(`/api/bottle-image?${params.toString()}`)
-          const j = await r.json() as { data?: {
-            image_url: string; source: string; verified?: boolean
-            confidence?: 'high'|'medium'|'low'; found_text?: string
-          } | null }
-          if (cancelled) return
-          if (j.data?.image_url && j.data.verified) {
-            // ✅ 검증 통과 — 새 사진으로 저장
-            updated[i] = {
-              ...updated[i],
-              image_url: j.data.image_url,
-              image_source: j.data.source,
-              image_verified: true,
-              image_confidence: j.data.confidence,
-              image_found_text: j.data.found_text,
-            }
-            changed = true
-          } else if (b.image_url) {
-            // ❌ 검증 실패한 stale 이미지는 비움
-            updated[i] = {
-              ...updated[i],
-              image_url: undefined,
-              image_source: undefined,
-              image_verified: false,
-              image_confidence: undefined,
-              image_found_text: undefined,
-            }
-            changed = true
-          }
-        } catch { /* skip */ }
-        // 진행 표시 업데이트
-        if (!cancelled) setSearchingIdx(prev => {
-          const next = new Set(prev); next.delete(i); return next
-        })
-      }
-      if (cancelled || !changed) return
-      setDetail(d => d ? { ...d, event: { ...d.event, featured_bottles: updated } } : d)
-      fetch(`/api/events/${ev.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ featured_bottles: updated }),
-      }).catch(() => {})
-    })()
-    return () => { cancelled = true }
-  }, [detail?.event.id, retryNonce])
+  // 보틀 이미지 — 사용자가 직접 업로드 (자동 검색 없음)
+  const [uploadingIdx, setUploadingIdx] = useState<number | null>(null)
 
-  const retryBottleImage = (idx: number) => {
+  const persistBottles = async (updated: EventBottle[]) => {
     if (!detail) return
-    // 해당 보틀의 검증 상태를 풀고 재탐색 트리거
-    const updated = [...detail.event.featured_bottles]
-    updated[idx] = { ...updated[idx], image_verified: false }
     setDetail(d => d ? { ...d, event: { ...d.event, featured_bottles: updated } } : d)
-    setRetryNonce(n => n + 1)
+    const r = await fetch(`/api/events/${detail.event.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ featured_bottles: updated }),
+    })
+    if (!r.ok) {
+      const j = await r.json().catch(() => ({}))
+      throw new Error(j.error || `저장 실패 (${r.status})`)
+    }
+  }
+
+  const uploadBottleImage = async (idx: number, file: File) => {
+    if (!detail) return
+    if (!file.type.startsWith('image/')) { showToast('이미지 파일만 업로드 가능', 'err'); return }
+    setUploadingIdx(idx)
+    try {
+      // 600px·품질 0.78로 압축 → data URL (DB JSON에 그대로 저장)
+      const dataUrl = await compressImageToDataUrl(file, 800, 0.8)
+      const updated = [...detail.event.featured_bottles]
+      updated[idx] = { ...updated[idx], image_url: dataUrl, image_source: 'uploaded', image_verified: true }
+      await persistBottles(updated)
+      showToast('사진 업데이트됨', 'ok')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '업로드 실패', 'err')
+    } finally {
+      setUploadingIdx(null)
+    }
+  }
+
+  const removeBottleImage = async (idx: number) => {
+    if (!detail) return
+    if (!confirm('이 보틀 사진을 제거할까요?')) return
+    setUploadingIdx(idx)
+    try {
+      const updated = [...detail.event.featured_bottles]
+      updated[idx] = { ...updated[idx], image_url: undefined, image_source: undefined, image_verified: false }
+      await persistBottles(updated)
+      showToast('사진 제거됨', 'ok')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '제거 실패', 'err')
+    } finally {
+      setUploadingIdx(null)
+    }
   }
 
   // 보틀별 노트 추가 → 빠른 노트 모드로 진입 (보틀 정보 시드 + 빠른 칩 선택)
@@ -231,28 +258,13 @@ export default function EventPage() {
           return (
             <div key={i} style={{ border: '1px solid var(--bd2)', background: 'var(--c2)' }}>
               <div style={{ width: '100%', padding: '0.85rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.85rem', flexWrap: 'wrap' }}>
-                {/* 보틀 썸네일 — 라벨 검증 통과한 경우에만 사진 표시 */}
-                <div style={{ position: 'relative', flexShrink: 0 }}>
-                  {b.image_url && b.image_verified ? (
-                    <>
-                      <img src={b.image_url} alt={b.name}
-                        style={{ width: 56, height: 72, objectFit: 'contain', objectPosition: 'center', background: '#0e0c0b', border: '1px solid var(--gold)', display: 'block' }}
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                      <span title={`라벨 검증 완료${b.image_found_text ? ' — ' + b.image_found_text : ''}`}
-                        style={{ position: 'absolute', bottom: -4, right: -4, background: 'var(--gold)', color: '#000', fontSize: '0.6rem', fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>
-                        ✓
-                      </span>
-                    </>
-                  ) : (
-                    <div title={searchingIdx.has(i) ? '증류소·숙성·도수 검증 중...' : '검증된 사진을 찾지 못했어요'}
-                      style={{ width: 56, height: 72, background: 'var(--c2)', border: '1px solid var(--bd)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', position: 'relative' }}>
-                      🥃
-                      {searchingIdx.has(i) && (
-                        <span className="spinner" style={{ position: 'absolute', bottom: -4, right: -4, width: 14, height: 14, borderWidth: 2 }} />
-                      )}
-                    </div>
-                  )}
-                </div>
+                {/* 보틀 썸네일 (사용자 업로드) */}
+                <BottleThumb
+                  bottle={b}
+                  uploading={uploadingIdx === i}
+                  onUpload={(file) => uploadBottleImage(i, file)}
+                  onRemove={() => removeBottleImage(i)}
+                />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>
                     Bottle {i + 1}
@@ -296,19 +308,11 @@ export default function EventPage() {
                 </div>
               )}
 
-              <div style={{ padding: '0.7rem 1rem', borderTop: '1px solid var(--bd)', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ padding: '0.7rem 1rem', borderTop: '1px solid var(--bd)' }}>
                 <button onClick={() => addNoteForBottle(b, i)} className="btn-outline-gold"
-                  style={{ flex: '1 1 200px', justifyContent: 'center', fontSize: '0.72rem' }}>
+                  style={{ width: '100%', justifyContent: 'center', fontSize: '0.72rem' }}>
                   + 내 시음 노트 추가
                 </button>
-                {!b.image_verified && (
-                  <button onClick={() => retryBottleImage(i)} className="btn-ghost"
-                    disabled={searchingIdx.has(i)}
-                    title="증류소·숙성연수·도수가 모두 일치하는 사진을 다시 찾아봅니다"
-                    style={{ fontSize: '0.7rem', whiteSpace: 'nowrap' }}>
-                    {searchingIdx.has(i) ? <><span className="spinner" /> 찾는 중</> : '🔄 사진 다시 찾기'}
-                  </button>
-                )}
               </div>
             </div>
           )
