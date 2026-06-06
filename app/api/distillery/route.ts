@@ -60,26 +60,29 @@ ${region ? `지역 힌트: ${region}` : ''}
 
 규칙:
 - 영문과 한글을 자유롭게 혼용 가능 (위스키 고유명사·공식 명칭은 영문 그대로 두는 것이 더 정확함)
-- core_range는 3~6개, special_releases·rare_bottles·acclaimed는 각 2~5개. 정보가 없으면 빈 배열 []
+- core_range는 4~8개, special_releases·rare_bottles·acclaimed는 각 3~6개로 풍부하게 채우세요.
+- 잘 알려진 증류소(Aberlour, Macallan, Glenfarclas, GlenDronach, Ardbeg, Laphroaig, Springbank, Talisker, Yamazaki, Hibiki 등)는 절대 빈 배열 [] 로 두지 말고 알려진 라인업·한정판·올드보틀을 적극 채우세요.
 - 모르는 항목은 null, 가격·평점·연도는 확실치 않으면 생략(null)
-- 추측·환각 금지, 실재하는 보틀만
+- 추측·환각 금지, 실재하는 보틀만 (알 수 없으면 그 항목을 생략)
 - JSON 외 다른 텍스트 절대 출력 금지`
 
-const VERIFY_PROMPT = (brand: string, draft: string, snippets: string) => `당신은 위스키 증류소 정보를 검증하는 팩트체커입니다.
+const VERIFY_PROMPT = (brand: string, draft: string, snippets: string) => `당신은 위스키 증류소 정보를 보강·교정하는 팩트체커입니다.
 
-대상 증류소: ${brand}
+대상: ${brand}
 
-[1차 AI 응답 초안]
+[1차 AI 응답 초안 — 이 안의 모든 필드를 최대한 보존하세요]
 ${draft}
 
 [Google 검색 결과 발췌 (사실 근거)]
 ${snippets}
 
-작업:
-1. 검색 결과를 사실의 근거로 삼아 1차 초안의 오류를 수정하세요
-2. 검색 결과로 확인된 새로운 정보가 있으면 반영하세요
-3. 검색 결과에 없고 1차 초안에서도 불확실한 항목은 null로 두세요
-4. 자신 있는 정보만 남기고, 추측·환각으로 보이는 내용은 제거하세요
+작업 원칙 (중요):
+1. 초안은 **기본적으로 유지**합니다. 검색 결과가 명시적으로 모순될 때만 수정·제거하세요.
+2. 검색에 안 나온다고 해서 초안의 정보를 비우거나 [] 로 만들지 마세요. 잘 알려진 보틀이라 검색 결과에 안 보일 수 있습니다.
+3. 검색 결과에 새로 확인된 정보(연도·가격·평점·릴리즈명)는 초안에 추가·반영하세요.
+4. core_range / special_releases / rare_bottles / acclaimed 가 초안에 있으면 **그대로 가져오고**, 새 항목을 추가해도 됩니다.
+5. 명백히 틀린(다른 증류소 보틀, 사실과 다른 연도 등) 항목만 수정하거나 제거하세요.
+6. owner / founded / region 처럼 단일 값이면 검색 결과를 우선합니다.
 
 다음 JSON 스키마를 그대로 유지해서 검증된 최종본만 출력하세요 (마크다운/코드블록/설명 없이 JSON만):
 {
@@ -102,8 +105,9 @@ ${snippets}
 
 규칙:
 - 영문과 한글 자유롭게 혼용 (고유명사는 영문 권장)
-- 검색 결과와 모순되는 내용은 반드시 수정 또는 null 처리
-- core_range/special_releases/rare_bottles/acclaimed는 검색 결과로 확인되는 실재 보틀만, 불확실하면 제외. 없으면 []
+- 검색 결과와 명백히 모순될 때만 수정/제거. 그 외엔 초안 유지.
+- core_range/special_releases/rare_bottles/acclaimed 는 가능한 풍부하게 유지하고 새 보틀이 확인되면 추가.
+- 빈 배열은 마지막 수단 — 1차에 채워져 있고 모순이 없다면 그대로 둡니다.
 - JSON 외 어떤 텍스트도 출력 금지`
 
 function extractJson(raw: string): Record<string, unknown> | null {
@@ -260,7 +264,25 @@ export async function GET(req: NextRequest) {
           VERIFY_PROMPT(brand, JSON.stringify(draftJson ?? {}, null, 2), snippets)
         )
         const verified = extractJson(verifiedRaw)
-        if (verified) finalJson = verified
+        if (verified) {
+          // 리스트 필드는 verify가 비웠더라도 draft에 값이 있으면 보존
+          const LIST_KEYS = ['core_range', 'special_releases', 'rare_bottles', 'acclaimed', 'flagships']
+          for (const k of LIST_KEYS) {
+            const v = verified[k]
+            const d = draftJson?.[k]
+            if (Array.isArray(d) && d.length > 0 && (!Array.isArray(v) || v.length === 0)) {
+              verified[k] = d
+            }
+          }
+          // 스칼라도 verify가 비우거나 null이면 draft 보존
+          const SCALAR_KEYS = ['name', 'country', 'region', 'founded', 'owner', 'style', 'signature', 'history', 'trivia']
+          for (const k of SCALAR_KEYS) {
+            if ((verified[k] == null || verified[k] === '') && draftJson?.[k]) {
+              verified[k] = draftJson[k]
+            }
+          }
+          finalJson = verified
+        }
       } catch (e) {
         console.warn('[Distillery] 검증 단계 실패, 1차 응답 사용:', e)
       }
