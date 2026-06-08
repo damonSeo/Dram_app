@@ -76,10 +76,154 @@ function BottleThumb({ bottle, uploading, onUpload, onRemove }: {
   )
 }
 
+function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+  const { showToast } = useToast()
+  const [title, setTitle] = useState('')
+  const [eventDate, setEventDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() + 7)
+    return d.toISOString().slice(0, 10)
+  })
+  const [description, setDescription] = useState('')
+  const [bottles, setBottles] = useState<EventBottle[]>([{ name: '', distillery: '', age: '', region: '', abv: '', bottler: 'OB' }])
+  const [saving, setSaving] = useState(false)
+
+  const updateBottle = (i: number, patch: Partial<EventBottle>) =>
+    setBottles(prev => prev.map((b, ix) => (ix === i ? { ...b, ...patch } : b)))
+  const addBottle = () => setBottles(prev => [...prev, { name: '', distillery: '', age: '', region: '', abv: '', bottler: 'OB' }])
+  const removeBottle = (i: number) => setBottles(prev => prev.filter((_, ix) => ix !== i))
+
+  const submit = async () => {
+    if (!title.trim()) { showToast('제목을 입력해주세요', 'err'); return }
+    if (!eventDate) { showToast('날짜를 선택해주세요', 'err'); return }
+    const validBottles = bottles
+      .map(b => ({ ...b, name: b.name.trim(), distillery: b.distillery?.trim(), age: b.age?.trim(), region: b.region?.trim(), abv: b.abv?.trim(), bottler: b.bottler?.trim() || 'OB' }))
+      .filter(b => b.name)
+    if (validBottles.length === 0) { showToast('보틀을 1개 이상 추가해주세요', 'err'); return }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title.trim(), event_date: eventDate, description: description.trim(), featured_bottles: validBottles }),
+      })
+      const json = await res.json() as { data?: TastingEvent; error?: string }
+      if (!res.ok || !json.data) {
+        const msg = json.error || `생성 실패 (${res.status})`
+        if (msg.toLowerCase().includes('row-level') || msg.includes('로그인')) {
+          throw new Error('로그인이 필요합니다. 로그인 후 다시 시도해주세요.')
+        }
+        throw new Error(msg)
+      }
+      showToast('시음회 등록됨', 'ok')
+      onCreated(json.data.id)
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '생성 실패', 'err')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '0.55rem 0.7rem', background: 'var(--c3)', border: '1px solid var(--bd2)', color: 'var(--tx)', fontSize: '0.82rem', boxSizing: 'border-box', fontFamily: 'var(--mono)' }
+  const label: React.CSSProperties = { fontSize: '0.58rem', color: 'var(--tx3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.25rem', display: 'block', fontFamily: 'var(--mono)' }
+
+  return (
+    <div onClick={() => !saving && onClose()}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div onClick={e => e.stopPropagation()}
+        style={{ background: 'var(--c2)', border: '1px solid var(--gold)', maxWidth: 620, width: '100%', maxHeight: '88vh', overflowY: 'auto' }}>
+        {/* 헤더 */}
+        <div style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', position: 'sticky', top: 0, background: 'var(--c2)', zIndex: 1 }}>
+          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>+ 새 시음회 만들기</p>
+          <button onClick={() => !saving && onClose()} style={{ background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
+        </div>
+
+        {/* 본문 */}
+        <div style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div>
+            <span style={label}>제목 *</span>
+            <input style={inp} type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="예: 6월 13일 시음회" autoFocus />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.6rem' }}>
+            <div>
+              <span style={label}>날짜 *</span>
+              <input style={inp} type="date" value={eventDate} onChange={e => setEventDate(e.target.value)} />
+            </div>
+          </div>
+          <div>
+            <span style={label}>설명 (선택)</span>
+            <textarea rows={2} style={{ ...inp, resize: 'vertical', lineHeight: 1.6 }} value={description} onChange={e => setDescription(e.target.value)} placeholder="이번 시음회 컨셉·장소·참여자 안내 등" />
+          </div>
+
+          {/* 보틀 목록 */}
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={label}>시음 보틀 ({bottles.length})</span>
+              <button onClick={addBottle} type="button" className="mono"
+                style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', padding: '0.25rem 0.6rem', cursor: 'pointer', fontSize: '0.6rem', letterSpacing: '0.06em' }}>
+                + 보틀 추가
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              {bottles.map((b, i) => (
+                <div key={i} style={{ padding: '0.6rem 0.7rem', background: 'var(--c3)', border: '1px solid var(--bd2)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                    <p className="mono" style={{ fontSize: '0.55rem', color: 'var(--gold)', letterSpacing: '0.08em' }}>BOTTLE {i + 1}</p>
+                    {bottles.length > 1 && (
+                      <button onClick={() => removeBottle(i)} type="button" className="mono"
+                        style={{ background: 'none', border: 'none', color: '#cf7e7e', cursor: 'pointer', fontSize: '0.6rem' }}>✕ 제거</button>
+                    )}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.45rem' }}>
+                    <div>
+                      <span style={{ ...label, fontSize: '0.5rem' }}>이름 *</span>
+                      <input style={{ ...inp, fontSize: '0.72rem' }} type="text" value={b.name} onChange={e => updateBottle(i, { name: e.target.value })} placeholder="Glen Grant 18" />
+                    </div>
+                    <div>
+                      <span style={{ ...label, fontSize: '0.5rem' }}>증류소</span>
+                      <input style={{ ...inp, fontSize: '0.72rem' }} type="text" value={b.distillery || ''} onChange={e => updateBottle(i, { distillery: e.target.value })} placeholder="Glen Grant" />
+                    </div>
+                    <div>
+                      <span style={{ ...label, fontSize: '0.5rem' }}>숙성</span>
+                      <input style={{ ...inp, fontSize: '0.72rem' }} type="text" value={b.age || ''} onChange={e => updateBottle(i, { age: e.target.value })} placeholder="18yr" />
+                    </div>
+                    <div>
+                      <span style={{ ...label, fontSize: '0.5rem' }}>지역</span>
+                      <input style={{ ...inp, fontSize: '0.72rem' }} type="text" value={b.region || ''} onChange={e => updateBottle(i, { region: e.target.value })} placeholder="Speyside" />
+                    </div>
+                    <div>
+                      <span style={{ ...label, fontSize: '0.5rem' }}>도수</span>
+                      <input style={{ ...inp, fontSize: '0.72rem' }} type="text" value={b.abv || ''} onChange={e => updateBottle(i, { abv: e.target.value })} placeholder="43%" />
+                    </div>
+                    <div>
+                      <span style={{ ...label, fontSize: '0.5rem' }}>보틀러</span>
+                      <input style={{ ...inp, fontSize: '0.72rem' }} type="text" value={b.bottler || ''} onChange={e => updateBottle(i, { bottler: e.target.value })} placeholder="OB" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 액션 */}
+        <div style={{ padding: '0.85rem 1.1rem', borderTop: '1px solid var(--bd)', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap', position: 'sticky', bottom: 0, background: 'var(--c2)' }} className="m-confirm-actions">
+          <button className="btn-ghost" onClick={onClose} disabled={saving} style={{ fontSize: '0.72rem' }}>취소</button>
+          <button className="btn-gold" onClick={submit} disabled={saving} style={{ fontSize: '0.72rem' }}>
+            {saving ? <span className="spinner" style={{ borderTopColor: '#000' }} /> : null}
+            시음회 등록
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function EventPage() {
   const { activeEventId, openEvent, setActiveTab, resetCurrentLog, updateCurrentLog, setScanMode } = useStore()
   const { showToast } = useToast()
   const [list, setList] = useState<TastingEvent[]>([])
+  const [createOpen, setCreateOpen] = useState(false)
+  const [listRefreshNonce, setListRefreshNonce] = useState(0)
   const [detail, setDetail] = useState<EventDetail | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -93,7 +237,7 @@ export default function EventPage() {
       .then((j: { data?: TastingEvent[] }) => setList(j.data || []))
       .catch(() => {})
       .finally(() => setLoading(false))
-  }, [activeEventId])
+  }, [activeEventId, listRefreshNonce])
 
   // 상세
   useEffect(() => {
@@ -184,16 +328,27 @@ export default function EventPage() {
   if (!activeEventId) {
     return (
       <div className="m-page fade-up" style={{ maxWidth: 860, margin: '0 auto', padding: '2rem 1.5rem' }}>
-        <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)', marginBottom: '0.5rem' }}>
-          🍶 시음회
-        </h1>
-        <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx3)', letterSpacing: '0.08em', marginBottom: '1.5rem' }}>
-          다가올 시음회 · 참여자 노트를 한 곳에 모으는 이벤트 공간
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 className="display" style={{ fontSize: '2rem', color: 'var(--tx)' }}>
+              🍶 시음회
+            </h1>
+            <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx3)', letterSpacing: '0.08em', marginTop: '0.5rem' }}>
+              다가올 시음회 · 참여자 노트를 한 곳에 모으는 이벤트 공간
+            </p>
+          </div>
+          <button
+            onClick={() => setCreateOpen(true)}
+            className="btn-gold"
+            style={{ flexShrink: 0, fontSize: '0.75rem', padding: '0.55rem 0.95rem', justifyContent: 'center' }}>
+            + 시음회 만들기
+          </button>
+        </div>
+        <div style={{ height: '1rem' }} />
 
         {loading && <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--tx3)' }}>불러오는 중...</p>}
         {!loading && list.length === 0 && (
-          <p className="mono" style={{ fontSize: '0.75rem', color: 'var(--tx3)' }}>등록된 시음회가 없어요.</p>
+          <p className="mono" style={{ fontSize: '0.75rem', color: 'var(--tx3)' }}>등록된 시음회가 없어요. <b style={{ color: 'var(--gold)' }}>+ 시음회 만들기</b> 로 첫 이벤트를 등록하세요.</p>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
@@ -214,6 +369,17 @@ export default function EventPage() {
             )
           })}
         </div>
+
+        {createOpen && (
+          <CreateEventModal
+            onClose={() => setCreateOpen(false)}
+            onCreated={(newId) => {
+              setCreateOpen(false)
+              setListRefreshNonce(n => n + 1)
+              openEvent(newId)
+            }}
+          />
+        )}
       </div>
     )
   }
