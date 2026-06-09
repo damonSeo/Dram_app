@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { compressImageToDataUrl } from '@/lib/imageUtils'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
@@ -126,13 +127,22 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
   const inp: React.CSSProperties = { width: '100%', padding: '0.55rem 0.7rem', background: 'var(--c3)', border: '1px solid var(--bd2)', color: 'var(--tx)', fontSize: '0.82rem', boxSizing: 'border-box', fontFamily: 'var(--mono)' }
   const label: React.CSSProperties = { fontSize: '0.58rem', color: 'var(--tx3)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.25rem', display: 'block', fontFamily: 'var(--mono)' }
 
-  return (
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div onClick={() => !saving && onClose()}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      style={{
+        position: 'fixed', inset: 0,
+        background: 'rgba(0,0,0,0.78)', zIndex: 1500,
+        overflowY: 'auto', WebkitOverflowScrolling: 'touch',
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+        paddingTop: 'max(1.25rem, env(safe-area-inset-top))',
+        paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+        paddingLeft: '0.75rem', paddingRight: '0.75rem',
+      }}>
       <div onClick={e => e.stopPropagation()}
-        style={{ background: 'var(--c2)', border: '1px solid var(--gold)', maxWidth: 620, width: '100%', maxHeight: '88vh', overflowY: 'auto' }}>
+        style={{ background: 'var(--c2)', border: '1px solid var(--gold)', maxWidth: 620, width: '100%', margin: 'auto 0' }}>
         {/* 헤더 */}
-        <div style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', position: 'sticky', top: 0, background: 'var(--c2)', zIndex: 1 }}>
+        <div style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', background: 'var(--c2)' }}>
           <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>+ 새 시음회 만들기</p>
           <button onClick={() => !saving && onClose()} style={{ background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
         </div>
@@ -206,7 +216,7 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
         </div>
 
         {/* 액션 */}
-        <div style={{ padding: '0.85rem 1.1rem', borderTop: '1px solid var(--bd)', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap', position: 'sticky', bottom: 0, background: 'var(--c2)' }} className="m-confirm-actions">
+        <div style={{ padding: '0.85rem 1.1rem', borderTop: '1px solid var(--bd)', display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap', background: 'var(--c2)' }} className="m-confirm-actions">
           <button className="btn-ghost" onClick={onClose} disabled={saving} style={{ fontSize: '0.72rem' }}>취소</button>
           <button className="btn-gold" onClick={submit} disabled={saving} style={{ fontSize: '0.72rem' }}>
             {saving ? <span className="spinner" style={{ borderTopColor: '#000' }} /> : null}
@@ -214,7 +224,8 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
