@@ -440,6 +440,8 @@ export default function EventPage() {
   }
   const ev = detail.event
   const d = daysUntil(ev.event_date)
+  // 결과 보드는 호스트(관리자)만 — host_user_id 매칭
+  const isHost = !!currentUserId && ev.host_user_id === currentUserId
 
   // ── 결과 집계: 보틀별 평균·표준편차·참여수 ──
   const stats = ev.featured_bottles.map((b, i) => {
@@ -498,12 +500,12 @@ export default function EventPage() {
         {ev.description && <p style={{ fontSize: '0.82rem', color: 'var(--tx2)', lineHeight: 1.7 }}>{ev.description}</p>}
       </div>
 
-      {/* ── 라이브 결과 보드 (노트 1개 이상일 때) ── */}
-      {ranked.length > 0 && (
+      {/* ── 라이브 결과 보드 (호스트 전용, 노트 1개 이상) ── */}
+      {isHost && ranked.length > 0 && (
         <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)', marginBottom: '1.5rem' }}>
           <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
-              📊 라이브 결과 · 노트 {totalNotes}개
+              📊 라이브 결과 · 노트 {totalNotes}개 <span style={{ color: 'var(--tx3)' }}>· 🔒 호스트 전용</span>
             </p>
             <button onClick={shareResult} className="mono"
               style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.6rem', padding: '0.25rem 0.6rem', letterSpacing: '0.05em' }}>
@@ -546,6 +548,17 @@ export default function EventPage() {
               )
             })}
           </div>
+        </div>
+      )}
+
+      {/* 비호스트 — 결과는 호스트만 집계 안내 (노트가 있을 때) */}
+      {!isHost && totalNotes > 0 && (
+        <div style={{ border: '1px dashed var(--bd2)', background: 'var(--c3)', marginBottom: '1.5rem', padding: '0.85rem 1rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <span style={{ fontSize: '1.1rem' }}>🔒</span>
+          <p className="mono" style={{ fontSize: '0.62rem', color: 'var(--tx3)', lineHeight: 1.7 }}>
+            종합 결과(순위·우승·평균)는 <b style={{ color: 'var(--gold)' }}>호스트</b>만 볼 수 있어요.<br />
+            본인 노트는 아래에서 자유롭게 작성·수정하세요.
+          </p>
         </div>
       )}
 
