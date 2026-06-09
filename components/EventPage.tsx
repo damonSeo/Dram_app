@@ -441,6 +441,42 @@ export default function EventPage() {
   const ev = detail.event
   const d = daysUntil(ev.event_date)
 
+  // ── 결과 집계: 보틀별 평균·표준편차·참여수 ──
+  const stats = ev.featured_bottles.map((b, i) => {
+    const ls = detail.logs.filter(l => l.event_bottle_index === i)
+    const scores = ls.map(l => toHundred(l.score))
+    const n = scores.length
+    const avg = n ? scores.reduce((s, v) => s + v, 0) / n : 0
+    const variance = n > 1 ? scores.reduce((s, v) => s + (v - avg) ** 2, 0) / n : 0
+    const stdev = Math.sqrt(variance)
+    return { index: i, bottle: b, n, avg: Math.round(avg), stdev: Math.round(stdev * 10) / 10, scores }
+  })
+  const ranked = stats.filter(s => s.n > 0).sort((a, b) => b.avg - a.avg)
+  const totalNotes = detail.logs.length
+  const maxAvg = Math.max(1, ...ranked.map(s => s.avg))
+  const winner = ranked[0]
+
+  // 호불호: 표준편차 기준 — 8↑ 갈림, 4↓ 한목소리
+  const divisiveness = (sd: number) => sd >= 8 ? { label: '호불호 갈림', color: '#cf7e7e' } : sd <= 4 ? { label: '한목소리', color: '#7ec59a' } : { label: '보통', color: 'var(--tx3)' }
+
+  const shareResult = async () => {
+    const lines = [`🥃 ${ev.title} — 시음 결과`, fmtDate(ev.event_date), '']
+    ranked.forEach((s, idx) => {
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}.`
+      lines.push(`${medal} ${s.bottle.name} — 평균 ${s.avg}/100 (${s.n}명${s.stdev >= 8 ? ', 호불호 갈림' : ''})`)
+    })
+    lines.push('', `참여 노트 ${totalNotes}개 · Oak The Record`)
+    const text = lines.join('\n')
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: ev.title, text })
+      } else {
+        await navigator.clipboard.writeText(text)
+        showToast('결과를 클립보드에 복사했어요', 'ok')
+      }
+    } catch { /* 사용자 취소 */ }
+  }
+
   return (
     <div className="m-page fade-up" style={{ maxWidth: 920, margin: '0 auto', padding: '2rem 1.5rem' }}>
       {/* 뒤로 */}
@@ -461,6 +497,57 @@ export default function EventPage() {
         <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--gold)', marginBottom: '0.5rem' }}>{fmtDate(ev.event_date)}</p>
         {ev.description && <p style={{ fontSize: '0.82rem', color: 'var(--tx2)', lineHeight: 1.7 }}>{ev.description}</p>}
       </div>
+
+      {/* ── 라이브 결과 보드 (노트 1개 이상일 때) ── */}
+      {ranked.length > 0 && (
+        <div style={{ border: '1px solid var(--bd2)', background: 'var(--c2)', marginBottom: '1.5rem' }}>
+          <div style={{ padding: '0.7rem 1rem', borderBottom: '1px solid var(--bd)', background: 'var(--c3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <p className="mono" style={{ fontSize: '0.6rem', color: 'var(--gold)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+              📊 라이브 결과 · 노트 {totalNotes}개
+            </p>
+            <button onClick={shareResult} className="mono"
+              style={{ background: 'transparent', border: '1px solid var(--gold)', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.6rem', padding: '0.25rem 0.6rem', letterSpacing: '0.05em' }}>
+              ↗ 결과 공유
+            </button>
+          </div>
+
+          {/* 우승 보틀 */}
+          {winner && winner.n > 0 && (
+            <div style={{ padding: '0.85rem 1rem', borderBottom: '1px solid var(--bd)', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'rgba(198,107,61,0.06)' }}>
+              <span style={{ fontSize: '1.6rem' }}>🥇</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p className="mono" style={{ fontSize: '0.52rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.15rem' }}>오늘의 우승 보틀</p>
+                <p className="display" style={{ fontSize: '1.15rem', color: 'var(--tx)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{winner.bottle.name}</p>
+              </div>
+              <span className="display" style={{ fontSize: '1.5rem', color: 'var(--gold)', flexShrink: 0 }}>{winner.avg}<span style={{ fontSize: '0.55rem', color: 'var(--tx3)' }}>/100</span></span>
+            </div>
+          )}
+
+          {/* 순위 막대 그래프 */}
+          <div style={{ padding: '0.85rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            {ranked.map((s, idx) => {
+              const div = divisiveness(s.stdev)
+              const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}`
+              return (
+                <div key={s.index}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--tx)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ marginRight: '0.35rem' }}>{medal}</span>{s.bottle.name}
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexShrink: 0 }}>
+                      <span className="mono" style={{ fontSize: '0.55rem', color: div.color }}>{s.n}명 · {div.label}</span>
+                      <span className="display" style={{ fontSize: '0.95rem', color: 'var(--gold)' }}>{s.avg}</span>
+                    </span>
+                  </div>
+                  <div style={{ height: 8, background: 'var(--c3)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${(s.avg / maxAvg) * 100}%`, background: idx === 0 ? 'var(--gold)' : 'rgba(198,107,61,0.5)', borderRadius: 4, transition: 'width 0.4s' }} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 보틀별 카드 + 참여자 노트 */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
