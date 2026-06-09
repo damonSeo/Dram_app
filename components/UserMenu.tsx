@@ -131,14 +131,26 @@ export default function UserMenu() {
     }
   }
 
-  // 게스트(익명) 로그인 — Supabase signInAnonymously
+  // 게스트(익명) 로그인 — 닉네임 먼저 입력하도록 단계 분리
+  const [guestStep, setGuestStep] = useState<'cta' | 'nickname'>('cta')
+  const [guestNickname, setGuestNickname] = useState('')
   const [guestLoading, setGuestLoading] = useState(false)
+
+  const startGuestFlow = () => {
+    // 기본 추천 닉네임 — 게스트#1234
+    setGuestNickname(`게스트#${Math.floor(1000 + Math.random() * 9000)}`)
+    setGuestStep('nickname')
+  }
+
   const loginAsGuest = async () => {
+    const raw = guestNickname.trim()
+    if (!raw) { showToast('닉네임을 입력해주세요', 'err'); return }
+    if ([...raw].length > 20) { showToast('닉네임은 20자 이내로 입력해주세요', 'err'); return }
     setGuestLoading(true)
     try {
       const supabase = getBrowserClient()
-      const { error } = await supabase.auth.signInAnonymously({
-        options: { data: { nickname: '게스트' } },
+      const { data, error } = await supabase.auth.signInAnonymously({
+        options: { data: { nickname: raw } },
       })
       if (error) {
         const msg = error.message || ''
@@ -147,10 +159,21 @@ export default function UserMenu() {
         } else {
           showToast(`게스트 로그인 실패: ${msg}`, 'err')
         }
-      } else {
-        setLoginOpen(false)
-        showToast('게스트로 입장했어요 👋', 'ok')
+        return
       }
+      // 프로필 업서트 — 닉네임 즉시 저장 (auth/callback 거치지 않는 익명 흐름 대비)
+      if (data?.user) {
+        try {
+          await fetch('/api/profile', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nickname: raw }),
+          })
+        } catch { /* 프로필 저장 실패해도 로그인은 성공 */ }
+      }
+      setLoginOpen(false)
+      setGuestStep('cta')
+      showToast(`${raw} 으로 입장했어요 👋`, 'ok')
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : '게스트 로그인 실패', 'err')
     } finally {
@@ -299,27 +322,80 @@ export default function UserMenu() {
                 </div>
 
                 {/* ── 게스트로 둘러보기 (가입 없이 즉시 시작) ── */}
-                <button
-                  onClick={loginAsGuest}
-                  disabled={guestLoading}
-                  className="mono"
-                  style={{
-                    width: '100%', maxWidth: 360,
-                    background: 'rgba(198,107,61,0.12)', border: '1px solid var(--gold)',
-                    color: 'var(--gold)', padding: '0.85rem', cursor: guestLoading ? 'wait' : 'pointer',
-                    fontSize: '0.8rem', letterSpacing: '0.08em', fontWeight: 600,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                    marginBottom: '1rem',
-                  }}>
-                  {guestLoading
-                    ? <span className="spinner" />
-                    : <span style={{ fontSize: '0.95rem' }}>🥃</span>}
-                  게스트로 둘러보기
-                </button>
-                <p className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginBottom: '1.25rem', lineHeight: 1.7, maxWidth: 360 }}>
-                  가입 없이 바로 시작 — 작성한 노트는 게스트 계정에 저장됩니다<br />
-                  나중에 이메일로 가입하면 데이터 연결을 도와드릴게요
-                </p>
+                {guestStep === 'cta' ? (
+                  <>
+                    <button
+                      onClick={startGuestFlow}
+                      className="mono"
+                      style={{
+                        width: '100%', maxWidth: 360,
+                        background: 'rgba(198,107,61,0.12)', border: '1px solid var(--gold)',
+                        color: 'var(--gold)', padding: '0.85rem', cursor: 'pointer',
+                        fontSize: '0.8rem', letterSpacing: '0.08em', fontWeight: 600,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                        marginBottom: '1rem',
+                      }}>
+                      <span style={{ fontSize: '0.95rem' }}>🥃</span>
+                      게스트로 둘러보기
+                    </button>
+                    <p className="mono" style={{ fontSize: '0.55rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginBottom: '1.25rem', lineHeight: 1.7, maxWidth: 360 }}>
+                      가입 없이 바로 시작 — 닉네임만 정하면 됩니다<br />
+                      나중에 이메일로 가입하면 데이터 연결을 도와드릴게요
+                    </p>
+                  </>
+                ) : (
+                  <div style={{ width: '100%', maxWidth: 360, marginBottom: '1.25rem', padding: '0.95rem', border: '1px solid var(--gold)', background: 'rgba(198,107,61,0.08)' }}>
+                    <p className="mono" style={{ fontSize: '0.58rem', color: 'var(--gold)', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '0.55rem', textAlign: 'center' }}>
+                      🥃 게스트 닉네임 입력
+                    </p>
+                    <input
+                      type="text"
+                      value={guestNickname}
+                      maxLength={20}
+                      autoFocus
+                      onChange={e => setGuestNickname(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') loginAsGuest() }}
+                      placeholder="시음회에서 표시될 이름"
+                      style={{
+                        width: '100%', padding: '0.7rem 0.9rem',
+                        background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.18)',
+                        color: '#F2EDE7', fontSize: '0.95rem', outline: 'none',
+                        fontFamily: 'var(--mono)', letterSpacing: '0.02em',
+                        boxSizing: 'border-box', marginBottom: '0.7rem',
+                      }} />
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button
+                        onClick={() => setGuestStep('cta')}
+                        disabled={guestLoading}
+                        className="mono"
+                        style={{
+                          flex: '0 0 auto', background: 'transparent', border: '1px solid rgba(255,255,255,0.18)',
+                          color: 'rgba(255,255,255,0.55)', padding: '0.7rem 0.9rem', cursor: 'pointer',
+                          fontSize: '0.7rem', letterSpacing: '0.05em',
+                        }}>
+                        ← 뒤로
+                      </button>
+                      <button
+                        onClick={loginAsGuest}
+                        disabled={guestLoading || !guestNickname.trim()}
+                        className="mono"
+                        style={{
+                          flex: 1, background: 'var(--gold)', border: 'none',
+                          color: '#1A1614', padding: '0.7rem 0.9rem', cursor: guestLoading ? 'wait' : 'pointer',
+                          fontSize: '0.78rem', letterSpacing: '0.06em', fontWeight: 700,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                          opacity: (guestLoading || !guestNickname.trim()) ? 0.55 : 1,
+                        }}>
+                        {guestLoading
+                          ? <span className="spinner" style={{ borderTopColor: '#1A1614' }} />
+                          : '입장하기 →'}
+                      </button>
+                    </div>
+                    <p className="mono" style={{ fontSize: '0.52rem', color: 'rgba(255,255,255,0.35)', textAlign: 'center', marginTop: '0.55rem', lineHeight: 1.6 }}>
+                      한국어·영문·이모지 가능 · 최대 20자
+                    </p>
+                  </div>
+                )}
 
                 {/* 또는 구분선 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', maxWidth: 360, marginBottom: '1.25rem' }}>
