@@ -230,7 +230,44 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
 }
 
 export default function EventPage() {
-  const { activeEventId, openEvent, setActiveTab, resetCurrentLog, updateCurrentLog, setScanMode } = useStore()
+  const { activeEventId, openEvent, setActiveTab, resetCurrentLog, updateCurrentLog, setScanMode, currentUserId, loadLog, removeFromCollection } = useStore()
+  const [deletingLogId, setDeletingLogId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+
+  const editLog = (l: WhiskyLog) => {
+    loadLog({ ...l })
+    setActiveTab('tasting')
+  }
+
+  const deleteLog = async (l: WhiskyLog) => {
+    if (confirmDeleteId !== l.id) {
+      setConfirmDeleteId(l.id)
+      // 자동 취소 3초 후
+      setTimeout(() => setConfirmDeleteId(prev => (prev === l.id ? null : prev)), 3000)
+      return
+    }
+    setDeletingLogId(l.id)
+    try {
+      const res = await fetch('/api/whisky-logs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: l.id }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.error || `삭제 실패 (${res.status})`)
+      }
+      // 화면 + 컬렉션 모두 동기화
+      setDetail(d => d ? { ...d, logs: d.logs.filter(x => x.id !== l.id) } : d)
+      removeFromCollection(l.id)
+      showToast('노트 삭제됨', 'ok')
+    } catch (e: unknown) {
+      showToast(e instanceof Error ? e.message : '삭제 실패', 'err')
+    } finally {
+      setDeletingLogId(null)
+      setConfirmDeleteId(null)
+    }
+  }
   const { showToast } = useToast()
   const [list, setList] = useState<TastingEvent[]>([])
   const [createOpen, setCreateOpen] = useState(false)
@@ -466,11 +503,33 @@ export default function EventPage() {
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', background: 'var(--bd)' }}>
-                  {bottleLogs.map(l => (
-                    <div key={l.id} style={{ background: 'var(--c2)', padding: '0.75rem 1rem' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.6rem', marginBottom: '0.3rem' }}>
-                        <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)' }}>@{l.author_nickname}</span>
-                        <span className="display" style={{ fontSize: '1rem', color: 'var(--gold)' }}>{toHundred(l.score)}<span style={{ fontSize: '0.55rem', color: 'var(--tx3)' }}>/100</span></span>
+                  {bottleLogs.map(l => {
+                    const isMine = !!currentUserId && l.user_id === currentUserId
+                    const isConfirming = confirmDeleteId === l.id
+                    const isDeleting = deletingLogId === l.id
+                    return (
+                    <div key={l.id} style={{ background: isMine ? 'rgba(198,107,61,0.05)' : 'var(--c2)', padding: '0.75rem 1rem', borderLeft: isMine ? '2px solid var(--gold)' : '2px solid transparent' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                        <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--gold)' }}>
+                          @{l.author_nickname}{isMine && <span style={{ marginLeft: '0.3rem', fontSize: '0.55rem', color: 'var(--tx3)' }}>(나)</span>}
+                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          {isMine && (
+                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                              <button onClick={() => editLog(l)} title="수정"
+                                disabled={isDeleting}
+                                style={{ background: 'transparent', border: '1px solid var(--bd2)', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.65rem', padding: '0.2rem 0.45rem', lineHeight: 1, fontFamily: 'var(--mono)' }}>
+                                ✎
+                              </button>
+                              <button onClick={() => deleteLog(l)} title={isConfirming ? '한 번 더 누르면 삭제' : '삭제'}
+                                disabled={isDeleting}
+                                style={{ background: isConfirming ? 'rgba(207,126,126,0.18)' : 'transparent', border: `1px solid ${isConfirming ? '#cf7e7e' : 'var(--bd2)'}`, color: isConfirming ? '#cf7e7e' : 'var(--tx3)', cursor: isDeleting ? 'wait' : 'pointer', fontSize: '0.65rem', padding: '0.2rem 0.45rem', lineHeight: 1, fontFamily: 'var(--mono)' }}>
+                                {isDeleting ? '...' : isConfirming ? '한번 더' : '🗑'}
+                              </button>
+                            </div>
+                          )}
+                          <span className="display" style={{ fontSize: '1rem', color: 'var(--gold)' }}>{toHundred(l.score)}<span style={{ fontSize: '0.55rem', color: 'var(--tx3)' }}>/100</span></span>
+                        </div>
                       </div>
                       {l.comment && <p style={{ fontSize: '0.75rem', color: 'var(--tx)', lineHeight: 1.65, whiteSpace: 'pre-wrap' }}>{l.comment}</p>}
                       {(l.nose || l.palate || l.finish) && (
@@ -481,7 +540,7 @@ export default function EventPage() {
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
 
