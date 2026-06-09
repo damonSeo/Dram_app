@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '@/lib/store'
 import { useToast } from '@/components/Toast'
 import Modal from '@/components/Modal'
@@ -66,7 +66,14 @@ export default function TastingPage() {
   const [step, setStep] = useState<1|2|3>(1)
   const [extractedKeys, setLocalExtractedKeys] = useState<ExtractedKeys>({ nose:[], palate:[], finish:[] })
   const [excludedKeys, setExcludedKeys] = useState<Set<string>>(new Set())
-  const [instaText, setInstaText] = useState('')
+  const [instaText, setInstaText] = useState(currentLog.comment_insta || '')
+
+  // 다른 로그가 로드되면(예: 시음회에서 ✎ 클릭) local state도 동기화
+  useEffect(() => {
+    setComment(currentLog.comment || '')
+    setInstaText(currentLog.comment_insta || '')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentLog.id])
   const [extracting, setExtracting] = useState(false)
   const [genInsta, setGenInsta] = useState(false)
   const [summarizing, setSummarizing] = useState(false)
@@ -213,7 +220,11 @@ export default function TastingPage() {
   const archiveDram = async () => {
     setSaving(true)
     try {
-      const isUpdate = !!currentLog.id && collection.some((l) => l.id === currentLog.id)
+      // currentLog.id 가 있으면 항상 UPDATE — collection 캐시 누락 케이스 방어
+      // (이벤트 페이지 ✎ 편집 시 collection이 아직 fetch 전이거나 ID 매칭 실패해도 PATCH로 가도록)
+      const isUpdate = !!currentLog.id
+      void collection
+
       const logBase = {
         ...currentLog,
         brand: currentLog.brand || '',
