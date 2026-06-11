@@ -20,7 +20,10 @@ export default function HomePage() {
       .then(r => r.json())
       .then((j: { data?: TastingEvent[] }) => {
         const today = new Date().toISOString().slice(0, 10)
-        const up = (j.data || []).filter(e => e.event_date >= today).slice(0, 2)
+        const up = (j.data || [])
+          .filter(e => e.event_date >= today)
+          .sort((a, b) => a.event_date.localeCompare(b.event_date)) // 가까운 날짜 먼저
+          .slice(0, 2)
         setUpcomingEvents(up)
       })
       .catch(() => {})

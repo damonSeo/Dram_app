@@ -290,7 +290,19 @@ export default function EventPage() {
     setLoading(true)
     fetch('/api/events')
       .then(r => r.json())
-      .then((j: { data?: TastingEvent[] }) => setList(j.data || []))
+      .then((j: { data?: TastingEvent[] }) => {
+        const today = new Date().toISOString().slice(0, 10)
+        const sorted = (j.data || []).slice().sort((a, b) => {
+          const aUp = a.event_date >= today, bUp = b.event_date >= today
+          // 다가올 이벤트를 먼저, 그 안에서는 가까운 날짜순
+          if (aUp && bUp) return a.event_date.localeCompare(b.event_date)
+          // 둘 다 지난 것이면 최근(내림차순)
+          if (!aUp && !bUp) return b.event_date.localeCompare(a.event_date)
+          // 다가올 것이 지난 것보다 위
+          return aUp ? -1 : 1
+        })
+        setList(sorted)
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [activeEventId, listRefreshNonce])
