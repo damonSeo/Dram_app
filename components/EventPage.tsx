@@ -77,15 +77,20 @@ function BottleThumb({ bottle, uploading, onUpload, onRemove }: {
   )
 }
 
-function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
+function CreateEventModal({ onClose, onCreated, editEvent }: { onClose: () => void; onCreated: (id: string) => void; editEvent?: TastingEvent }) {
   const { showToast } = useToast()
-  const [title, setTitle] = useState('')
-  const [eventDate, setEventDate] = useState(() => {
+  const isEdit = !!editEvent
+  const [title, setTitle] = useState(editEvent?.title || '')
+  const [eventDate, setEventDate] = useState(editEvent?.event_date || (() => {
     const d = new Date(); d.setDate(d.getDate() + 7)
     return d.toISOString().slice(0, 10)
-  })
-  const [description, setDescription] = useState('')
-  const [bottles, setBottles] = useState<EventBottle[]>([{ name: '', distillery: '', age: '', region: '', abv: '', bottler: 'OB' }])
+  })())
+  const [description, setDescription] = useState(editEvent?.description || '')
+  const [bottles, setBottles] = useState<EventBottle[]>(
+    editEvent && editEvent.featured_bottles.length > 0
+      ? editEvent.featured_bottles.map(b => ({ ...b }))
+      : [{ name: '', distillery: '', age: '', region: '', abv: '', bottler: 'OB' }]
+  )
   const [saving, setSaving] = useState(false)
 
   const updateBottle = (i: number, patch: Partial<EventBottle>) =>
@@ -97,28 +102,30 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
     if (!title.trim()) { showToast('제목을 입력해주세요', 'err'); return }
     if (!eventDate) { showToast('날짜를 선택해주세요', 'err'); return }
     const validBottles = bottles
+      // 기존 보틀의 이미지/검증 메타는 보존하면서 텍스트만 trim
       .map(b => ({ ...b, name: b.name.trim(), distillery: b.distillery?.trim(), age: b.age?.trim(), region: b.region?.trim(), abv: b.abv?.trim(), bottler: b.bottler?.trim() || 'OB' }))
       .filter(b => b.name)
     if (validBottles.length === 0) { showToast('보틀을 1개 이상 추가해주세요', 'err'); return }
     setSaving(true)
     try {
-      const res = await fetch('/api/events', {
-        method: 'POST',
+      const url = isEdit ? `/api/events/${editEvent!.id}` : '/api/events'
+      const res = await fetch(url, {
+        method: isEdit ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: title.trim(), event_date: eventDate, description: description.trim(), featured_bottles: validBottles }),
       })
       const json = await res.json() as { data?: TastingEvent; error?: string }
       if (!res.ok || !json.data) {
-        const msg = json.error || `생성 실패 (${res.status})`
-        if (msg.toLowerCase().includes('row-level') || msg.includes('로그인')) {
-          throw new Error('로그인이 필요합니다. 로그인 후 다시 시도해주세요.')
+        const msg = json.error || `${isEdit ? '수정' : '생성'} 실패 (${res.status})`
+        if (msg.toLowerCase().includes('row-level') || msg.includes('로그인') || msg.includes('권한')) {
+          throw new Error('호스트만 수정할 수 있어요. 호스트 계정으로 로그인했는지 확인해주세요.')
         }
         throw new Error(msg)
       }
-      showToast('시음회 등록됨', 'ok')
+      showToast(isEdit ? '시음회 수정됨' : '시음회 등록됨', 'ok')
       onCreated(json.data.id)
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : '생성 실패', 'err')
+      showToast(e instanceof Error ? e.message : (isEdit ? '수정 실패' : '생성 실패'), 'err')
     } finally {
       setSaving(false)
     }
@@ -143,7 +150,7 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
         style={{ background: 'var(--c2)', border: '1px solid var(--gold)', maxWidth: 620, width: '100%', margin: 'auto 0' }}>
         {/* 헤더 */}
         <div style={{ padding: '0.85rem 1.1rem', borderBottom: '1px solid var(--bd)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', background: 'var(--c2)' }}>
-          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>+ 새 시음회 만들기</p>
+          <p className="mono" style={{ fontSize: '0.65rem', color: 'var(--gold)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>{isEdit ? '✎ 시음회 수정' : '+ 새 시음회 만들기'}</p>
           <button onClick={() => !saving && onClose()} style={{ background: 'none', border: 'none', color: 'var(--tx3)', cursor: 'pointer', fontSize: '1.1rem' }}>✕</button>
         </div>
 
@@ -220,7 +227,7 @@ function CreateEventModal({ onClose, onCreated }: { onClose: () => void; onCreat
           <button className="btn-ghost" onClick={onClose} disabled={saving} style={{ fontSize: '0.72rem' }}>취소</button>
           <button className="btn-gold" onClick={submit} disabled={saving} style={{ fontSize: '0.72rem' }}>
             {saving ? <span className="spinner" style={{ borderTopColor: '#000' }} /> : null}
-            시음회 등록
+            {isEdit ? '수정 저장' : '시음회 등록'}
           </button>
         </div>
       </div>
@@ -271,6 +278,7 @@ export default function EventPage() {
   const { showToast } = useToast()
   const [list, setList] = useState<TastingEvent[]>([])
   const [createOpen, setCreateOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
   const [listRefreshNonce, setListRefreshNonce] = useState(0)
   const [detail, setDetail] = useState<EventDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -495,7 +503,15 @@ export default function EventPage() {
           </span>
           <span className="mono" style={{ fontSize: '0.6rem', color: 'var(--tx3)' }}>호스트 · {ev.host_nickname}</span>
         </div>
-        <h1 className="display" style={{ fontSize: '1.8rem', color: 'var(--tx)', marginBottom: '0.3rem', lineHeight: 1.25 }}>{ev.title}</h1>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <h1 className="display" style={{ fontSize: '1.8rem', color: 'var(--tx)', marginBottom: '0.3rem', lineHeight: 1.25, flex: 1, minWidth: 0 }}>{ev.title}</h1>
+          {isHost && (
+            <button onClick={() => setEditOpen(true)} className="mono"
+              style={{ flexShrink: 0, background: 'transparent', border: '1px solid var(--bd2)', color: 'var(--gold)', cursor: 'pointer', fontSize: '0.66rem', padding: '0.35rem 0.7rem', letterSpacing: '0.05em' }}>
+              ✎ 시음회 수정
+            </button>
+          )}
+        </div>
         <p className="mono" style={{ fontSize: '0.7rem', color: 'var(--gold)', marginBottom: '0.5rem' }}>{fmtDate(ev.event_date)}</p>
         {ev.description && <p style={{ fontSize: '0.82rem', color: 'var(--tx2)', lineHeight: 1.7 }}>{ev.description}</p>}
       </div>
@@ -655,6 +671,22 @@ export default function EventPage() {
         })}
       </div>
 
+      {editOpen && (
+        <CreateEventModal
+          editEvent={ev}
+          onClose={() => setEditOpen(false)}
+          onCreated={(id) => {
+            setEditOpen(false)
+            // 상세 새로고침
+            fetch(`/api/events/${id}`)
+              .then(r => r.json())
+              .then((j: { data?: TastingEvent; logs?: EventDetail['logs'] }) => {
+                if (j.data) setDetail({ event: j.data, logs: j.logs || [] })
+              })
+              .catch(() => {})
+          }}
+        />
+      )}
     </div>
   )
 }
